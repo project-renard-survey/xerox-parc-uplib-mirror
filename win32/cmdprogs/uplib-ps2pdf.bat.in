@@ -1,0 +1,6 @@
+@echo off
+@rem
+@rem Can't use START here as I'd like to, because then I can't
+@rem read from stdin in the Python program.
+@rem
+"@PYTHON@" "@UPLIB_BIN@\uplib-ps2pdf.py" %*

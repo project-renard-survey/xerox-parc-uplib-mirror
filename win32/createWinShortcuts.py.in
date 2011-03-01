@@ -1,0 +1,121 @@
+#
+# This file is part of the "UpLib 1.7.11" release.
+# Copyright (C) 2003-2011  Palo Alto Research Center, Inc.
+# 
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+#
+
+import sys, os, distutils.sysconfig, shutil
+
+# make sure we can find the PyWin32 extensions
+if (len(sys.argv) > 1) and os.path.isdir(sys.argv[1]):
+    if os.path.exists(os.path.join(sys.exec_prefix, "python26.dll")):
+        # installed privately
+        todlldir = sys.exec_prefix
+    elif os.path.exists('c:/WINDOWS/system32/python26.dll'):
+        todlldir = "C:/WINDOWS/system32"
+    else:
+        sys.stderr.write("Can't find python26.dll\n")
+        sys.exit(1)
+    uplib_sc = distutils.sysconfig.get_python_lib(plat_specific=True, prefix=sys.argv[1])
+    fromdlldir = os.path.join(uplib_sc, "pywin32_system32")
+    # and install them
+    if not os.path.exists(os.path.join(todlldir, "pythoncom26.dll")):
+        shutil.copyfile(os.path.join(fromdlldir, "pythoncom26.dll"), os.path.join(todlldir, "pythoncom26.dll"))
+    if not os.path.exists(os.path.join(todlldir, "pywintypes26.dll")):
+        shutil.copyfile(os.path.join(fromdlldir, "pywintypes26.dll"), os.path.join(todlldir, "pywintypes26.dll"))
+    os.environ['PYTHONPATH'] = uplib_sc
+    sys.path.insert(0, os.path.join(uplib_sc, "win32"))
+    sys.path.insert(0, os.path.join(uplib_sc, "win32", "lib"))
+    sys.path.insert(0, uplib_sc)
+
+from win32com.shell import shell
+from win32file import SetFileAttributes, FILE_ATTRIBUTE_SYSTEM, FILE_ATTRIBUTE_HIDDEN, FILE_ATTRIBUTE_READONLY, FILE_ATTRIBUTE_NORMAL
+import pythoncom
+
+desktop_ini = r"""[.ShellClassInfo]
+IconFile=@UPLIB_SHARE@\images\UpLibFolderMulti.ico
+IconIndex=0
+ConfirmFileOp=0
+InfoTip=UpLib Make-Repository and Portal
+"""
+
+def addlink (linkpath, exepath, description, args=None, icon=None):
+    link = pythoncom.CoCreateInstance(shell.CLSID_ShellLink, None, pythoncom.CLSCTX_INPROC_SERVER, shell.IID_IShellLink)
+    link.SetPath(exepath)
+    link.SetDescription(description)
+    if args:
+        link.SetArguments(args)
+    if icon:
+        link.SetIconLocation(icon, 0)
+    link.QueryInterface(pythoncom.IID_IPersistFile).Save(linkpath,0)    
+
+def main (argv):
+    uPath = "c:\\Documents and Settings\\All Users.Windows"
+    if (not os.path.exists(uPath)):
+    	uPath = "c:\\Documents and Settings\\All Users"
+    if (not os.path.exists(uPath)):
+        # maybe it's Vista or Server 2008
+    	uPath = "C:\\ProgramData\\Microsoft\\Windows"
+    if (not os.path.exists(uPath)):
+        sys.stderr.write("Can't figure out where to put shortcuts -- no such directory %s\n" % uPath)
+        sys.exit(1)
+
+    uPath = os.path.join(uPath,"Start Menu","Programs","Uplib")
+
+    ini_file_path = os.path.join(uPath, "Desktop.ini")
+
+    if (os.path.exists(uPath)):
+	if os.path.exists(ini_file_path):
+	    SetFileAttributes(ini_file_path, FILE_ATTRIBUTE_NORMAL)
+        shutil.rmtree(uPath)
+    os.mkdir(uPath)
+    fp = open(os.path.join(uPath, "Desktop.ini"), "w")
+    fp.write(desktop_ini)
+    fp.close()
+    SetFileAttributes(uPath, FILE_ATTRIBUTE_SYSTEM)
+    SetFileAttributes(ini_file_path, FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_READONLY)
+
+    addlink(os.path.join(uPath,"Janitor.lnk"),
+            r"@JAVAHOME@\bin\javaw.exe",
+            r'UpLib Janitor',
+            r'-Dcom.parc.uplib.libdir="@UPLIB_LIB@" -jar "@UPLIB_CODE@\UpLibJanitor.jar"',
+            r'@UPLIB_SHARE@\images\Janitor.ico')
+
+    addlink(os.path.join(uPath,"Portal.lnk"),
+            r"@JAVAHOME@\bin\javaw.exe",
+            r'Portal',
+            r'-Dcom.parc.uplib.libdir="@UPLIB_LIB@" -jar "@UPLIB_CODE@\UpLibPortal.jar"',
+            r'@UPLIB_SHARE@\images\Portal.ico')
+
+    addlink(os.path.join(uPath,"ReadUp.lnk"),
+            r"@JAVAHOME@\bin\javaw.exe",
+            r'ReadUp',
+            r'-Xmx800m -classpath "@UPLIB_CODE@\jnlpstubs.jar;@UPLIB_CODE@\ShowDoc.jar" '
+            r'-Dcom.parc.uplib.libdir="@UPLIB_LIB@" com.parc.uplib.readup.application.UpLibShowDoc',
+            r'@UPLIB_SHARE@\images\ReadUp.ico')
+
+    #addlink(os.path.join(uPath,"New Repository.lnk"),
+    #        r"@UPLIB_HOME@\bin\uplib-make-repository.py",
+    #        r'New Repository')
+
+    addlink(os.path.join(uPath,"User Manual.lnk"),
+            r"@UPLIB_SHARE@\doc\manual.pdf",
+            r'User Manual')
+
+    pythoncom.CoUninitialize()
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))

@@ -1,0 +1,6 @@
+after: on
+author: Bill Janssen
+before: off
+description: Adds a ripper that runs the CiteSeerX citation parser and header parser over documents that the CiteSeerX regular expression for technical paper identification identifies as a technical paper.
+uplib-min-version: 1.7.10
+version: 1.0

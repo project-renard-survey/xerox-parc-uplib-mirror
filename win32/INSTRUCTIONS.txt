@@ -1,0 +1,125 @@
+* This file is part of the "UpLib 1.7.11" release.
+* Copyright (C) 2003-2011  Palo Alto Research Center, Inc.
+* 
+* This program is free software; you can redistribute it and/or modify
+* it under the terms of the GNU General Public License as published by
+* the Free Software Foundation; either version 2 of the License, or
+* (at your option) any later version.
+* 
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+* GNU General Public License for more details.
+* 
+* You should have received a copy of the GNU General Public License along
+* with this program; if not, write to the Free Software Foundation, Inc.,
+* 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+
+CREATING A NEW UPLIB INSTALLER FOR WINDOWS
+Original author: Lance Good
+Maintained by Eric Bier starting June 7, 2006
+Updated by Bill Janssen, 7/25/2009
+
+
+These instructions are needed if you intend to create a new installer for UpLib.
+
+0) Remember to read the WINDOWS.txt file.  And install MinGW and msys
+   first.  If you're building xpdf or PyLucene, upgrade the MinGW gcc to
+   a 4.x version.
+
+1) You will need a directory which contains all of the dependencies:
+   In particular, you will want to have a directory,
+   call it C:\nsis as a staging area for assembling the files.
+
+   At PARC, look in \\samba\project\u\uplib\prereqs\windows\.
+
+   In my NSIS directory on 6/8/2006, I have:
+     apache-ant-1.6.1/
+     GnuWin32/  (usually C:\Program Files\GnuWin32)
+     htmldoc-1.8.24/                                    (should be 1.8.27)
+     Lucene/  (usually C:\Program Files\lucene)         (should be 2.4.1 or better)
+     medusa-0.5.4/                                      
+     reportlab/                                         (2.2 or better)
+     stunnel/  (usually C:\Program Files\stunnel)
+     uplib/  (the entire uplib folder from your Eclipse workspace)
+     xpdf-3.00-wordboxes/                               (should be 3.02pl3)
+     diruse.exe
+     enscript-1.6.3-9-bin.exe
+     Grant.exe
+     gs851w32.exe                                       (8.64 or better)
+     jre-1_5_0_06-windows-i586-p.exe
+     PIL-1.1.5.win32-py2.4.exe                          (1.1.6 or better)
+     python-2.4.3.msi                                   (prefer 2.5)
+     pythonservice.exe
+     pywin32-208.win32-py2.4.exe
+     splitup.exe
+     uplib-install-script.nsi
+     UpLibPDFServerInstaller0.7.exe
+     
+     Note that uplib-install-script.nsi is included in this list.
+
+2) In addition, you will need Python, Java (the JDK, not just the JRE)
+   and NSIS installed on your machine before beginning.  And you want
+   to make sure that java and python are on your PATH environment
+   variable.  When you get NSIS, make sure you get the version from
+   http://nsis.sourceforge.net/Special_Builds which has "Advanced Logging",
+   which is required for our build script.
+
+   If you are building a Windows installer from the CVS repository,
+   you'll also need msys-cvs, msys-autoconf, and msys-perl (needed
+   for autoconf).  Download the -bin files, and unpack them at the
+   top level of msys.  I.e.,
+
+     $ cd /
+     $ tar --lxma -x -v -f autoconf-...
+
+   You'll also need pdflatex (use the MiKTeX distro at http://miktex.org/),
+   epydoc (from epydoc.sourceforge.net -- there's a Windows installer),
+   and docutils (from docutils.sourceforge.net -- use version 0.5, as later
+   versions have a bug that interacts badly with epydoc).
+
+   You'll also need openssl installed, so that you can sign the jar files
+   produced while building the installer.
+     
+3) If you are building from CVS, you'll need to configure:
+
+     $ autoconf
+     $ ./configure --prefix=/c/uplib-1.7.9 --disable-autoconf-errors --with-prereqs=PREREQSDIR
+
+   Check the output to make sure that it found Java and Python
+   correctly; both are used in building an installer.  A common
+   problem is to have the Java JRE instead of the JDK; check to
+   make sure you have tools like "jar" and "javac".
+
+4) Then, do a "make dist", to build the installer.
+
+Additional Notes:
+
+The PDF server and install files are currently stored in the UC 
+CVS repository.  That repository is located at:
+
+/project/niagara/CVSROOT
+
+The module name is "uplib".  A pserver for this repository is 
+currently running on cvs.parc.xerox.com:/project/uir/CVSROOT.
+
+
+Building PyLucene
+-----------------
+
+Install setuptools so that you can build --shared.  To build JCC, use
+the command
+
+    python setup.exe build --compiler=mingw32 install
+
+or to build a windows installer for JCC,
+
+    python setup.exe build --compiler=mingw32 bdist --formats=wininst
+
+If there's no "mingw32" clause in setup.py, use the improved jcc-setup.py
+file (UPLIBSRC/win32/jcc-setup.py).
+
+Then cd up a level.  Make sure the Java library is on your PATH:
+
+    export PATH=$PATH:/c/Program Files/Java/jdk1.6.0_018/jre/client/lib
+

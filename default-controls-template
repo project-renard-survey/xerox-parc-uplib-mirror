@@ -1,0 +1,17 @@
+<html>
+<body bgcolor="lightblue">
+<table width=100%%>
+<tr align=center><td><form action="../contents.txt" method=get target="_blank">
+<input type=submit value="Text"></form></td>
+<td><form action="/action/basic/doc_pdf" method=get target="_top">
+<input type=hidden name="doc_id" value="%(doc-id)s"><input type=submit value="PDF"></form></td></tr>
+<tr align=center><td colspan=2><form action="/action/basic/doc_meta" method=get target="_top">
+<input type=hidden name="doc_id" value="%(doc-id)s"><input type=submit value="Metadata"></form></td></tr>
+<tr align=center><td colspan=2><form action="/action/basic/doc_tiff" method=get target="_top">
+<input type=hidden name="doc_id" value="%(doc-id)s"><input type=submit value="TIFF"></form></td></tr>
+<tr align=center><td colspan=2><form action="/action/basic/doc_delete" method=get target="_top">
+<input type=hidden name="doc_id" value="%(doc-id)s">
+<input type=submit value="Delete" style="{background-color:red; color:white}"></form></td></tr>
+</table>
+</body>
+</html>

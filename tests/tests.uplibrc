@@ -1,0 +1,18 @@
+[default]
+
+# this config is used for automated testing on buildbot.parc.com
+
+startup-timeout: 120
+
+soffice =
+use-openoffice-for-web-page-to-pdf = false
+use-openoffice-for-msoffice-to-pdf = false
+use-topdf-service-for-msoffice-to-pdf = true
+use-topdf-service-for-web-page-to-pdf = true
+topdf-binding-ip-address = winesap.parc.xerox.com
+topdf-port = 10881
+
+# loading the good NLTK tagger takes some time, so just load the default
+use-default-nltk-tagger: true
+
+

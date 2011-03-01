@@ -1,0 +1,87 @@
+#
+# This file is part of the "UpLib 1.7.11" release.
+# Copyright (C) 2003-2011  Palo Alto Research Center, Inc.
+# 
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+#
+
+BINDIR = @UPLIB_BIN@
+SHAREDDIR = @UPLIB_SHARE@
+
+APPS = uplib-check-angel.py uplib-make-repository.py uplib-ps2pdf.py uplib-add-document.py uplib-get-document.py uplib-certificate.py
+
+UTILPROGS = removeUpLibService.py restartUpLibService.py removeAllUpLibGuardians.py createWinShortcuts.py
+
+%.py : ../commandline/% Makefile
+	cp $< $@
+
+createWinShortcuts.py: createWinShortcuts.py.in Makefile
+	(cd .. ; ./reconfigure)
+
+apps:  $(APPS) $(UTILPROGS)
+
+cmds:
+	(cd cmdprogs; make all)
+
+dialog-error.ico: ../images/error.ico
+	cp ../images/error.ico ./dialog-error.ico
+
+all: $(APPS) $(UTILPROGS) cmds dialog-error.ico
+
+install:  all
+	(cd cmdprogs; make install)
+	install -m 555 $(APPS) $(UTILPROGS) "${BINDIR}"
+	install -m 444 windows-service-template "${SHAREDDIR}"
+	platlib=`"@PYTHON@" -c "import distutils.sysconfig as sc; print sc.get_python_lib(plat_specific=True, prefix='@UPLIB_HOME_MSYS@')"` ; \
+	nonplat=`"@PYTHON@" -c "import distutils.sysconfig as sc; print sc.get_python_lib(plat_specific=False, prefix='@UPLIB_HOME_MSYS@')"` ; \
+	ppath=${PYTHONPATH} ; \
+	if test -d "$$platlib"; then \
+	   if test "x$$ppath" = "x"; then \
+	      ppath="$$platlib" ; \
+	   else \
+	      ppath="$${platlib}:$${ppath}" ; \
+	   fi ; \
+	fi ; \
+	if test -d "$$nonplat"; then \
+	   if test "x$$ppath" = "x"; then \
+	      ppath="$$nonplat" ; \
+	   else \
+	      ppath="$${nonplat}:$${ppath}" ; \
+	   fi ; \
+	fi ; \
+	export PYTHONPATH=$${ppath} ; \
+	"@PYTHON@" createWinShortcuts.py
+
+clean:
+	rm -rf $(APPS) createWinShortcuts.py ; (cd cmdprogs; make clean) ; rm -f UpLib-@UPLIB_VERSION@-setup.exe
+
+dist: $(UTILPROGS) apps cmds dialog-error.ico
+	"@BOURNE_SHELL@" build-windows-prereqs.py /c/UpLib/@UPLIB_VERSION@ "../uplib-@UPLIB_VERSION@.tgz" "@PREREQS_DIR_MSYS" no
+
+	tuppath=/tmp/tmp-uplib-$$ ;\
+	mkdir $${tuppath} ;\
+	pushd $${tuppath} ;\
+	@TAR@ xvfz "../uplib-@UPLIB_VERSION@.tgz" ; \
+	cd uplib-* ; \
+	./configure --prefix=/c/UpLib/@UPLIB_VERSION@ --with-simple-dist="@PREREQS_DIR_MSYS@/simple-*.zip" --with-jodconverter-dist="@PREREQS_DIR_MSYS@/jodconverter-*.zip" ; \
+	make ;\
+	popd ;\
+	"@PYTHON_MSYS@" build-msi-installer.py /c/UpLib/@UPLIB_VERSION@ "$${tuppath}" "@UPLIB_VERSION@" ../uplib-@UPLIB_VERSION@.msi ;\
+	rm -rf "$${tuppath}"
+
+#	"@PYTHON_MSYS@" build-windows-dist.py "../uplib-@UPLIB_VERSION@.tgz" "@PREREQS_DIR_MSYS@"
+
+Makefile: Makefile.in ../reconfigure
+	(cd .. ; ./reconfigure)

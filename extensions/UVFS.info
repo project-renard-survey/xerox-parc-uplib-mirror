@@ -1,0 +1,6 @@
+after: off
+author: JH
+before: off
+description: FUSE adaptor for the UbiDocs Virtual File System
+uplib-min-version: 1.7.6
+version: 1

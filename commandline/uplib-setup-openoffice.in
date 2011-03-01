@@ -1,0 +1,86 @@
+#!/bin/sh
+#
+# This file is part of the "UpLib 1.7.11" release.
+# Copyright (C) 2003-2011  Palo Alto Research Center, Inc.
+# 
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+#
+# things to do:
+# 1.  Install UpLib unopkg
+# 2.  Fix uplib-openoffice-convert-to-pdf
+# 3.  Change defaults in site.config
+
+if (($# < 1)) ; then
+  echo "Usage: $0 LOCATION-OF-OPEN-OFFICE" ;
+  exit 1
+fi
+if [ ! -d "$1" ] ; then
+  echo "Usage: $1 is not a directory" ;
+fi
+
+soffice=${1}/program/soffice
+unopkg=${1}/program/unopkg
+xvfb=/usr/X11R6/bin/Xvfb
+if [ ! -e "$xvfb" ]; then
+   xvfb=/usr/bin/Xvfb
+fi
+if (($# > 1)); then
+  distdir=$1 ;
+else
+  distdir=@UPLIB_HOME@
+fi
+
+if [ ! -e "$soffice" ]; then
+  echo "Can't find Open Office 'soffice' executable under $1."
+  exit 1
+elif [ ! -e "$unopkg" ]; then
+  echo "Can't find unopkg under $1."
+  exit 1
+elif [ ! -e "$xvfb" ]; then
+  echo "Standard X11 program Xvfb not installed as $xvfb."
+  exit 1
+else
+  # install unopkg
+  echo "Installing uplib.uno.pkg..."
+  ${xvfb} :20 >/dev/null 2>&1 & xvfb_pid="$!"; export DISPLAY=":20";
+  installed=`"${unopkg}" list --shared | grep "Name:.*uplib.uno.pkg"`
+  if test "x$installed" != "x"; then
+	"${unopkg}" remove uplib.uno.pkg --shared
+  fi
+  "${unopkg}" add "@UPLIB_CODE@/uplib.uno.pkg" --shared
+  kill $xvfb_pid
+
+  # fix uplib-openoffice-convert-to-pdf
+  echo "fixing uplib-openoffice-convert-to-pdf..."
+  chmod 777 "@UPLIB_BIN@/uplib-openoffice-convert-to-pdf"
+  /bin/ed "@UPLIB_BIN@/uplib-openoffice-convert-to-pdf" <<EOF
+/"" -headless/s;"" -headless;"${soffice}" -headless;g
+w
+q
+EOF
+  chmod 555 "@UPLIB_BIN@/uplib-openoffice-convert-to-pdf"
+  
+  # fix site.config
+  echo "fixing site.config..."
+  chmod 666 "@UPLIB_LIB@/site.config"
+  /bin/ed "@UPLIB_LIB@/site.config" <<EOF
+/use-openoffice-for-web-page-to-pdf/s/use-openoffice-for-web-page-to-pdf: false/use-openoffice-for-web-page-to-pdf: true/g
+/use-openoffice-for-msoffice-to-pdf/s/use-openoffice-for-msoffice-to-pdf: false/use-openoffice-for-msoffice-to-pdf: true/g
+w
+q
+EOF
+  chmod 444 "@UPLIB_LIB@/site.config"
+
+fi

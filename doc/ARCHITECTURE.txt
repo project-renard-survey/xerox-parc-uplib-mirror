@@ -1,0 +1,1116 @@
+.. -*- Mode: rst -*-
+
+.. This file is part of the "UpLib 1.7.11" release.
+.. Copyright (C) 2003-2011  Palo Alto Research Center, Inc.
+.. 
+.. This program is free software; you can redistribute it and/or modify
+.. it under the terms of the GNU General Public License as published by
+.. the Free Software Foundation; either version 2 of the License, or
+.. (at your option) any later version.
+.. 
+.. This program is distributed in the hope that it will be useful,
+.. but WITHOUT ANY WARRANTY; without even the implied warranty of
+.. MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.. GNU General Public License for more details.
+.. 
+.. You should have received a copy of the GNU General Public License along
+.. with this program; if not, write to the Free Software Foundation, Inc.,
+.. 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+
+.. This document is written in reStructuredText, which is why it looks
+   a bit wierd to you.  See http://docutils.sourceforge.net/.
+
+   This document describes the basic architecture of UPLib.
+
+   $Id: ARCHITECTURE.txt,v 1.62 2010/09/15 17:33:11 janssen Exp $
+
+==================
+UpLib Architecture
+==================
+
+.. Bill Janssen
+
+Overview
+========
+
+The system is designed to support the idea of a repository.  Documents
+are placed in the repository, each in its own "folder".  A repository
+is designed to be personal, but it may also be jointly owned by a group.
+Access to the documents in the repository is tightly restricted to its
+owner.  Documents have a primary form which is virtual paper; that is,
+each document is kept as a series of images.  Documents may have other
+forms as well.  Automatic processes run over the repository to create
+and structure metadata about the documents and the collection as a
+whole.
+
+Implementation
+==============
+
+The basic implementation is client-server.  Each repository is managed
+by a daemon called the "guardian angel", running as the owner, which
+provides all access to the repository, and makes any changes to it.
+Users connect to the angel via HTTP and make requests for access or
+changes to the repository, using a Web browser as the UI tool;
+information from the angel is presented to the user using a
+combination of HTML, CSS, and Javascript .  The angel also runs
+analysis engines over the repository to create additional structures
+of metadata about the document or about the repository as a whole.
+
+Structure of the repository
+---------------------------
+
+The repository contains a number of subdirectories.  They are:
+
+  ``docs`` -- contains the individual document folders.
+
+  ``pending`` -- contains documents being worked on preparatory to being
+  placed in the repository.
+
+  ``deleted`` -- contains documents that have been 'deleted'.
+
+  ``html`` -- contains HTML files and images used in HTML pages.
+
+  ``index`` -- contains the Lucene index of the repository.
+
+  ``overhead`` -- contains log files and repository-specific information.
+
+In addition, the ``overhead`` directory of the repository contains a
+file called ``metadata.txt`` which acts as the stable backing store for
+the various attributes of the repository.  Some attributes that are important
+in this file:
+
+name
+   The name for the repository to identify itself with.
+
+https-port
+   The port by which the repository is reachable.
+
+root
+   The top level directory for the repository
+
+use-hierarchical-directories
+   If specified as "true", the ``docs``
+   subdirectory will be structured as a hierarchy of segments, at the
+   leaves of which will be the actual document folders; otherwise, the
+   ``docs`` subdirectories will be a flat collection of document
+   folders, named by doc ID.  If you plan to put a lot of documents in
+   a repository (more than 10,000, say), it's a good idea to specify
+   this.  First create an empty repository, and stop its guardian
+   angel.  Then edit the ``overhead/metadata.txt`` file to specify
+   this option.  Then restart the guardian angel.
+
+extensions-path
+   Optional; if present, it's a vertical-bar-separated (|)
+   list of directories to scan for user extensions.
+
+Note that this metadata mechanism is completely separate from the
+configuration file described elsewhere.
+
+
+Structure of a document folder
+------------------------------
+
+The ``docs`` directory can be structured either as a flat collection
+of subdirectories, each containing one document, and often referred to
+as "document folders", or as a hierarchical directory structure that
+follows the "segments" of an UpLib document ID string, with the
+document folders at the leaves of the tree.  This is controlled by the
+``metadata.txt`` file of the repository; if it contains
+"use-hierarchical-directories: true", the structure will be
+hierarchical, otherwise it will be flat.
+
+A document folder contains the following parts, each of which is
+marked either R, for required to be provided by the user, or G, for
+required but automatically generated by the system if missing, S, for
+required elements generated automatically by the system, or O, for
+optionally provided either by the user or by the system.  Parts that
+are subdirectories are marked with a trailing "/" character.
+
+``document.tiff``
+  *user or system, optional*, **deprecated** -- a multipage TIFF file containing an image of
+  the document.  For best results, this should be at least 300 dpi
+  resolution.  This is now deprecated in favor of ``page-images`` below;
+  large color document could reach sizes greater than 2 gigabytes,
+  beyond the size capable of being manipulated by the standard TIFF
+  libraries on some machines.
+
+``page-images/``
+  *user or system, options* -- a directory containing PNG page images, one
+  per file, with the files having names corresponding to the pattern
+  ``pageDDDDD.png``, where each D is a decimal digit, starting with page
+  1 (page00001.png).  Note that this form limits documents to 99,999
+  pages.
+
+  **Either** ``document.tiff`` **or** ``page-images`` **may be supplied, but one or
+  the other must be present.**  ``document.tiff`` **will probably be phased
+  out in the future, so using the** ``page-images`` **format is recommended.**
+
+``contents.txt``
+  *optional* -- the text of the document, if available.  The
+  user may provide this; otherwise the system will produce it (with
+  results of varying quality).  The document is assumed to contain
+  English text with ISO Latin-1 characters.  If a different character
+  set OR non-English language is used, the first two lines of the file
+  should consist of, on line 1, a MIME-style "Content-Type" header,
+  with a media type of "text/plain", and a charset parameter
+  indicating the correct charset, as described in IETF RFC 2047; the
+  second line of the file should contain a "Content-Language" header,
+  as specified in IETF RFC 3066.  The Content-Language header should
+  only indicate ONE language, and neither the Content-Type or
+  Content-Language headers may contain parenthesized comments.
+
+``contents.ind``
+  *optional* -- another text file containing linguistic information
+  about the text in contents.txt.  This is used by createPageBboxes to
+  tag wordboxes with that information.  See below for details.
+
+``summary.txt``
+  *optional* -- a 250-byte or less summary of the document
+  content.  The user may provide this; otherwise the system will
+  produce it (with results of varying quality).  If the summary is
+  not in English, or uses a non-Latin-1 character set, the two headers
+  specified for ``contents.txt`` should also be present.
+
+``thumbnails/``
+  *generated by UpLib* -- for each page of the document,
+  two corresponding image files in PNG format are generated.  They are
+  named <number>.png, for the small-format version, and big<number>.png,
+  for the large-format version (680x880 for an 8.5x11 inch page), where
+  <number> is a decimal integer beginning with 1.  There's also the
+  document icon for the document, typically a thumbnail of the first
+  page, in a size somewhere between the two standard thumbnail sizes, in
+  a file called ``first.png``.  Finally, there may be page wordbox files
+  for each page, in files called <number>.bboxes.  The format for this
+  file is not documented.
+
+``index.html``
+  *generated by UpLib*, *obsolete* -- HTML which presents the thumbnails in a 3-pane
+  browser window.
+
+``links/``
+  *generated by UpLib* -- this directory contains descriptions of links that
+  the document contains.  See complete description below.
+
+``html/``
+  *generated by UpLib*, *obsolete* -- ancillary HTML associated with viewing of the
+  document.  **This has been obsoleted in UpLib 1.4 and may be removed in later versions.**
+
+``originals/``
+  *optional* -- this should contain any originals the document
+  has been generated from, such as an HTML or PDF form of the document,
+  or individual page scans.
+
+``activity/``
+  *generated by UpLib, optional* -- this contains usage data about the
+  document -- see below for details.
+
+``annotations/``
+  *generated by UpLib, optional* -- this contains various annotations made
+  by the user on the document -- see below for details.
+
+``versions/``
+  *optional* -- this is used to contain cached versions of the
+  document in different alternate formats.  Each version should
+  consist of a single file, with the name ``document.<suffix>``, with an
+  appropriate suffix ("pdf" for PDF, "ps" for Postscript, etc.).  This
+  directory may be arbitrarily emptied by the system to free up space.
+
+``metadata.txt``
+  *generated by UpLib, may be provided by user* -- this
+  contains metadata about the document as structured text.  The format
+  for the text is that specified for "unstructured field" email headers
+  in IETF RFC 822, sections 3.1.1 - 3.1.3, identified in RFC 1892 as the
+  MIME type ``text/rfc822-headers``.  The exact format is described below,
+  along with and some of the specific fields that are used.
+
+``paragraphs.txt``
+  *optional, generated by UpLib* -- this contains metadata about each paragraph,
+  as described below.
+
+``wordbboxes``
+  *optional* -- if the system supports word bounding boxes,
+  this file will be automatically generated.  It is a binary file,
+  containing information about word bounding boxes.  The exact format
+  is detailed below.
+
+
+The "activity" file
+```````````````````
+
+Each document has (potentially) a file called "activity" in its
+folder.  This file contains a number of binary records recording
+activity that a user has "caused" on the document.  Each record
+contains a 14 byte header, plus optional additional information in an
+extension field.  The header contains the following information; all
+values are big-endian.
+
+| *byte 0*:  record format -- for the format documented here, this field should have a value of zero.
+| *byte 1*:  extension length -- a count of the number of extension bytes that follow the header of this record.
+| *bytes 2 & 3*:  page index -- a big-endian 16-bit value indicating the page index (0-based) for this activity.
+| *bytes 4-11*:  timestamp -- a big-endian 64-bit value giving the timestamp, in milliseconds, for
+  this event.  This timestamp is based on the UNIX epoch of midnight,
+  1/1/1970.
+| *bytes 12 & 13*:  action code -- a big-endian 16-bit value giving the action code.  The following code values are defined:
+  
+  1: PAGE_TURNED
+     user turned to this page
+  2: SCRIBBLED
+     user scribbled a stroke on this page
+  3: HOTSPOT_CLICKED
+     user selected hotspot.  Extension bytes are a
+     counted string (first two bytes) giving the URL of the hotspot (bytes
+     2-N of the extension).  URLs are in the UTF-8 charset.
+  4: THUMBNAILS_OPENED
+     user went to page thumbnail view
+  5: THUMBNAILS_CLOSED
+     user went from thumbnail view to page view
+  6: OPENED_DOC
+     document was opened, at this page
+  7: CLOSED_DOC
+     document was closed, at this page
+  8: ANNOTATIONS_ON
+     user selected annotations
+  9: ANNOTATIONS_OFF
+     user de-selected annotations
+  10: INK_SELECTED
+      5 extension bytes characterize the ink pot:
+  
+      | *byte 1*: red (0-255)
+      | *byte 2*: green (0-255)
+      | *byte 3*: blue (0-255)
+      | *byte 4*: alpha (0-255)
+      | *byte 5*: thickness (in deci-millimeters)
+  
+      The standard inkpots are as follows:
+  
+      | red ink -- 255, 0, 0, 255, 100, 10
+      | blue ink -- 0, 0, 255, 255, 10
+      | pink hiliter -- 179, 0, 0, 51, 160
+      | green hiliter -- 0, 179, 0, 51, 160
+      | blue hiliter -- 0, 0, 179, 51, 160
+  
+  11: BOOKMARK_SET
+      user set the bookmark to a page.  Page number
+      gives the page, three extension bytes.  Three extension bytes:  first indicates the bookmark
+      index, second and third indicate the height of the bookmark from the
+      top of the page.  The height is a 16-bit numerator of a rational number the divisor of which
+      is 65536, and which represents the percentage height from the top of the page.
+  12: BOOKMARK_UNSET
+      user set the bookmark to back of the document.
+      Page number gives the page the user is on.  Three extension bytes:  first indicates the
+      bookmark index, second and third indicate the height of the bookmark.  The height is a 16-bit
+      numerator of a rational number the divisor of which is 65536, and which represents the percentage
+      height from the top of the page.
+  13: BOOKMARK_USED
+      user turned to this page by using a bookmark.  1 extension byte indicates bookmark index.
+  14: HOTSPOTS_ON
+      user turned on hotspots
+  15: HOTSPOTS_OFF
+      user turned off hotspot
+
+
+Scribbles
+`````````
+
+Each document has (potentially) a file called ``annotations/scribbles``
+in its folder.  This file contains a number of binary records
+containing scribbles that a user has placed directly on the document.
+All multi-byte values are big-endian.
+
+Each record contain a 4-byte header with the following fields:
+
+| *bytes 0 & 1*:  the length of the record, in bytes, including the header
+| *byte 2*:  the record format version
+| *byte 3*:  annotation type -- type 0 is the fixed-width scribble annotation,
+|                               type 5 is the variable-width scribble annotation.
+|                               type 6 is the erasure annotation.
+
+Scribbles and erasures are vector drawings of line segments.  They may
+be fixed-width or variable width.  Erasures cancel any scribbles with
+which they intersect that also have timestamps earlier than the
+erasure.
+
+Each fixed-width scribble or erasure has the following data elements
+in its record:
+
+  | *bytes 4-5*:  page index (zero-based)
+  | *bytes 6-13*:  timestamp (milliseconds past the UNIX millenium)
+  | *byte 14*:  red value of color (0-255)
+  | *byte 15*:  green value of color (0-255)
+  | *byte 16*:  blue value of color (0-255)
+  | *byte 17*:  alpha value of color (0 (transparent) to 255 (opaque))
+  | *byte 18*:  pen thickness * 8
+  | *byte 19*:  number of points in the scribble
+
+followed by N 4-byte pairs of 16-bit X,Y coordinates.  These
+coordinates are relative to the large PNG thumbnail images of each
+page.  The 0,0 spot is the upper left corner of the image.
+
+Each variable-width scribble has the following data elements in its record:
+
+  | *bytes 4-5*:  page index (zero-based)
+  | *bytes 6-13*:  timestamp (milliseconds past the UNIX millenium)
+  | *byte 14*:  red value of color (0-255)
+  | *byte 15*:  green value of color (0-255)
+  | *byte 16*:  blue value of color (0-255)
+  | *byte 17*:  alpha value of color (0 (transparent) to 255 (opaque))
+  | *byte 18-19*:  number of points in the scribble
+
+followed by N 10-byte triples, where each triple contains a four-byte
+floating-point X value, followed by a four-byte floating-point Y
+value, followed by an unsigned 16-bit integer value giving the
+scribble width at that point multiplied by 256.  The X and Y
+coordinates are relative to the large PNG thumbnail images of each
+page.  The 0,0 spot is the upper left corner of the image.
+
+
+Notes
+`````
+
+Each document has (potentially) a number of directories called
+``annotations/notes/``\ *<index>* in its folder, where *<index>* is a page index in
+the document.  This directory contains a number of separate files, one for each
+note that a user has placed on the document, named by the number of
+the note (1-65535).  Each file contains data which consists of a
+header, followed by a number of records, each record of which can
+contain either a scribble, an image header, an image chunk, a link, or
+a text string.
+
+The header has the format
+
+| *byte 0*:  the header version number -- 0xFF for this encoding
+| *byte 1*:  the header anchor type -- 0 for none, 1 for span, 2 for rect, 3 for paragraph
+| *bytes 2 & 3*:  the page index of the page to which this note is attached
+| *bytes 4 & 5*:  the note number
+| *bytes 6 & 7*:  the number of subrecords
+| *bytes 8 & 9*:  the length of the anchor specification
+
+and, optionally, an anchor specification.  Anchor type "none" consumes zero bytes; the others are as follows:
+
+| type "span":
+|    *bytes 10-13*:  the first byte position of the text span
+|    *bytes 14-17*:  the first byte position after the text span
+
+| type "rect":
+|    *bytes 10-13*:  big-endian IEEE float, X position, in points, on the page image, of upper left corner
+|    *bytes 14-17*:  big-endian IEEE float, Y position, in points, on the page image, of upper left corner
+|    *bytes 18-21*:  big-endian IEEE float, X position, in points, on the page image, of lower right corner
+|    *bytes 22-25*:  big-endian IEEE float, Y position, in points, on the page image, of lower right corner
+
+| type "paragraph":
+|    *bytes 10 - length-10*:  paragraph ID
+
+Each subrecord starts with a 6-byte header, with the following fields:
+
+| *bytes 0-3*:  the length L of the record
+| *byte 4*:  the record format version -- 0 for this encoding
+| *byte 5*:  annotation type:
+|   Type 0 is the scribble annotation.
+|   Type 1 is the text annotation.
+|   Type 2 is the link annotation.
+|   Type 3 is the image annotation.
+|   Type 4 is the timestamp annotation.
+|   Type 5 is the variable-width scribble annotation.
+|   Type 6 is the erasure annotation.
+
+Scribbles and erasures are vector drawings of points.  Each scribble
+or erasure has the data elements described in the section marked
+"SCRIBBLE DATA".  The X,Y coordinates are relative to the upper-left
+corner of the note sheet.
+
+| A text segment has the following subfield:
+|    bytes 6-(L-6):  the text for the segment, UTF-8 encoded.
+
+| A link has the following subfield:
+|    bytes 6-(L-6):  the URL for the link, UTF-8 encoded.
+
+| An image segment contains the image data 
+|    bytes 6-(L-6):  image data encoded as PNG
+
+| A timestamp contains the following:
+|    byte 6:  timestamp type:
+|        type 0 is creation
+|        type 1 is modification
+|    bytes 7-14:  milliseconds past the UNIX epoch
+
+In addition, the ``annotations/notes/``\ *<index>*\ ``/layout`` file contains the
+locations and stacking order of the notes on that page, in the
+following format:
+
+| *byte 0*:  the record format version -- 0 for this encoding
+| *byte 1*:  annotation type for note placement is 4
+| *bytes 2-3*:  number of notes N
+
+This is followed by N variable-length subrecords, each with a 4-byte
+header, followed by a variable length data element.  The header
+consists of a 1-byte format number, followed by a byte giving the
+data-element type ID, followed by a two-byte big-endian length of the
+total record, including the header.
+
+For format number 0, data element type 0, the "scribble" annotation, contains the following fields:
+
+| *bytes 0-1*:  note number
+| *bytes 2-3*:  X coordinate of upper-left corner, relative the large page thumbnail
+| *bytes 4-5*:  Y coordinate of upper-left corner, relative the large page thumbnail
+| *bytes 6-7*:  width in pixels
+| *bytes 8-9*:  height in pixels
+| *bytes 10-11*:  position in stacking order as integer index (0 is top)
+| *byte 12*:  red value for background (0-255)
+| *byte 13*:  green value for background (0-255)
+| *byte 14*:  blue value for background (0-255)
+| *byte 15*:  alpha value for background (0-255)
+
+
+Links
+`````
+
+Each document folder has a directory called "links".
+
+This directory contains a number of files containing link records for
+the document.  The file called "permanent.links" contains those links
+which are part of the source document, and cannot be altered.  Other
+files, with the names "N.links", where N is an appropriate page index
+for the document, contain link records for that page of the document.
+These links are computed, or user-specified, or determined in other
+ways.  In addition, there may be other link files in this folder for
+other purposes not specified here.
+
+Each file containing links contains a number of link records separated
+by ASCII RS characters (character code 0x1E).  Each link record
+contains a set of name-value pairs in "unstructured field"
+email-header format, MIME type "text/rfc822-headers".  This is the
+same format used for a document's "metadata.txt" file.
+
+A link record may contain the following fields:
+
+id
+
+  A string containing a document-unique ID for the link.  Required.
+
+title
+
+  A UTF-8 encoded Unicode string to present to a user as the title or
+  tooltip for the link.  Non-printing or non-ASCII characters in the
+  title's value field are percent-encoded as specified for URI
+  components in RFC 3986.
+
+type
+
+  A string giving a role or type tag for a link.
+
+from-page
+
+  Integer.  The zero-based page index of the page in the document on
+  which this page occurs.
+
+from-span
+
+  Two integers, comma-separated.  The start-byte and end-byte of a
+  text span which is the from-anchor for this link.  The start-byte is
+  the first byte in the "contents.txt" file for the document which is
+  contained in the anchor span; the end-byte is the first byte in the
+  "contents.txt" file which is not part of the anchor span.  The
+  end-byte value must be greater than the start-byte value.
+
+from-rect
+
+  A rectangle specified as four comma-separated floating-point values
+  giving the left, top, width, and height (in that order), in points, of
+  a rectangle which is the from-anchor for this link.  This must be
+  used in conjunction with the "from-page" value.
+
+to-doc
+
+  A document ID for another document in the same repository which is
+  the target of this link.  If neither "todoc" nor "touri" is present,
+  the target of the link is presumed to be the current document.
+
+to-uri
+
+  A URI for a resource which is the target for this link.
+
+to-page
+
+  Integer.  The zero-based index of the target page for this link.
+
+to-span
+
+  Two integers, comma-separated.  The start-byte and end-byte of a
+  text span which is the to-anchor for this link.  The start-byte is
+  the first byte in the "contents.txt" file for the target document
+  which is contained in the anchor span; the end-byte is the first
+  byte in the "contents.txt" file which is not part of the anchor
+  span.  The end-byte value must be greater than the start-byte value.
+
+to-rect
+
+  A rectangle specified as four comma-separated floating-point
+  values giving the left, top, width, and height (in that order) (in
+  points) of a rectangle which is the to-anchor for this link.  This
+  must be used in conjunction with the "to-page" value.
+
+from-icon
+
+  String containing a "data:" URL, as specified in RFC 2397.  This is
+  used to mark the from-anchor of a link in a presentation of the
+  source document.  The data in the string must be either "image/png"
+  or "image/svg+xml".  Image resolution specified in the data must be
+  honored.  This is only a hint; some user interfaces may not be able
+  to display it.
+
+from-icon-location
+
+  Two integers, comma-separated.  They specify the x and y positions
+  of the upper left corner of the icon relative to the "from-rect"
+  upper-left corner, in points.
+
+from-highlight-color
+
+  RGB color spec (i.e., #FF8800) indicating the color to use in
+  indicating the link in a UI.  This is only a hint, and the color may
+  be modified in various ways as directed by the user interface.
+
+If a "from-page" is specified, by no "from-span" or "from-rect" is
+specified, the source is considered to be the entire page.  If no
+"from-page" is specified, the source is considered to be the entire
+document.  Similarly, if a "to-doc" is specified, but no "to-page",
+the link is 'to' the entire target document.  If a "to-page" is
+specified, but no "to-span" or "to-rect", the link is to the entire
+page.  One of "to-page", "to-doc", "to-span", or "to-uri" is required,
+along with "id".  All other fields are optional.
+
+
+The "metadata.txt" file
+```````````````````````
+This file contains contains a number of name-value pair fields
+in the format used by email headers:  a field-name followed by
+a colon character, followed by a field-value string.
+
+If not specified, each field-value is assumed to be in
+English, using ASCII characters.  Non-English languages, or
+non-ASCII characters, should be encoded with UTF-8, and marked as
+such, as specified in IETF RFC 2231, section 5, and IETF RFC 2047.
+Technically, the MIME media type for the format of this file is
+"text/rfc822-headers", as described in IETF RFC 1892.
+
+The following section describes some of the fields that are treated
+specially by the UpLib system.
+
+page-numbers
+
+   If the metadata for a document includes the field ``page-numbers``,
+   it specifies how the pages of the document should be numbered.  The
+   value for this field is a string, and can have one of three forms:
+
+   1.  a single positive integer.  This is taken as the number of the first
+       page, and subsequent pages are numbered sequentially.
+
+   2.  Two positive integers, separated by either one or two hyphen
+       characters.  These are taken as the first and last pages; the
+       second number is ignored, the first is used as the first page
+       of the document, and subsequent pages are numbered
+       sequentially.
+
+   3.  A semicolon-separated list of page range specifiers.  Each of
+       these specifiers starts with a range type code character,
+       followed by a comma, followed by a *page number*, followed by a
+       *span* of page indices.  The available type codes are: 'b' to
+       indicate that the span of pages should not be numbered; 'd', to
+       indicate decimal numbering starting with *page number*, for the
+       pages in *span*; 'r', to indicate lower-case roman numerals,
+       beginning with *page number* (which should still be specified
+       in decimal), for the pages indicated by *span*.  The *span*
+       should be two decimal page indices, separated by a hyphen
+       character.  Page indices in *span* are zero-based.
+
+       In this example
+
+                   ``b,0,0;r,1,1-4;d,1,5-212``
+
+       page 0 has no number, pages 1 through 4 are numbered with roman
+       numerals starting with 1, and pages 5-212 are numbered with
+       decimal numerals, starting with 1.
+
+
+The "paragraphs.txt" file
+`````````````````````````
+
+This file contains a set of records containing metadata about each
+paragraph identified in the document.  The paragraph identification is
+approximate, and based largely on a visual analysis of the wordboxes
+for the document.  If the document has no wordboxes, no paragraphs
+records will exists for it either.
+
+Paragraph-breaking is accomplished by a rule-based system that combines
+information from the text of the document, such as capitalization,
+with information from the visual rendering of the page, such as word
+location and line indentation.  The ripper which accomplishes this is
+located in ``paragraphs.py``, in the function ``figure_paragraphs``.
+
+After paragraph-breaking, the text of each paragraph is hashed to
+create a fingerprint for that paragraph.  The hash function used for
+this as follows:
+
+  1.  Take the complete text of the paragraph as a string, and remove any leading or trailing whitespace.
+  2.  Lowercase the entire string.
+  3.  Replace any runs of whitespace with a single ASCII space character.
+  4.  Remove any comma, apostrophe, or hyphen characters.
+  5.  Take the SHA-1 hash of the resulting string, and the hexadecimal expression of that 20-byte string.
+
+The resulting paragraph fingerprints are stored in the ``metadata.txt`` file for
+the document, as the value of the field ``paragraph-ids``, and are also stored
+as a field in the ``paragraphs.txt`` file for the document.
+
+There is one record per text line of the ``paragraphs.txt`` file, and
+each record contains the following ten fields, separated by
+whitespace:
+
+page-index
+
+  the zero-based index of the document page on which this paragraph occurs.  This is
+  the same page index used by the ``wordbboxes`` file.
+
+start-offset
+
+  the byte offset into the body of the ``contents.txt`` file (not counting the header
+  of that file), where the paragraph starts.
+
+end-offset
+
+  the byte offset into the body of the ``contents.txt`` file (not counting the header
+  of that file), where the paragraph ends (the first byte not part of the paragraph).
+
+left-side
+
+  the leftmost location, in points, of the paragraph's visual rendering on the page
+
+top-side
+
+  the topmost location, in points, of the paragraph's visual rendering on the page
+
+width
+
+  the width, in points, of the paragraph's visual rendering on the page
+
+height
+
+  the height, in points, of the paragraph's visual rendering on the page
+
+num-characters
+
+  the number of Unicode characters in the paragraph.  This is a bit
+  inexact, and is best thought of as a hint rather than an exact
+  figure.
+
+break-type
+
+  a two-letter code identifying the paragraph-finding rule which identified this
+  paragraph as separate from the preceding paragraph.  Consult the code to see
+  what the possible values of this code might be.
+
+paragraph-id
+
+  a string giving a hash or *fingerprint* of the paragraph's text.
+  This hash value is designed to be unique for different values of the
+  text.  This value does not contain whitespace.
+
+
+The "wordbboxes" file
+`````````````````````
+
+A file called ``wordbboxes`` may be present at the top level of each
+document folder.  If present, it should contain a header record,
+followed by a series of binary records which describe the words in the
+document.  There are two versions, numbered 1 and 2.
+
+The header record is a
+12 byte record which should contain the ASCII string
+
+   ``"UpLib:wbb:1\0"``
+
+where "\0" represents a single NUL (zero) byte.
+
+In version 1, the header is followed by a series of 24-byte data records.  
+
+Each version 1 data record consists of 24 bytes, with the following
+structure:
+
+| *byte 0*:  number of characters in this box.  If this value is zero,
+         this record indicates a pagebreak, and the rest of the
+         record should be ignored.
+| *byte 1*:  PDF font type, if known, 0xFF otherwise
+| *byte 2*:  PDF font size, times 2.  That is, a 14-point font would
+         have a value of 28.
+| *byte 3*: flags byte.  The bits have the following interpretataion, from
+        most-significant-bit (bit 7) to least-significant-bit (bit 0):
+
+        | *bit 7*:  set if font is fixed-width.
+        | *bit 6*:  set if font is serif.
+        | *bit 5*:  set if font is symbolic.
+        | *bit 4*:  set if font is italic.
+        | *bit 3*:  set if font is bold.
+        | *bit 2*:  set if word box ends on a newline.
+        | *bit 1*:  set if word box ends a word.
+        | *bit 0*:  set if word box ends with a hyphen.
+
+| *bytes 4-7*: ULX -- a big-endian 32-bit IEEE floating point number
+           giving the X position of the upper left corner of the word
+           box, in points (1/72 of an inch), in a coordinate system
+           where the upper-left corner of the page is (0,0).
+| *bytes 8-11*: ULY -- a big-endian 32-bit IEEE floating point number
+            giving the Y position of the upper left corner of the word
+            box, in points (1/72 of an inch), in a coordinate system
+            where the upper-left corner of the page is (0,0).
+| *bytes 12-15*: LRX -- a big-endian 32-bit IEEE floating point number
+             giving the X position of the lower right corner of the
+             word box, in points (1/72 of an inch), in a coordinate
+             system where the upper-left corner of the page is (0,0).
+| *bytes 16-19*: LRY -- a big-endian 32-bit IEEE floating point number
+             giving the Y position of the lower right corner of the
+             word box, in points (1/72 of an inch), in a coordinate
+             system where the upper-left corner of the page is (0,0).
+| *bytes 20-23*: a big-endian 32-bit integer giving an index into the
+             contents.txt file, indicating the byte position (not the
+             character position) where the first character of this
+             bounding box occurs in the text stream.  This position
+             should be calculated relative to the beginning of the
+             document's text in contents.txt, and should not include
+             any headers present in the contents.txt file.
+
+In version 2, baseline information has been added, so the header is
+followed by a series of 28-byte data records.
+
+Each version 2 data record consists of 28 bytes, with the following
+structure:
+
+| *byte 0*:  number of characters in this box.  If this value is zero,
+         this record indicates a pagebreak, and the rest of the
+         record should be ignored.
+| *byte 1*: The high-order two bits contain rotation information for
+         the word, and the low order 6 bits contain information about the
+         PDF font type, if known, 0x3F otherwise.  The rotation values
+         are:
+
+         | 0 -- no rotation (top of word towards top of page)
+         | 1 -- 90 degree rotation (top of word towards right side of page)
+         | 2 -- 180 degree rotation (top of word towards bottom of page)
+         | 2 -- 270 degree rotation (top of word towards left side of page)
+
+| *byte 2*:  PDF font size, times 2.  That is, a 14-point font would
+         have a value of 28.
+| *byte 3*: flags byte.  The bits have the following interpretataion, from
+        most-significant-bit (bit 7) to least-significant-bit (bit 0):
+
+        | *bit 7*:  set if font is fixed-width.
+        | *bit 6*:  set if font is serif.
+        | *bit 5*:  set if font is symbolic.
+        | *bit 4*:  set if font is italic.
+        | *bit 3*:  set if font is bold.
+        | *bit 2*:  set if word box ends on a newline.
+        | *bit 1*:  set if word box ends a word.
+        | *bit 0*:  set if word box ends with a hyphen.
+
+| *bytes 4-7*: ULX -- a big-endian 32-bit IEEE floating point number
+           giving the X position of the upper left corner of the word
+           box, in points (1/72 of an inch), in a coordinate system
+           where the upper-left corner of the page is (0,0).
+| *bytes 8-11*: ULY -- a big-endian 32-bit IEEE floating point number
+            giving the Y position of the upper left corner of the word
+            box, in points (1/72 of an inch), in a coordinate system
+            where the upper-left corner of the page is (0,0).
+| *bytes 12-15*: LRX -- a big-endian 32-bit IEEE floating point number
+             giving the X position of the lower right corner of the
+             word box, in points (1/72 of an inch), in a coordinate
+             system where the upper-left corner of the page is (0,0).
+| *bytes 16-19*: LRY -- a big-endian 32-bit IEEE floating point number
+             giving the Y position of the lower right corner of the
+             word box, in points (1/72 of an inch), in a coordinate
+             system where the upper-left corner of the page is (0,0).
+| *bytes 20-23*: baseline -- a big-endian 32-bit IEEE floating point number
+             giving the X or Y position of the baseline of the word,
+             depending on the rotation of the word,
+             in points (1/72 of an inch), in a coordinate
+             system where the upper-left corner of the page is (0,0).
+| *bytes 24-27*: a big-endian 32-bit integer giving an index into the
+             contents.txt file, indicating the byte position (not the
+             character position) where the first character of this
+             bounding box occurs in the text stream.  This position
+             should be calculated relative to the beginning of the
+             document's text in contents.txt, and should not include
+             any headers present in the contents.txt file.
+
+The "contents.ind" file
+```````````````````````
+
+The contents.ind file contains 8 columns, each preceded by a vertical bar (UTF-8 0x7c) character.
+Each line of the file gives information about some text fragment in the contents.txt file.
+
+The columns contain, in order, the following information:
+
+|  1. A decimal integer giving the byte position in the contents.txt file where this piece of text starts
+
+|  2. 1 if this fragment begins a new paragraph, 0 otherwise.
+
+|  3. 1 if this fragment begins a new sentence, 0 otherwise.
+
+|  4. 1 if this fragment begins a new "clause", 0 otherwise.  (should be ignored)
+
+|  5. 1 if this fragment begins a new phrase, 0 otherwise.
+
+|  6. A text string giving a part-of-speech label.
+
+|  7. A decimal integer giving the length in bytes of the fragment.
+
+|  8. An ASCII rendition of the text fragment.
+
+The supported part-of-speech labels are:
+
+| "Abbr" -- abbreviation that is not a title;  "i.e."
+| "Abbr-Meas" -- abbreviation of measure;  "oz."
+| "Adj" -- adjective;  "big"
+| "Adj-Comp" -- comparative adjective;  "bigger"
+| "Adj-Sup" -- superlative adjective;  "biggest"
+| "Adv" -- adverb;  "quickly"
+| "Adv-Comp" -- comparative adverb;  "earlier"
+| "Adv-IntRel" -- wh-adverb;  "how, when"
+| "Adv-Sup" -- superlative adverb;  "fastest"
+| "Aux" -- auxiliary or modal;  "will, could"
+| "Conj-Coord" -- coordinating conjunction;  "and"
+| "Conj-Sub" -- subordinating conjunction;  "if, that"
+| "Det" -- invariant determiner (singular or plural);  "some, no"
+| "Det-Def" -- definite determiner;  "the"
+| "Det-Indef" -- indefinite determiner;  "a"
+| "Det-Int" -- interrogative determiner;  "what"
+| "Det-IntRel" -- interrogative or relative determiner;  "whose"
+| "Det-Rel" -- relative determiner;  "whatsoever"
+| "Det-Pl" -- plural determiner;  "these, those"
+| "Det-Poss" -- possessive determiner;  "her, his, its"
+| "Det-Sg" -- singular determiner;  "this, that"
+| "For" -- foreign word;  "raison d'etre"
+| "Interj" -- interjection;  "oh, hello"
+| "Letter" -- letter;  "a, b, c"
+| "Markup-SGML" -- SGML markup;  "<TITLE>"
+| "Nn" -- invariant noun;  "sheep"
+| "Nn-Pl" -- plural noun;  "computers"
+| "Nn-Sg" -- singular noun;  "table"
+| "Num" -- number or numeric expression;  "40.5"
+| "Num-Money" -- monetary amount;  "$12.55"
+| "Num-Percent" -- percentage;  "12%"
+| "Num-Roman" -- roman numeral;  "XVII, xvii"
+| "Onom" -- onomatopoeia;  "meow"
+| "Ord" -- ordinal number;  "first, 10th"
+| "Part-Inf" -- infinitive marker;  "to"
+| "Part-Neg" -- negative particle;  "not"
+| "Part-Poss" -- possessive marker;  "'s, '"
+| "Prep" -- preposition;  "in, on, to"
+| "Pron" -- pronoun;  "he"
+| "Pron-Int" -- wh-pronoun;  "who"
+| "Pron-IntRel" -- wh-pronoun;  "who"
+| "Pron-Refl" -- reflexive pronoun;  "himself"
+| "Pron-Rel" -- relative pronoun;  "who, whom, that, which"
+| "Prop" -- name of a person or thing;  "Graceland, Aesop"
+| "Prop-Email" -- email address;  "lxsupport@inxight.com"
+| "Prop-Init" -- initial;  "J."
+| "Prop-URL" -- web browser URL;  "http://www.inxight.com"
+| "Punct" -- other punctuation;  "- ; /"
+| "Punct-Close" -- closing punctuation;  ") ] }"
+| "Punct-Comma" -- comma", ; "
+| "Punct-Money" -- currency punctuation;  "$"
+| "Punct-Open" -- opening punctuation;  "( [ {"
+| "Punct-Percent" -- percent sign;  "%"
+| "Punct-Quote" -- quote;  "' \" ''"
+| "Punct-Sent" -- sentence-ending punctuation;  ". ! ?"
+| "Time" -- time expression;  "9:00"
+| "Unknown"  -- unknown part of speech;  "??"), 
+| "V-Inf-be" -- infinitive of to be;  "be"
+| "V-PaPart" -- verb, past participle;  "understood"
+| "V-PaPart-be" -- past participle of to be;  "been"
+| "V-Past" -- verb, past tense;  "ran"
+| "V-Past-Pl-be" -- verb, past tense plural of to be;  "were"
+| "V-Past-Sg-be" -- verb, past tense singular of to be;  "was"
+| "V-Past-have" -- past tense of have;  "had"
+| "V-Pres" -- verb, present tense or infinitive;  "walk"
+| "V-Pres-Pl-be" -- verb, present tense plural of to be;  "are"
+| "V-Pres-Sg-be" -- verb, present tense singular of to be;  "is"
+| "V-Pres-have" -- present tense or infinitive of have;  "have"
+| "V-Pres-3-Sg" -- verb, present tense, 3rd person singular;  "runs"
+| "V-Pres-3-Sg-have" -- present tense, 3rd person singular of have;  "has"
+| # these were added after XLE-machine
+| "XY" -- unknown part of speech;  "??"), 
+| "Title" -- title for addressing a person;  "Mister"
+
+
+
+The repository index file "index.upri"
+``````````````````````````````````````
+
+For offline summarization of the contents of a repository, an index
+file is kept in the "overhead" folder of the repository, called
+``index.upri``.  This contains information about the contents of the
+repository: the name, a SHA-1 hash of the password for the repository,
+a count of the number of documents in it.
+
+For each document, it contains the following information:
+
+|    document ID (which encodes the date added to the repository)
+|    date published
+|    date last used
+|    title (if any)
+|    authors (if any)
+|    page count
+
+For each category, it contains the name of the category, and a list of
+the documents in that category.
+
+For each named collection, it contains the name of the collection, the
+query, and a list of the documents in the collection.
+
+The index file is a binary file designed for rapid access, and has one
+of the following formats.  The file always begins with a 32-byte
+header, which consists of the ASCII string "UpLib Repository Index
+xx.yy", padded at the end with ASCII NUL characters, where xx.yy is
+the major.minor version number of the index file format.  Initially,
+it is "1.0".
+
+
+Format version 1.0:
+
+Counted strings (CSTR) in the file consist of a two-byte big-endian
+unsigned byte count LEN, followed by LEN-1 bytes of string data in
+UTF-8 format, followed for good measure by a zero byte.  UINT4 data
+records are 4-byte big-endian unsigned integer values.  UINT2 are
+2-byte big-endian unsigned integer values.  SINT4 data records are
+4-byte big-endian signed integer values.  TIME data records are UINT4
+records containing a time encoded as the number of seconds after the
+Unix epoch, 12 AM on 1 January 1970 GMT.  DATE data records contain a
+year, month and day, encoded as a UINT4 integer with the following
+algorith: v = (13 * 32) * year + (32) * month + day, where "year" is
+normal 4-digit usage, "month" is one-based index (a value of zero means
+that the month is unknown), and "day" is one-based index for
+day-of-month (a value of zero means that the day is unknown).
+BYTES(N) are records containing exactly N bytes, where N is a positive
+integer.  POS4 records are UINT4 byte counts from the beginning of the
+file.
+
+| *bytes 0-31*: The ASCII string "UpLib Repository Index xx.yy", padded at
+   the end with NUL characters, where xx.yy is the major.minor version
+   number of the index file format.  Initially, it is "1.0".
+
+Starting at byte 32:
+
+| UINT4: the number of documents in the repository
+| UINT4: the number of authors of documents in the repository
+| TIME:  the last-modified time for the repository
+| UINT2: the number of category records
+| UINT2: the number of collection records
+| POS4:  the position in the file of the first document record (DOCPOS)
+| POS4:  the position in the file of the first category record (CATPOS)
+| POS4:  the position in the file of the first collection record (COLLPOS)
+| POS4:  the position in the file of the first author record (AUTHPOS)
+| BYTE(20):  the SHA-1 hash of the repository password, or all zeros if there is no password 
+| CSTR:  the repository name
+
+Starting at DOCPOS, a series of document records:
+
+| UINT2: number of bytes from start of this record to start of next document record
+| UINT2: page count
+| UINT2: number of categories (NCAT)
+| UINT2: number of authors (NAUTH)
+| DATE:  date published
+| TIME:  time last used
+| TIME:  date and time added to the repository
+| POS4 * NAUTH:  pointers to the author records for the document
+| POS4 * NCAT:  pointers to the positions of the category records for the document's categories
+| CSTR:  the document ID
+| CSTR:  the document title
+
+Starting at CATPOS, a series of category records:
+
+| UINT2: number of bytes from the start of this record to the start of the next category record
+| UINT2: number of documents in this category  (NDOCS)
+| BYTES(NDOCS * 4):  a set of NDOCS POS4 records giving the positions of the document records for this category
+| CSTR:  name of the category
+
+Starting at COLLPOS, a series of collection records:
+
+| UINT2: number of bytes from the start of this record to the start of the next collection record
+| UINT2: number of documents in the collection (NDOCS)
+| BYTES(NDOCS * 4):  a set of NDOCS POS4 records giving the positions of the document records for this collection
+| UINT2: number of explicit inclusions (NINCL), 0xFFFF if collection type doesn't support inclusions
+| UINT2: number of explicit exclusions (NEXCL), 0xFFFF if collection type doesn't support exclusions
+| BYTES(NINCL * 4):  a set of NDOCS POS4 records giving the positions of the explicitly included document records
+| BYTES(NEXCL * 4):  a set of NDOCS POS4 records giving the positions of the explicitly excluded document records
+| CSTR:  name of the collection
+| CSTR:  query of the collection (0 length for non-query collections)
+
+Starting at AUTHPOS, a series of author records:
+
+| UINT2: number of bytes from the start of this record to the start of the next author record
+| UINT2: number of documents by this author (NDOCS)
+| BYTES(NDOCS * 4):  a set of NDOCS POS4 records giving the positions of the document records for this collection
+| CSTR:  name of the author
+
+
+Security
+========
+
+Each repository resides in protected file space on some machine which
+we'll call "the host".  The protection on this file space may be
+simple UNIX file protection, or some kind of encrypted file system
+which must be password-mounted to access its contents.  The host is
+the domain of protection; that is, the security architecture is
+designed to thwart attacks from outside the host, not from inside the
+host.  Note that the use of encrypted filesystems typically only
+protects against physical possession attacks; if the attacker can run
+code on the host where the encrypted filesystem is mounted in the
+clear, they may be able to access the data.  Using an encrypted file
+system, however, provides protection against the case where the
+attacker acquires access to the system when the file system is not
+mounted, such as theft of a laptop computer.
+
+The angel provides all access to the file system.  Clients communicate
+over SSL-encrypted HTTP channels to the angel.  Each HTTP request to
+the angel must be authenticated; that is, must contain either an HTTP
+header called "Password", with the password of the repository, or a
+secure (passed only over encrypted channels) session (kept by the
+browser only in working memory) cookie with the name
+``"uplibnonce``\ *<port>*\ ``"``, where *<port>* is the port on which the angel
+listens.  This cookie contains a a random string generated by the
+angel, which is associated with a timeout value.
+
+If no password or cookie is provided, or the provided cookie is not
+known to the angel, or the timeout value on the cookie is in the past,
+a login form is provided, which includes the desired URL as hidden
+data.  The user logs into the repository with the repository's
+password; this password is created by the user when the repository is
+created; each repository can have a different password.  The password
+may be changed at any time; changing the password invalidates any
+existing cookies.  The angel checks the SHA-1 hash of the password
+with the saved SHA-1 hash of the repository's password.  If they
+match, a new cookie is generated and sent back via "Set-Cookie", and
+the user is re-directed to the originally desired URL.  The
+repository's password is never kept on disk or sent in the clear; the
+hash of the password, which is saved, is never used as an encryption
+key.  The timeout period for cookies may also be varied on a
+per-repository basis.
+
+The browser is enjoined from storing documents received from the
+repository on disk by use of the "Cache-Control" keyword in the HTTP
+protocol.  Each document or partial document passed to the browser has
+this keyword set to "no-store", which allows the browser to cache the
+information in memory, but not to write it to a disk cache.  The user
+may also opt to use the value "no-cache" instead, which prohibits the
+browser from caching the document at all.
+
+Note that there are a number of weak points here.  (1) The user may
+write down the password in an insecure location.  (2) The user may use
+a buggy browser, which may incorrectly store a repository cookie in an
+insecure cookie jar, from which it may be gleaned by an attacker, or
+may ignore the "Cache-Control" header and incorrectly store documents
+on disk in an unprotected file system.  (3) An attacker with superuser
+access on the unprotected system the browser is being run on may be
+able to directly examine the memory used by the browser, and pull
+information about the documents out of that memory after the browser
+has decrypted that information from the encrypted channel.
+
+

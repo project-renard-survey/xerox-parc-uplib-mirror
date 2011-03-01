@@ -1,0 +1,2 @@
+@echo off
+START /b "ReadUp" "@JAVA@" -Xmx800m -classpath "@UPLIB_CODE@\jnlpstubs.jar;@UPLIB_CODE@\ShowDoc.jar" "-Dcom.parc.uplib.libdir=@UPLIB_LIB@" com.parc.uplib.readup.application.UpLibShowDoc %*

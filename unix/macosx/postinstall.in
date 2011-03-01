@@ -1,0 +1,170 @@
+#!/bin/csh -f
+#
+# This file is part of the "UpLib 1.7.11" release.
+# Copyright (C) 2003-2011  Palo Alto Research Center, Inc.
+# 
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+#
+
+if ( -x /System/Library/Frameworks/Python.framework/Versions/2.5/bin/python ) then
+   set python=/System/Library/Frameworks/Python.framework/Versions/2.5/bin/python
+else if (-x /Library/Frameworks/Python.framework/Versions/2.5/bin/python ) then
+   set python=/Library/Frameworks/Python.framework/Versions/2.5/bin/python
+else
+   set python=/usr/bin/python
+endif
+
+set instdir=$2
+set uplibversion=VERSION
+set pyversion = `${python} -c "import platform; print '.'.join([str(x) for x in platform.python_version_tuple()][:2])"`
+set sitedir=/Library/Python/${pyversion}
+set distdir=${instdir}/RESTPATH
+set processortype=`/usr/bin/arch`
+set fqdn=`${python} -c "import socket, string, os; \
+hostname = socket.getfqdn(); \
+hostname = ((string.find(hostname, '.') < 0 and hasattr(os, 'uname')) and os.uname()[1]) or hostname; \
+print string.lower(hostname)"`
+
+if ( ! -e /etc/uplib-machine-id ) then
+   if ( -x /usr/bin/uuidgen ) then
+     echo "creating /etc/uplib-machine-id file for this machine" >> /dev/console
+     /usr/bin/uuidgen > /etc/uplib-machine-id
+   endif
+endif
+
+# figure out where Java is on this machine
+if ( -x /usr/libexec/java_home ) then
+   set java_home=`/usr/libexec/java_home -v 1.5+`
+else
+   set java_home=/System/Library/Frameworks/JavaVM.framework/Versions/1.5/Home
+endif
+set configfile="${distdir}/lib/UpLib-${uplibversion}/site.config"
+cp "${configfile}" /tmp/uplib-install-$$
+sed -e 's/^java = .*/java = ${java_home}/' < /tmp/uplib-install-$$ >"${configfile}"
+
+cat > "${distdir}/lib/UpLib-${uplibversion}/machine.config" <<EOF
+FQDN: ${fqdn}
+OS: Darwin
+EOF
+
+# we don't supply OpenOffice, so if the target doesn't have it, don't try to use it
+if ( ! -e /Applications/OpenOffice.org.app/Contents/program/soffice ) then
+    /bin/ed ${distdir}/lib/UpLib-${uplibversion}/site.config <<EOF
+1,\$s/soffice = .*\$/soffice =/
+1,\$s/use-topdf-service-for-msoffice-to-pdf: .*\$/use-topdf-service-for-msoffice-to-pdf: false/
+1,\$s/use-openoffice-for-web-page-to-pdf: .*\$/use-openoffice-for-web-page-to-pdf: false/
+1,\$s/use-openoffice-for-msoffice-to-pdf: .*\$/use-openoffice-for-msoffice-to-pdf: false/
+w
+q
+EOF
+    # also, we may need to remove UpLibToPDF, if wkpdf is also not present
+    if ( ! -e ${distdir}/bin/wkpdf ) then
+        # no soffice, no wkpdf, so no point to UpLibToPDF
+        rm -rf ${distdir}/bin/UpLibToPDF.app
+    endif
+endif
+
+if "NOSETUP" == "0" then
+
+    echo "`/bin/date` UpLib installer:  adding Python packages to ${sitedir}/site-packages" >>/dev/console
+    rm -f ${sitedir}/site-packages/uplib-${uplibversion}.pth
+    ${python} <<EOF
+import os
+dist_site_packages_dir = "${distdir}/lib/python${pyversion}/site-packages"
+lines = dist_site_packages_dir + "\n" + os.path.join(dist_site_packages_dir, "PIL") + "\n"
+easy_install = os.path.join(dist_site_packages_dir, "easy-install.pth")
+if os.path.exists(easy_install):
+    for line in open(easy_install):
+        if not line.startswith("import "):
+            if line.startswith("./"):
+                line = dist_site_packages_dir + line[1:]
+            lines += line
+fp = open(os.path.join("${sitedir}", "site-packages", "uplib-${uplibversion}.pth"), "w")
+fp.write(lines)
+fp.close()
+EOF
+    chmod 444 ${sitedir}/site-packages/uplib-${uplibversion}.pth
+
+    echo "`/bin/date` UpLib installer:  installing new ReadUp" >> /dev/console
+    /bin/rm -rf /Applications/ReadUp.app
+    /usr/bin/ditto --rsrc -V ${distdir}/bin/ReadUp.app /Applications/ReadUp.app
+
+    echo "`/bin/date` UpLib installer:  installing new UpLibPortal" >>/dev/console
+    /bin/rm -rf /Applications/Utilities/UpLibPortal.app
+    /usr/bin/ditto --rsrc -V ${distdir}/bin/UpLibPortal.app /Applications/Utilities/UpLibPortal.app
+
+    echo "`/bin/date` UpLib installer:  installing new UpLibJanitor" >>/dev/console
+    /bin/rm -rf /Applications/Utilities/UpLibJanitor.app
+    /usr/bin/ditto --rsrc -V ${distdir}/bin/UpLibJanitor.app /Applications/Utilities/UpLibJanitor.app
+
+    if ( -d ${distdir}/bin/UpLibToPDF.app ) then
+       echo "`/bin/date` UpLib installer:  installing new UpLibToPDF" >>/dev/console
+       cp -p ${distdir}/lib/UpLib-${uplibversion}/com.parc.uplib.ToPDFAgent.plist /Library/LaunchAgents
+       chown root /Library/LaunchAgents/com.parc.uplib.ToPDFAgent.plist
+    endif
+
+    echo "`/bin/date` UpLib installer:  installing new StartUpLibRepositories" >>/dev/console
+    /bin/rm -rf /Applications/Utilities/StartUpLibRepositories.app
+    /usr/bin/ditto --rsrc -V ${distdir}/bin/StartUpLibRepositories.app /Applications/Utilities/StartUpLibRepositories.app
+
+    echo "`/bin/date` UpLib installer:  installing /usr/bin symlinks for command-line tools" >>/dev/console
+    rm -f /usr/bin/uplib-add-document
+    ln -s ${distdir}/bin/uplib-add-document /usr/bin
+    rm -f /usr/bin/uplib-check-angel
+    ln -s ${distdir}/bin/uplib-check-angel /usr/bin
+    rm -f /usr/bin/uplib-get-document
+    ln -s ${distdir}/bin/uplib-get-document /usr/bin
+    rm -f /usr/bin/uplib-make-repository
+    ln -s ${distdir}/bin/uplib-make-repository /usr/bin
+    rm -f /usr/bin/uplib-portal
+    ln -s ${distdir}/bin/uplib-portal /usr/bin
+    rm -f /usr/bin/uplib-janitor
+    ln -s ${distdir}/bin/uplib-janitor /usr/bin
+    rm -f /usr/bin/uplib-certificate
+    ln -s ${distdir}/bin/uplib-certificate /usr/bin
+
+    echo "`/bin/date` UpLib installer:  installing 'Save PDF to UpLib' print option" >> /dev/console
+    if ( -e '/Library/PDF Services/Save PDF to UpLib' ) then
+       rm -f '/Library/PDF Services/Save PDF to UpLib'
+    endif
+    install -m 555 ${distdir}/bin/uplib-print-pdf-to-repository '/Library/PDF Services/Save PDF to UpLib'
+
+    echo "`/bin/date` UpLib installer:  updating man page database" >>/dev/console
+    install -m 444 ${distdir}/man/man1/uplib-add-document.1 /usr/share/man/man1
+    install -m 444 ${distdir}/man/man1/uplib-get-document.1 /usr/share/man/man1
+    install -m 444 ${distdir}/man/man1/uplib-make-repository.1 /usr/share/man/man1
+    install -m 444 ${distdir}/man/man1/uplib-portal.1 /usr/share/man/man1
+    install -m 444 ${distdir}/man/man1/uplib-certificate.1 /usr/share/man/man1
+    install -m 444 ${distdir}/man/man1/uplib-janitor.1 /usr/share/man/man1
+    install -m 444 ${distdir}/man/mann/uplib.n /usr/share/man/mann
+    /usr/libexec/makewhatis -a /usr/share/man
+
+    if ( -f /Library/LaunchAgents/com.parc.uplib.ToPDFAgent.plist ) then
+       echo "starting UpLibToPDF agent..." >>/dev/console
+       launchctl load -S Aqua /Library/LaunchAgents/com.parc.uplib.ToPDFAgent.plist
+    endif
+
+    echo "`/bin/date` UpLib installer:  Building SSL certificate for this machine (${fqdn})" >> /dev/console
+
+    ${distdir}/bin/uplib-certificate --hostname=${fqdn} --certificate=${distdir}/lib/UpLib-${uplibversion}/stunnel.pem
+
+    /usr/bin/open /Applications/Utilities/UpLibJanitor.app
+
+    #if ( -e ${distdir}/share/UpLib-${uplibversion}/doc/getting-started-on-a-mac.html ) then
+    #  /usr/bin/open ${distdir}/share/UpLib-${uplibversion}/doc/getting-started-on-a-mac.html
+    #endif
+
+endif
+

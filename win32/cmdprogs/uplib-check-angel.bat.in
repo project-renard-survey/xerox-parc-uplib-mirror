@@ -1,0 +1,1 @@
+start /b /wait "@PYTHON@" "@UPLIB_BIN@\uplib-check-angel.py" %*

@@ -1,0 +1,8 @@
+author: UpLib Team
+version: 1.0
+before: off
+after: on
+url: 0
+date: 2/15/07
+description: Adds ripper to the repository that will search for all images in a document, and add their bounding boxes to the metadata for the document under the term <tt>illustrations-bounding-boxes</tt>.<p>Also contains two utility functions; <b>show_images</b> will display a page containing all the images of the document, and <b>find_images</b> will find all the images if the ripper for some reason hasn't already been run.  <b>find_images</b> can be run with the an optional parameter, <i>rerip</i>, which if specified to be any value will cause the existing value of <tt>illustrations-bounding-boxes</tt> to be ignored, and the image-finding program to be re-run.
+uplib-min-version: 1.6

@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+   <!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+   <plist version="1.0">
+      <dict>
+         <key>CFBundleGetInfoString</key>
+           <string>UpLib FULLVERSION</string>
+         <key>CFBundleIdentifier</key>
+           <string>com.parc.uplib</string>
+         <key>CFBundleName</key>
+           <string>UpLib</string>
+         <key>CFBundleShortVersionString</key>
+           <string>FULLVERSION</string>
+         <key>IFMajorVersion</key>
+           <integer>MAJORVERSION</integer>
+         <key>IFMinorVersion</key>
+           <integer>MINORVERSION</integer>
+         <key>IFPkgFlagDefaultLocation</key>
+           <string>/Library</string>
+         <key>IFPkgFlagDiskname</key>
+           <string>(null)</string>
+         <key>IFPkgFlagDeleteWarning</key>
+           <string></string>
+         <key>IFPkgFlagAuthorizationAction</key>
+           <string>RootAuthorization</string>
+         <key>IFPkgFlagDisableStop</key>
+           <false/>
+         <key>IFPkgFlagUseUserMask</key>
+           <true/>
+         <key>IFPkgFlagApplication</key>
+           <false/>
+         <key>IFPkgFlagRelocatable</key>
+           <false/>
+         <key>IFPkgFlagRequired</key>
+           <false/>
+         <key>IFPkgFlagInstallOnly</key>
+           <false/>
+         <key>IFPkgFlagRequiresReboot</key>
+           <false/>
+         <key>IFPkgFlagBackgroundAlignment</key>
+           <string>center</string>
+         <key>IFPkgFlagBackgroundScaling</key>
+           <string>proportional</string>
+         <key>IFPkgFlagInstallFat</key>
+           <false/>
+     </dict>
+</plist>
+                

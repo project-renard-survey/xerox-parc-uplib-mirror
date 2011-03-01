@@ -1,0 +1,262 @@
+diff -r -c -x configure configure.ac configure.ac
+*** configure.ac	2004-09-14 10:20:42.000000000 -0700
+--- configure.ac	2010-01-20 09:58:40.000000000 -0800
+***************
+*** 1,6 ****
+--- 1,21 ----
+  # Process this file with autoconf to produce a configure script.
+  AC_INIT(ytnef, 2.6, yerase@yeraze.com)
+  AM_INIT_AUTOMAKE
++ 
++ if test "x$prefix" != "xNONE"; then
++   if test "x$LDFLAGS" = "x"; then
++     LDFLAGS="-L${prefix}/lib"
++   else
++     LDFLAGS="${LDFLAGS} -L${prefix}/lib"
++   fi
++ 
++   if test "x$CPPFLAGS" = "x"; then
++     CPPFLAGS="-I${prefix}/include"
++   else
++     CPPFLAGS="${CPPFLAGS} -I${prefix}/include"
++   fi
++ fi
++ 
+  AC_CONFIG_SRCDIR([src/ytnef/main.c])
+  AC_CONFIG_HEADER([config.h])
+  
+diff -r -c -x configure src/ytnef/main.c src/ytnef/main.c
+*** src/ytnef/main.c	2004-06-04 07:40:47.000000000 -0700
+--- src/ytnef/main.c	2010-01-20 09:47:19.000000000 -0800
+***************
+*** 18,48 ****
+  
+  
+  void PrintHelp(void) {
+!     printf("Yerase TNEF Exporter v");
+!             printf(VERSION);
+!             printf("\n");
+!     printf("\n");
+!     printf("  usage: ytnef [-+vhf] <filenames>\n");
+!     printf("\n");
+!     printf("   -/+v - Enables/Disables verbose output\n");
+!     printf("          Multiple -v's increase the level of output\n");
+!     printf("   -/+f - Enables/Disables saving of attachments\n");
+!     printf("   -/+F - Enables/Disables saving of the message body as RTF\n");
+!     printf("   -/+a - Enables/Disables saving of intermediate files\n");
+!     printf("   -h   - Displays this help message\n");
+!     printf("\n");
+!     printf("Example:\n");
+!     printf("  ytnef -v winmail.dat\n");
+!     printf("     Parse with verbose output, don't save\n");
+!     printf("  ytnef -f . winmail.dat\n");
+!     printf("     Parse and save all attachments to local directory (.)\n");
+!     printf("  ytnef -F -f . winmail.dat\n");
+!     printf("     Parse and save all attachments to local directory (.)\n");
+!     printf("     Including saving the message text to a RTF file.\n\n");
+!     printf("Send bug reports to ");
+!         printf(PACKAGE_BUGREPORT);
+!         printf("\n");
+! 
+  }
+  
+  
+--- 18,47 ----
+  
+  
+  void PrintHelp(void) {
+!     fprintf(stderr, "Yerase TNEF Exporter v");
+!     fprintf(stderr, VERSION);
+!     fprintf(stderr, "\n");
+!     fprintf(stderr, "\n");
+!     fprintf(stderr, "  usage: ytnef [-+vhf] <filenames>\n");
+!     fprintf(stderr, "\n");
+!     fprintf(stderr, "   -/+v - Enables/Disables verbose output\n");
+!     fprintf(stderr, "          Multiple -v's increase the level of output\n");
+!     fprintf(stderr, "   -/+f - Enables/Disables saving of attachments\n");
+!     fprintf(stderr, "   -/+F - Enables/Disables saving of the message body as RTF\n");
+!     fprintf(stderr, "   -/+a - Enables/Disables saving of intermediate files\n");
+!     fprintf(stderr, "   -h   - Displays this help message\n");
+!     fprintf(stderr, "\n");
+!     fprintf(stderr, "Example:\n");
+!     fprintf(stderr, "  ytnef -v winmail.dat\n");
+!     fprintf(stderr, "     Parse with verbose output, don't save\n");
+!     fprintf(stderr, "  ytnef -f . winmail.dat\n");
+!     fprintf(stderr, "     Parse and save all attachments to local directory (.)\n");
+!     fprintf(stderr, "  ytnef -F -f . winmail.dat\n");
+!     fprintf(stderr, "     Parse and save all attachments to local directory (.)\n");
+!     fprintf(stderr, "     Including saving the message text to a RTF file.\n\n");
+!     fprintf(stderr, "Send bug reports to ");
+!     fprintf(stderr, PACKAGE_BUGREPORT);
+!     fprintf(stderr, "\n");
+  }
+  
+  
+***************
+*** 50,63 ****
+      int index,i;
+      TNEFStruct TNEF;
+  
+! //    printf("Size of WORD is %i\n", sizeof(WORD));
+! //    printf("Size of DWORD is %i\n", sizeof(DWORD));
+! //    printf("Size of DDWORD is %i\n", sizeof(DDWORD));
+  
+      if (argc == 1) {
+!         printf("You must specify files to parse\n");
+          PrintHelp();
+!         return -1;
+      }
+      
+      for(i=1; i<argc; i++) {
+--- 49,62 ----
+      int index,i;
+      TNEFStruct TNEF;
+  
+! //    fprintf(stderr, "Size of WORD is %i\n", sizeof(WORD));
+! //    fprintf(stderr, "Size of DWORD is %i\n", sizeof(DWORD));
+! //    fprintf(stderr, "Size of DDWORD is %i\n", sizeof(DDWORD));
+  
+      if (argc == 1) {
+!         fprintf(stderr, "You must specify files to parse.\n");
+          PrintHelp();
+!         return 1;
+      }
+      
+      for(i=1; i<argc; i++) {
+***************
+*** 68,74 ****
+                  case 'v': verbose++;
+                            break;
+                  case 'h': PrintHelp();
+!                           return;
+                  case 'f': savefiles = 1;
+                            filepath = argv[i+1];
+                            i++;
+--- 67,73 ----
+                  case 'v': verbose++;
+                            break;
+                  case 'h': PrintHelp();
+!                           return 0;
+                  case 'f': savefiles = 1;
+                            filepath = argv[i+1];
+                            i++;
+***************
+*** 76,82 ****
+                  case 'F': saveRTF = 1;
+                            break;
+                  default: 
+!                           printf("Unknown option '%s'\n", argv[i]);
+              }
+              continue;
+  
+--- 75,81 ----
+                  case 'F': saveRTF = 1;
+                            break;
+                  default: 
+!                           fprintf(stderr, "Unknown option '%s'\n", argv[i]);
+              }
+              continue;
+  
+***************
+*** 93,99 ****
+                  case 'F': saveRTF = 0;
+                            break;
+                  default: 
+!                           printf("Unknown option '%s'\n", argv[i]);
+              }
+              continue;
+  
+--- 92,98 ----
+                  case 'F': saveRTF = 0;
+                            break;
+                  default: 
+!                           fprintf(stderr, "Unknown option '%s'\n", argv[i]);
+              }
+              continue;
+  
+***************
+*** 102,113 ****
+          TNEFInitialize(&TNEF);
+          TNEF.Debug = verbose;
+          if (TNEFParseFile(argv[i], &TNEF) == -1) {
+!             printf("ERROR processing file\n");
+!             continue;
+          }
+          ProcessTNEF(TNEF);
+          TNEFFree(&TNEF);
+      }
+  }
+  
+  void ProcessTNEF(TNEFStruct TNEF) {
+--- 101,113 ----
+          TNEFInitialize(&TNEF);
+          TNEF.Debug = verbose;
+          if (TNEFParseFile(argv[i], &TNEF) == -1) {
+!             fprintf(stderr, "ERROR processing file %s\n", argv[1]);
+!             return 1;
+          }
+          ProcessTNEF(TNEF);
+          TNEFFree(&TNEF);
+      }
++     return 0;
+  }
+  
+  void ProcessTNEF(TNEFStruct TNEF) {
+***************
+*** 168,174 ****
+  
+                      printf("%s\n", ifilename);
+                      if ((fptr = fopen(ifilename, "wb"))==NULL) {
+!                         printf("ERROR: Error writing file to disk!");
+                      } else {
+                          fwrite(buf.data,
+                                  sizeof(BYTE), 
+--- 168,174 ----
+  
+                      printf("%s\n", ifilename);
+                      if ((fptr = fopen(ifilename, "wb"))==NULL) {
+!                         fprintf(stderr, "ERROR: Error writing file to disk!");
+                      } else {
+                          fwrite(buf.data,
+                                  sizeof(BYTE), 
+***************
+*** 269,275 ****
+                  printf("%s\n", ifilename);
+                  if (savefiles == 1) {
+                      if ((fptr = fopen(ifilename, "wb"))==NULL) {
+!                         printf("ERROR: Error writing file to disk!");
+                      } else {
+                          if (object == 1) {
+                              fwrite(filedata->data + 16, 
+--- 269,275 ----
+                  printf("%s\n", ifilename);
+                  if (savefiles == 1) {
+                      if ((fptr = fopen(ifilename, "wb"))==NULL) {
+!                         fprintf(stderr, "ERROR: Error writing file to disk!");
+                      } else {
+                          if (object == 1) {
+                              fwrite(filedata->data + 16, 
+diff -r -c -x configure src/ytnef/vcal.c src/ytnef/vcal.c
+*** src/ytnef/vcal.c	2004-04-09 11:24:59.000000000 -0700
+--- src/ytnef/vcal.c	2010-01-20 10:25:50.000000000 -0800
+***************
+*** 190,198 ****
+      dtr thedate;
+  
+      if (filepath == NULL) {
+!         sprintf(ifilename, "calendar.vcf");
+      } else {
+!         sprintf(ifilename, "%s/calendar.vcf", filepath);
+      }
+      printf("%s\n", ifilename);
+      if (savefiles == 0) 
+--- 190,198 ----
+      dtr thedate;
+  
+      if (filepath == NULL) {
+!         sprintf(ifilename, "calendar.ics");
+      } else {
+!         sprintf(ifilename, "%s/calendar.ics", filepath);
+      }
+      printf("%s\n", ifilename);
+      if (savefiles == 0) 

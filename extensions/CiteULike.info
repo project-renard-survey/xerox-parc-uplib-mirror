@@ -1,0 +1,8 @@
+after: off
+author: Bill Janssen
+before: off
+date: 8/16/2007
+description: Installs a ripper which runs the CiteULike metadata gatherers (open source from www.citeulike.org) on a URL.        <p><i>Before using this extension, I strongly advise you to make sure that you have Python 2.4 installed as <tt>/usr/bin/python2.4</tt>, have Ruby, Perl, and Tcl installed, and have the "LWP" module installed in your Perl installation, and "rubygems" in your Ruby installation.  Each of these enables more than one metadata gatherer program.  In addition, this code is very strongly UNIX-oriented.  <tt>cygwin</tt> on Windows may work for some of it.  You also need to have the CiteULike SVN repository checked out somewhere, and the configuration field <tt>citeulike-checkout-directory</tt> should point to the top-level directory of that checkout.  To checkout the codebase:</i>  <p><tt>svn co http://svn.citeulike.org/svn/ citeulike</tt>  <p><i>    <p>The function <b>test</b> takes one parameter, <i>url</i>, which should be a URL, and returns a text/plain listing of the CiteULike-gathered parameters for that URL.
+uplib-min-version: 1.7
+url: 0
+version: 1

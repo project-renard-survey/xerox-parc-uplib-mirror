@@ -1,0 +1,161 @@
+#!@PYTHON@
+# -*- Python -*-
+#
+# This file is part of the "UpLib 1.7.11" release.
+# Copyright (C) 2003-2011  Palo Alto Research Center, Inc.
+# 
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+#
+
+import sys, os, tempfile, shutil, StringIO, traceback
+
+assert sys.version_info >= (2,3,0), 'requires Python 2.3 or better'
+
+if os.environ.has_key("UPLIB_SITEPATH"):
+    sitepath = os.environ["UPLIB_SITEPATH"]
+    if os.path.exists(sitepath):
+        # try to duplicate the processing in the "site" module
+        from site import addsitedir
+        paths = addsitedir(sitepath, set([sitepath,]))
+        paths = sys.path[:]
+        # clean paths on Darwin
+        if sys.platform == "darwin":
+            newpaths = []
+            for path in paths:
+                if path.startswith(sys.prefix) or path.startswith(sitepath):
+                    newpaths.append(path)
+            sys.path[:] = newpaths
+    else:
+        raise RuntimeError("No such UPLIB_SITEPATH '%s'" % sitepath)
+
+
+os.environ['UPLIBLIB'] = r'@UPLIB_LIB@'
+sys.path.append(r'@UPLIB_CODE@')
+
+# import from uplib.plibUtil first to make sure sys.path is set up
+from uplib.plibUtil import note, set_note_sink
+
+from uplib.addDocument import main, DocumentParser
+
+if __name__ == "__main__":
+    ripit = False
+    addto = False
+    if "--rip" in sys.argv:
+        if "--noupload" in sys.argv:
+            ripit = True
+            sys.argv.remove("--rip")
+            disabledrippernames = ["LuceneRipper", "HTMLRipper"]
+        else:
+            sys.stderr.write("Usage error:  --rip can only be specified with --noupload\n")
+            sys.exit(1)
+    for v in sys.argv[1:]:
+        if v.startswith("--disabled-rippers="):
+            if not ripit:
+                sys.stderr.write("Usage error: --disabled-rippers can only be used with --noupload --rip\n")
+                sys.exit(1)
+            else:
+                sys.argv.remove(v)
+                disabledrippernames = [x.strip() for x in v[len("--disabled-rippers="):].split(",") if x.strip()]
+    for v in sys.argv[1:]:
+        if v.startswith("--repository="):
+            addto = v[len("--repository="):]
+            if addto.startswith("~"):
+                addto = os.path.expanduser(addto)
+            addto = os.path.normpath(addto)
+            if os.path.isdir(addto):
+                if os.path.isdir(os.path.join(addto, "docs")) and os.path.isdir(os.path.join(addto, "overhead")):
+                    sys.argv.remove(v)
+                    sys.argv.insert(1, "--noupload")
+                else:
+                    sys.stderr.write("Usage error:  specified repository directory '%s' " % addto +
+                                     "doesn't look like an UpLib repository.\n" +
+                                     "The repository must exist before you can add documents to it.\n")
+                    sys.exit(1)
+            else:
+                addto = None
+    results = main(sys.argv)
+    if isinstance(results, int):
+        sys.exit(results)
+    elif isinstance(results, (tuple, list)) and (ripit or addto):
+        repodir = None
+        repo = None
+        run_rippers = None
+        try:
+            try:
+                for pathname, result in results:
+                    if isinstance(result, DocumentParser):
+                        folder = result.folder
+                        if (repo is None) and (ripit or addto):
+                            from uplib.repository import Repository
+                            if ripit:
+                                repodir = tempfile.mkdtemp()
+                                repo, use_ssl, ip_addr, conf = \
+                                      Repository.build_world(repodir, portno=1, inc_threads=False)
+                            else:
+                                repo, use_ssl, ip_addr, conf = \
+                                      Repository.build_world(addto, inc_threads=False)
+                        if ripit:
+                            try:
+                                from uplib.newFolder import _run_rippers as run_rippers
+                                rippers = repo.rippers()
+                                # remove some pointless rippers
+                                for name in disabledrippernames:
+                                    r = [x for x in rippers if (x.name() == name)]
+                                    if r:
+                                        for x in r:
+                                            rippers.remove(x)
+                                # now run the remaining rippers
+                                run_rippers(folder, repo, os.path.basename(folder))
+                                sys.stdout.write("%s %s\n" % (pathname, folder))
+                            except:
+                                sys.stderr.write(''.join(traceback.format_exception(*sys.exc_info())))
+
+                        elif addto:
+                            try:
+                                from uplib.newFolder import process_folder, flesh_out_folder
+                                newfolder = repo.create_document_folder(repo.pending_folder())
+                                id = os.path.basename(newfolder)
+                                if (process_folder(repo, id, folder, True) == id):
+                                    try:
+                                        flesh_out_folder(id, None, None, repo, None, None)
+                                    except:
+                                        sys.stderr.write(''.join(traceback.format_exception(*sys.exc_info())))
+                                        sys.exit(1)
+                                    else:
+                                        sys.stdout.write("%s %s\n" % (pathname, id))
+                                elif os.path.exists(os.path.join(newfolder, "ERROR")):
+                                    sys.stderr.write("Error incorporating document:\n")
+                                    sys.stderr.write(open(os.path.join(newfolder, "ERROR")).read())
+                                    sys.exit(1)                                
+                            except:
+                                sys.stderr.write(''.join(traceback.format_exception(*sys.exc_info())))
+
+                        else:
+                            sys.stdout.write("%s %s\n" % (pathname, folder))
+            except:
+                sys.stderr.write(''.join(traceback.format_exception(*sys.exc_info())))
+                sys.exit(1)
+        finally:
+            if repo and addto:
+                repo.shutdown(0)
+            elif repo and ripit:
+                if repo and hasattr(repo, "run_shutdown_hooks"):
+                    repo.run_shutdown_hooks()
+                if os.path.exists(repodir):
+                    shutil.rmtree(repodir)
+    else:
+        sys.exit(0)
+                
+            

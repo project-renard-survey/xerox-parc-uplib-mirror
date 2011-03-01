@@ -1,0 +1,114 @@
+#
+# This file is part of the "UpLib 1.7.11" release.
+# Copyright (C) 2003-2011  Palo Alto Research Center, Inc.
+# 
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+#
+
+BINDIR = @UPLIB_BIN@
+UPLIB_LIB_DIR = @UPLIB_LIB@
+UPLIB_VERSION = @PACKAGE_VERSION@
+TAR = @TAR@
+SIMPLE = @SIMPLE@
+JODCONVERTER = @JODCONVERTER@
+
+APPS = UpLibPortal.app ReadUp.app StartUpLibRepositories.app UpLibJanitor.app
+
+TOPDF = 
+
+ifdef SIMPLE
+ifdef JODCONVERTER
+
+TOPDF = UpLibToPDF.app
+
+endif
+endif
+
+all: $(APPS) $(TOPDF) uplib-print-pdf-to-repository ScanSnapUpLib.scpt
+
+UpLibPortal.app: MacPortalApp.tgz ../../java/UpLibPortal.jar
+	rm -rf UpLibPortal.app
+	$(TAR) xfz MacPortalApp.tgz
+	rm -f UpLibPortal.app/Contents/Resources/Java/UpLibPortal.jar UpLibPortal.app/Contents/Resources/Java/machine.config
+	cp ../../java/UpLibPortal.jar ./UpLibPortal.app/Contents/Resources/Java/
+	( cp ./UpLibPortal.app/Contents/Info.plist /tmp/$$$$.plist ; \
+	sed -e "s|@UPLIBLIB@|${UPLIB_LIB_DIR}|g" -e "s/@UPLIBVERSION@/${UPLIB_VERSION}/g" < /tmp/$$$$.plist >./UpLibPortal.app/Contents/Info.plist ; \
+	rm -f /tmp/$$$$.plist )
+	/Developer/Tools/SetFile -t APPL UpLibPortal.app
+	touch UpLibPortal.app
+
+UpLibJanitor.app: JanitorApp.tgz ../../java/UpLibJanitor.jar
+	$(TAR) xfz JanitorApp.tgz
+	rm -f UpLibJanitor.app/Contents/Resources/Java/UpLibJanitor.jar UpLibJanitor.app/Contents/Resources/Java/machine.config
+	cp ../../java/UpLibJanitor.jar ./UpLibJanitor.app/Contents/Resources/Java/
+	( cp ./UpLibJanitor.app/Contents/Info.plist /tmp/$$$$.plist ; \
+	sed -e "s|@UPLIBLIB@|${UPLIB_LIB_DIR}|g" -e "s/@UPLIBVERSION@/${UPLIB_VERSION}/g" < /tmp/$$$$.plist >./UpLibJanitor.app/Contents/Info.plist ; \
+	rm -f /tmp/$$$$.plist )
+	/Developer/Tools/SetFile -t APPL UpLibJanitor.app
+	touch UpLibJanitor.app
+
+ReadUp.app: ReadUpApp.tgz ../../java/ShowDoc.jar
+	$(TAR) xfz ReadUpApp.tgz
+	rm -f ReadUp.app/Contents/Resources/Java/ShowDoc.jar ReadUp.app/Contents/Resources/Java/machine.config
+	cp ../../java/ShowDoc.jar ./ReadUp.app/Contents/Resources/Java/
+	cp ../../java/jnlpstubs.jar ./ReadUp.app/Contents/Resources/Java/
+	( cp ./ReadUp.app/Contents/Info.plist /tmp/$$$$.plist ; \
+	sed -e "s|@UPLIBLIB@|${UPLIB_LIB_DIR}|g" -e "s/@UPLIBVERSION@/${UPLIB_VERSION}/g" < /tmp/$$$$.plist >./ReadUp.app/Contents/Info.plist ; \
+	rm -f /tmp/$$$$.plist )
+	/Developer/Tools/SetFile -t APPL ReadUp.app
+	touch ReadUp.app
+
+UpLibToPDF.app: ToPDFApp.tgz ../../java/UpLibToPDF.jar
+	$(TAR) xfz ToPDFApp.tgz
+	rm -f UpLibToPDF.app/Contents/Resources/Java/UpLibToPDF.jar
+	cp ../../java/UpLibToPDF.jar ./UpLibToPDF.app/Contents/Resources/Java/
+	( cp ./UpLibToPDF.app/Contents/Info.plist /tmp/$$$$.plist ; \
+	sed -e "s|@UPLIBLIB@|${UPLIB_LIB_DIR}|g" -e "s/@UPLIBVERSION@/${UPLIB_VERSION}/g" < /tmp/$$$$.plist >./UpLibToPDF.app/Contents/Info.plist ; \
+	rm -f /tmp/$$$$.plist )
+	/Developer/Tools/SetFile -t APPL UpLibToPDF.app
+	touch UpLibToPDF.app
+
+StartUpLibRepositories.app: StartUpLibRepositoriesApp.tgz
+	$(TAR) xfz StartUpLibRepositoriesApp.tgz
+	rm -f ./StartUpLibRepositories.app/Contents/MacOS/uplib-check-angel
+	echo "#!@BOURNE_SHELL@" > ./StartUpLibRepositories.app/Contents/MacOS/uplib-check-angel
+	echo '"@UPLIB_BIN@/uplib-check-angel" >/dev/console 2>&1'  >> ./StartUpLibRepositories.app/Contents/MacOS/uplib-check-angel
+	chmod 755 ./StartUpLibRepositories.app/Contents/MacOS/uplib-check-angel
+	/Developer/Tools/SetFile -t APPL StartUpLibRepositories.app
+	touch StartUpLibRepositories.app
+
+ScanSnapUpLib.scpt: ScanSnapUpLib.applescript
+	osacompile -o ScanSnapUpLib.scpt ScanSnapUpLib.applescript
+
+install:  all
+	if test ! -d "@MACOSX_APP_DIRECTORY@"; then \
+	   	install -d "@MACOSX_APP_DIRECTORY@"; \
+	fi
+	(cd "@MACOSX_APP_DIRECTORY@" && rm -rf $(APPS) $(TOPDF))
+	cp -p -R $(APPS) $(TOPDF) "@MACOSX_APP_DIRECTORY@"
+	install -m 555 uplib-print-pdf-to-repository ScanSnapUpLib.scpt ${BINDIR}
+	-install -m 555 uplib-print-pdf-to-repository '/Library/PDF Services/Save PDF to UpLib'
+	install -m 444 com.parc.uplib.ToPDFAgent.plist $(UPLIB_LIB_DIR)
+dist:
+
+clean:
+	rm -rf $(APPS) $(TOPDF) uplib-print-pdf-to-repository ScanSnapUpLib.scpt com.parc.uplib.ToPDFAgent.plist
+
+uplib-print-pdf-to-repository : uplib-print-pdf-to-repository.in ../../reconfigure
+	(cd ../.. ; ./reconfigure)
+	chmod +x uplib-print-pdf-to-repository
+
+Makefile: Makefile.in ../../reconfigure
+	(cd ../.. ; ./reconfigure)

@@ -1,0 +1,59 @@
+#!@PYTHON@
+# -*- Python -*-
+#
+# This file is part of the "UpLib 1.7.11" release.
+# Copyright (C) 2003-2011  Palo Alto Research Center, Inc.
+# 
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+#
+#
+# $1 is the title of the printed piece
+# $3 is the filename of the temporary PDF file
+#
+
+import sys, os
+
+os.environ['UPLIBLIB'] = r'@UPLIB_LIB@'
+sys.path.append(r'@UPLIB_CODE@')
+
+uplib_add_document = "@UPLIB_BIN@/uplib-add-document"
+
+title = sys.argv[1]
+filename = sys.argv[3]
+
+# figure out repository
+
+from uplib.plibUtil import configurator, subproc, set_verbosity
+set_verbosity(0)
+c = configurator()
+repo = c.get("default-repository")
+if not repo:
+    from uplib.plibUtil import get_known_repositories
+    repos = get_known_repositories()
+    if repos:
+        repo = repos[0][0]
+
+if repo:
+    status, output, tsignal = subproc("%s --nopassword --verbosity=0 --title=\"%s\" --repository=\"%s\" \"%s\"" %
+                                      (uplib_add_document, title, repo, filename))
+    if status == 0:
+        sys.stderr.write("Document \"%s\" uploaded to %s as %s.\n" % (title, repo, output.strip()))
+        os.unlink(filename)
+    else:
+        sys.stderr.write("Upload of \"%s\" to %s failed with status %s.  Output was:\n%s\n" %
+                         (title, repo, status, output))
+else:
+    sys.stderr.write("No UpLib repository found.\n")
+

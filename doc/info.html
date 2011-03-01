@@ -1,0 +1,71 @@
+<head><title>UpLib Help</title>
+<!--
+   This file is part of the "UpLib 1.7.11" release.
+   Copyright (C) 2003-2011  Palo Alto Research Center, Inc.
+   
+   This program is free software; you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation; either version 2 of the License, or
+   (at your option) any later version.
+   
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+   
+   You should have received a copy of the GNU General Public License along
+   with this program; if not, write to the Free Software Foundation, Inc.,
+   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+-->
+</head>
+<body bgcolor="#e0f0f8">
+<table bgcolor="#c0d8e8" width=100%><tr>
+<td><table width=100%><tr>
+<td width=30% align=left><h2>UpLib Help</h2></td>
+<td width=10% align=center><a href="/" border=0><img src="/html/images/icon16.png" border=0></a></td>
+<td width=40% align=center><small>
+<a href="searching.html">Searching</a> &middot;
+<a href="collections.html">Collections</a> &middot;
+<a href="extensions.html">Extensions</a> &middot;
+<a href="FAQ.html">FAQ</a> &middot;
+<a href="../doc/index.html">Manual</a> &middot;
+<a href="about.html">About UpLib</a>
+</small></td>
+<td width=20% align=right><font size="-1" color="#ffffff">UpLib 1.7.11</font>
+<font size="-2" color="#e0f0f8">&nbsp;&middot;&nbsp;PARC / ISL</font></td></tr></table></td></tr>
+</table>
+<HR>
+<P><B>Searching</B><BR>
+<BLOCKQUOTE><P>UpLib search is based on the <A HREF="http://jakarta.apache.org/lucene/docs/index.html">Lucene full-text search engine</A> from the <A HREF="http://www.apache.org/">Apache</A> project.  When you run a search, it selects the set of documents matching that search, and shows them to you.
+<p>A simple way to search is to type in a word or two, then hit return.  The search engine will look for any documents that have any of those words in any of their fields, and return them, ranked according to an arcane scoring system which tries to put the documents best satisfying the search at the beginning.
+<P><A HREF="searching.html">More on searching...</A></blockquote>
+<P><B>Collections</B><BR>
+<BLOCKQUOTE>
+<P>UpLib supports collections of documents.  Currently, the user interface only allows you to make <i>query collections</i>, which are sets of document corresponding to the results of some search.  This search is re-run whenever you call for the collection, so these collections are dynamic, in that they may include documents added to the repository after the collection was created.
+<P><A HREF="collections.html">More on collections...</A>
+</BLOCKQUOTE>
+<P><B>Extensions</B><BR>
+<BLOCKQUOTE>
+<p>The UpLib system can be changed by adding modules of code called <i>extensions</i> to repositories.  An extension can modify existing functionality or add new functionality.  Extensions are written in the <a href="http://www.python.org/">Python</a> programming language.  There are two basic classes of extensions:  <i>initializers</i>, which change or augment the underlying automatic functionality of the repository, and <i>actions</i>, which add functions to be explicitly invoked by a client of the repository service.
+<P><A HREF="extensions.html">More on extensions...</A>
+</BLOCKQUOTE>
+<P><B>FAQ</B><BR>
+<BLOCKQUOTE>
+<P>Why does it take so long?  How do I recover a forgotten password?  And more!
+<P><A HREF="FAQ.html">Your favorite questions...</A>
+</BLOCKQUOTE>
+<P><B>User Manual</B><BR>
+<BLOCKQUOTE>
+<P><a href="../doc/index.html">HTML version</a>
+<P><a href="../doc/manual.pdf">PDF version</a>
+</BLOCKQUOTE>
+<P><B>UpLib Internal APIs</B><BR>
+<BLOCKQUOTE>
+<P><a href="../doc/api/index.html">Auto-generated epydoc internal API documentation</a>
+<P><a href="../doc/java/index.html">Auto-generated javadoc for Java client API</a>
+</BLOCKQUOTE>
+<P><B>Miscellanea</B>
+<BLOCKQUOTE>
+<P><a href="about.html">Version number, copyright, and usage rights information</a>
+</BLOCKQUOTE>
+</BODY>

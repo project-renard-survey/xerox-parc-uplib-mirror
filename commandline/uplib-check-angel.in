@@ -1,0 +1,688 @@
+#!@PYTHON@
+# -*- Python -*-
+#
+# This file is part of the "UpLib 1.7.11" release.
+# Copyright (C) 2003-2011  Palo Alto Research Center, Inc.
+# 
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+#
+
+import sys, os, string, traceback, signal, time, shutil, socket, urllib2, httplib, tempfile, subprocess, platform
+
+# make sure our code library is on the load path
+if not r'@UPLIB_CODE@' in sys.path:
+    sys.path.insert(0, r'@UPLIB_CODE@')
+
+# make sure the environ has UPLIBLIB; this is for the benefit of plibUtil.configurator()
+if not os.environ.has_key(r'UPLIBLIB'):
+    os.environ['UPLIBLIB'] = r'@UPLIB_LIB@'
+
+from uplib.plibUtil import true, false, note, update_metadata, getpass, set_verbosity, subproc, get_fqdn, get_known_repositories, configurator, get_machine_id, read_metadata
+from uplib.webutils import parse_URL
+
+PING_URL = "%s://127.0.0.1:%s/ping"
+
+quiet = False
+USE_STUNNEL = @USE_STUNNEL@
+USE_HTTP = False
+stunnel_version = 4
+if USE_STUNNEL:
+    stunnel_version = int("@STUNNEL_VERSION@")
+
+def read_pid_file (fname):
+    if os.path.exists(fname):
+        return int(open(fname, 'r').read().strip())
+    else:
+        return None
+
+def figure_site_packages_dirs():
+    # Note too that this code needs to be kept in sync with the code in
+    # unix/linux/build-linux-installation.csh, which also figures out where
+    # to put things
+    import distutils.sysconfig as sc
+    nonplat = os.path.normpath(sc.get_python_lib(plat_specific=False, prefix='@UPLIB_HOME@'))
+    platspec = os.path.normpath(sc.get_python_lib(plat_specific=True, prefix='@UPLIB_HOME@'))
+    if nonplat == platspec:
+        return [nonplat]
+    else:
+        return [nonplat, platspec]
+
+def get_windows_service (repo_root):
+    import win32service
+    stunnel_port = read_pid_file(os.path.join(repo_root, "overhead", "stunnel.port"))
+    if (stunnel_port):
+        sname = "UpLibGuardianAngel_%d" % stunnel_port
+        manH = win32service.OpenSCManager(None,None,win32service.SC_MANAGER_ALL_ACCESS)
+        return win32service.OpenService(manH,sname,win32service.SERVICE_ALL_ACCESS), stunnel_port
+    else:
+        raise ValueError("Invalid stunnel.port file")
+    
+def windows_ping_angel (repo_root, timeout, cert=None):
+    global USE_STUNNEL, USE_HTTP
+    import win32service
+    # returns status, output, tsig just as from subproc
+    status = 0
+    serveH, port = get_windows_service (repo_root)
+    if serveH:
+        try:
+            start = time.time()
+            status = win32service.QueryServiceStatus(serveH)[1]
+            now = time.time()
+            while (((now - start) < timeout) and (status == win32service.SERVICE_START_PENDING)):
+                time.sleep(1)
+                status = win32service.QueryServiceStatus(serveH)[1]
+                now = time.time()
+            if (status == win32service.SERVICE_RUNNING):
+                # now try to connect to it
+                certfilepath = get_cert_file_path(repo_root)
+                while ((now - start) < timeout):
+                    socket.setdefaulttimeout(float(timeout - (now - start)))
+                    try:
+                        host, junkport, path = parse_URL(PING_URL % ("https", port))
+                        if (USE_HTTP or USE_STUNNEL):
+                            h = httplib.HTTP("127.0.0.1", port)
+                        else:
+                            h = httplib.HTTPS("127.0.0.1", port, cert_file=certfilepath, key_file=certfilepath)
+                        h.putrequest('GET', path)
+                        h.endheaders()
+                        errcode, errmsg, headers = h.getreply()
+                        data = h.file.read()
+                        h.file.close()
+                        if errcode == 200:
+                            return 0, "", 0
+                        print errcode, errmsg, data
+                    except socket.timeout:
+                        return 1, "timeout (%s seconds) attempting to contact repository\n", 0
+                    except socket.error, x:
+                        # if the socket isn't open yet, we'd expect I/O error 10061
+                        #print 'socket.error: ', x
+                        pass
+                    except Exception, x:
+                        return 1, "can't contact repository:  %s" % ''.join(traceback.format_exception(*sys.exc_info())), 0
+                    except:
+                        return 1, "weird failure status on attempt to open 127.0.0.1:%s with timeout %s" % (port, timeout), 0
+                    time.sleep(1)
+                    now = time.time()
+        finally:
+            win32service.CloseServiceHandle(serveH)
+        return 1, "Something odd occurred", 0
+    else:
+        return 1, "Can't find specified service at %s" % repo_root, 0
+
+def windows_ping_stunnel (repo_root, timeout):
+    # returns status, output, tsig just as from subproc
+    # no real way to do this on windows, so just ping angel again
+    return windows_ping_angel(repo_root, timeout)
+
+def windows_stop_angel (repo_root, shutdown_period=15):
+    import win32service
+    serveH, port = get_windows_service (repo_root)
+    start = time.time()
+    if serveH:
+        try:
+            if (win32service.QueryServiceStatus(serveH)[1] == win32service.SERVICE_RUNNING):
+                win32service.ControlService(serveH, win32service.SERVICE_CONTROL_STOP)
+            now = time.time()
+            while ((now - start) < shutdown_period) and (win32service.QueryServiceStatus(serveH)[1] != win32service.SERVICE_STOPPED):
+                time.sleep(1)
+                now = time.time()
+            return (win32service.QueryServiceStatus(serveH)[1] == win32service.SERVICE_STOPPED)
+        finally:
+            win32service.CloseServiceHandle(serveH)
+
+def windows_start_angel (repo_root, startup_period=5):
+    import win32service
+    serveH, port = get_windows_service (repo_root)
+    if serveH:
+        start = time.time()
+        try:
+            if (win32service.QueryServiceStatus(serveH)[1] == win32service.SERVICE_STOPPED and
+                win32service.QueryServiceConfig(serveH)[1] == win32service.SERVICE_AUTO_START):
+                win32service.StartService(serveH, None)
+            now = time.time()
+            while ((now - start) < startup_period) and (win32service.QueryServiceStatus(serveH)[1] != win32service.SERVICE_RUNNING):
+                time.sleep(1)
+                now = time.time()
+            return (win32service.QueryServiceStatus(serveH)[1] == win32service.SERVICE_RUNNING)
+        finally:
+            win32service.CloseServiceHandle(serveH)
+
+def unix_ping(url, timeout, cert=None):
+    global USE_HTTP
+    socket.setdefaulttimeout(float(timeout))
+    try:
+        host, port, path = parse_URL(url)
+        if USE_HTTP:
+            h = httplib.HTTP(host, port)
+        else:
+            h = httplib.HTTPS(host, port, cert_file=cert, key_file=cert)
+        h.putrequest('GET', path)
+        h.endheaders()
+        errcode, errmsg, headers = h.getreply()
+        h.file.close()
+        return (errcode == 200), errmsg
+    except socket.timeout:
+        return False, "timeout (%s seconds) attempting to contact repository\n"
+    except socket.error, x:
+        return False, "error attempting to contact repository: %s\n" % str(x)
+    except Exception, x:
+        return False, "can't contact repository:  %s" % ''.join(traceback.format_exception(*sys.exc_info()))
+    return False, "weird failure status on attempt to open %s with timeout %s" % (url, timeout)
+
+def get_cert_file_path (directory):
+    certfilepath = None
+    certpathpath = os.path.join(directory, "overhead", "angel.certpath")
+    if os.path.exists(certpathpath):
+        possiblepath = open(certpathpath, 'r').read().strip()
+        if os.path.exists(possiblepath):
+            certpathpath = possiblepath
+    return certfilepath
+
+def unix_ping_angel (directory, timeout):
+    global USE_HTTP, USE_STUNNEL
+    angel_port = read_pid_file(os.path.join(directory, "overhead", "angel.port"))
+    scheme = (USE_STUNNEL or USE_HTTP) and "http" or "https"
+    if angel_port is not None:
+        certfilepath = get_cert_file_path(directory)
+        status, output = unix_ping(PING_URL % (scheme, angel_port), timeout, certfilepath)
+        statuscode = ((not status) and 1) or 0
+        return statuscode, output, None
+    else:
+        raise ValueError("Invalid angel.port file")
+
+def unix_ping_stunnel (directory, timeout):
+    angel_port = read_pid_file(os.path.join(directory, "overhead", "stunnel.port"))
+    if angel_port is not None:
+        certfilepath = get_cert_file_path(directory)
+        status, output = unix_ping(PING_URL % ("https", angel_port), timeout, certfilepath)
+        statuscode = ((not status) and 1) or 0
+        return statuscode, output, None
+    else:
+        raise ValueError("Invalid stunnel.port file")
+
+def unix_stop_angel (directory, shutdown_period=15):
+
+    def mykill(pid, sig):
+        if pid is not None:
+            try:
+                #note(0, "sending signal %s to process %s...", sig, pid)
+                os.kill(pid, sig)
+            except OSError, x:
+                #note(0, "kill raises OSError %s", x)
+                raise
+            except:
+                #note(0, "kill raises exception %s", sys.exc_info())
+                raise
+            else:
+                return
+        else:
+            raise ValueError("null pid")
+
+    if not quiet: sys.stdout.write("stopping angel for %s...\n" % directory)
+
+    if sys.platform == "darwin":
+        # assume using launchd
+        fp = open(os.path.join(directory, "overhead", "LAUNCHD_BLOCKED"), "w")
+        # this keeps the instant restart by launchd from having an effect
+        fp.write(time.ctime())
+        fp.close()
+
+    # stop stunnel
+    pid = read_pid_file(os.path.join(directory, "overhead", "stunnel.pid"))
+    if pid:
+        #note(0, "killing stunnel process at %s", pid)
+        try:
+            mykill(pid, signal.SIGKILL)
+        except OSError, x:
+            if x.errno == 3:
+                if not quiet: sys.stderr.write("No such stunnel process %s\n" % pid)
+            else:
+                raise
+        
+    # stop angel (use SIGTERM to allow it to checkpoint files)
+    pid = read_pid_file(os.path.join(directory, "overhead", "angel.pid"))
+    #note(0, "angel process id is %s", pid)
+    # might not be there -- if the repo has never been started before
+    if pid:
+        try:
+            mykill(pid, signal.SIGTERM)
+        except OSError, x:
+            if x.errno == 3:
+                # already gone
+                pass
+            else:
+                raise
+        
+    start = now = time.time()
+    while ((now - start) < shutdown_period):
+        time.sleep(1)
+        now = time.time()
+        # we assume that this signal will be ignored by the UpLib server
+        #note(0, "checking to see if process %s still exists...", pid)
+        try:
+            mykill(pid, signal.SIGCONT)
+        except OSError, x:
+            if x.errno == 3:
+                # specified process doesn't exist
+                break
+            else:
+                if not quiet: sys.stderr.write("Sending SIGCONT to process %s raised %s\n" % (pid, str(sys.exc_info())))
+        except:
+            if not quiet: sys.stderr.write("Sending SIGCONT to process %s raised %s\n" % (pid, str(sys.exc_info())))
+        else:
+            # signal was sent and absorbed
+            pass
+
+    # see if we stopped them
+    status, output, sig = unix_ping_angel(directory, 10)
+    if (status == 0):
+        # didn't stop angel -- try harder
+        sys.stderr.write("Didn't stop guardian angel (process %s)!  Trying again with 'kill -9'...\n" % pid)
+        try:
+            mykill(pid, signal.SIGKILL)
+        except OSError, x:
+            if x.errno == 3:
+                # specified process doesn't exist
+                pass
+            else:
+                if not quiet: sys.stderr.write("Sending SIGKILL to process %s raised %s\n" % (pid, str(sys.exc_info())))
+        except:
+            if not quiet: sys.stderr.write("Sending SIGKILL to process %s raised %s\n" % (pid, str(sys.exc_info())))
+        else:
+            # signal was sent and absorbed
+            pass
+        status, output, sig = unix_ping_angel(directory, 10)
+        if (status == 0):
+            sys.stderr.write("Didn't stop guardian angel (process %s)!  Giving up.\n" % pid)
+            return False
+    return True
+
+def unix_start_angel (directory, startup_period=5):
+
+    if not quiet: sys.stdout.write("starting angel for %s...\n" % directory)
+    if os.path.exists(os.path.join(directory, "overhead", "stunnel.log")):
+        os.rename(os.path.join(directory, "overhead", "stunnel.log"),
+                  os.path.join(directory, "overhead", time.strftime("stunnel.log-%Y-%m-%d-%H:%M:%S", time.localtime())))
+    stunnel_port = read_pid_file(os.path.join(directory, "overhead", "stunnel.port"))
+    angel_port = read_pid_file(os.path.join(directory, "overhead", "angel.port"))
+    if angel_port is None or stunnel_port is None:
+        sys.stderr.write("Invalid stunnel.port or angel.port file in repository overhead subdirectory.\n")
+        sys.exit(1)
+
+    if not USE_STUNNEL:
+        if (stunnel_port != angel_port):
+            # need to adapt these
+            angel_port = stunnel_port
+            fp = open (os.path.join(directory, "overhead", "angel.port"), "w")
+            fp.write(str(angel_port))
+            fp.close()
+    else:
+        if (stunnel_port == angel_port):
+            # whoops -- back adapt
+            angel_port = stunnel_port + 1
+            fp = open (os.path.join(directory, "overhead", "angel.port"), "w")
+            fp.write(str(angel_port))
+            fp.close()
+
+    fp = open(os.path.join(directory, "overhead", "host.fqdn"), "w");
+    fp.write(get_fqdn());
+    fp.close();
+
+    certfilepath = os.path.join(directory, "overhead", get_fqdn() + ".pem")
+    if not os.path.exists(certfilepath):
+        certfilepath = os.path.join(directory, "overhead", "stunnel.pem")
+        if not os.path.exists(certfilepath):
+            # create the stunnel certificate
+            shutil.copyfile(os.path.join("@UPLIB_LIB@", "stunnel.pem"), certfilepath)
+            os.chmod(certfilepath, 0600)
+
+    if USE_STUNNEL and (stunnel_version == 4):
+        # re-write the config file
+        conffilepath = os.path.join(directory, "overhead", "stunnel.conf")
+        fp = open(conffilepath, "w")
+        fp.write("cert = %s\n" % certfilepath +
+                 "output = %s\n" % os.path.join(directory, "overhead", "stunnel.log") +
+                 "pid = %s\n" % os.path.join(directory, "overhead", "stunnel.pid") +
+                 "foreground = no\n" +
+                 # "ciphers = kEDH\n" +
+                 # "options = SINGLE_DH_USE\n" +
+                 "\n" +
+                 "[uplib]\n" +
+                 "accept = %s\n" % stunnel_port +
+                 "connect = %s\n" % angel_port )
+        fp.close()
+        os.chmod(conffilepath, 0600)
+
+    angelout_log_path = os.path.join(directory, "overhead", "angelout.log")
+    if os.path.exists(angelout_log_path) and (os.path.getsize(angelout_log_path) > 0):
+        (yr, mo, day, hr, min, sec, wd, jday, dst) = time.localtime(time.time())
+        try:
+            newname = 'angelout.ends%04d%02d%02d.log' % (yr, mo, day)
+            os.rename(angelout_log_path, os.path.join(directory, "overhead", newname))
+        except:
+            sys.stderr.write("Can't move angelout.log file -- ignoring\n")
+
+            
+    if sys.platform == "darwin":
+
+        def darwin_sudo (command, password):
+            # When sudo asks for a password, it writes "Password:" to stderr.
+            # When it reads a bad password from stdin it writes "Sorry, try again." also to stderr.
+            p = subprocess.Popen("sudo -S " + command, stdin=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+            try:
+                p.stdin.write(password + "\n")
+                p.stdin.close()
+            finally:
+                p.wait()
+                return p.returncode == 0
+
+        import pwd
+
+        username = pwd.getpwuid(os.getuid())[0]
+        plist_file_path = os.path.join("/Library/LaunchDaemons/com.parc.uplib.%s.%s.plist" % (username, stunnel_port))
+        using_launchd = os.path.exists(plist_file_path)
+        #note(0, "using launchd is %s", using_launchd)
+        # and actually restart it, while we're here, by removing the block file
+        blockfile = os.path.join(directory, "overhead", "LAUNCHD_BLOCKED")
+        if os.path.exists(blockfile):
+            #note(0, "removing block file %s", blockfile)
+            os.unlink(blockfile)
+        if using_launchd:
+            # add some time to accommodate the 'throttle' parameter
+            import plistlib
+            plist = plistlib.readPlist(plist_file_path)
+            # if we've changed UpLib locations, we need to re-write this file
+            envvars = plist['EnvironmentVariables']
+            libloc = envvars['UPLIBLIB']
+            if not os.path.samefile(libloc, r'@UPLIB_LIB@'):
+                # need to re-write the plist
+                envvars['UPLIBLIB'] = r'@UPLIB_LIB@'
+                envvars['UPLIBCODE'] = r'@UPLIB_CODE@'
+                plist['EnvironmentVariables'] = envvars
+                fd, tfilename = tempfile.mkstemp()
+                fp = os.fdopen(fd, "wb")
+                plistlib.writePlist(plist, fp)
+                fp.close()
+                os.system("cat '%s'" % tfilename)
+                # now we need to write it, as root, so get an admin password...
+                password = os.environ.get("DARWIN_ADMIN_PASSWORD")
+                if not password:
+                    sys.stdout.write("The location of UpLib has changed since you created this repository,\n"
+                                     "so we need to update the launchd plist for the repository.\n"
+                                     "To do this, we need an admin password to change the plist.\n")
+                    sys.stdout.flush()
+                    password = getpass("Password: ")
+                if not password:
+                    sys.stderr.write("Can't update repository launchd plist; need an admin password for '%s'\n" % username)
+                    sys.exit(1)
+                else:
+                    if not darwin_sudo("date >/dev/null", password):
+                        sys.stderr.write("Password doesn't work for user '%s'\n" % username)
+                        sys.exit(1)
+                darwin_sudo("/bin/launchctl unload -F '%s';" % plist_file_path, password)
+                darwin_sudo("/bin/rm -f '%s';" % plist_file_path, password)
+                darwin_sudo("/bin/cp -p '%s' '%s';" % (tfilename, plist_file_path), password)
+                darwin_sudo("/bin/chown root '%s';" % plist_file_path, password)
+                darwin_sudo("/bin/chmod 444 '%s';" % plist_file_path, password)
+                darwin_sudo("/bin/rm -f '%s';" % tfilename, password)
+                darwin_sudo("/bin/launchctl load -F '%s';" % plist_file_path, password)
+            issuecommandtime = time.time()
+            # now find out how long to wait for it to start up again
+            if 'ThrottleInterval' in plist:
+                interval = int(plist['ThrottleInterval'])
+                startup_period += (2 * interval)
+            else:
+                startup_period += (2 * 10)
+    else:
+        using_launchd = False
+
+    if not using_launchd:
+
+        site_packages_dirs = figure_site_packages_dirs()
+
+        # we'd like to background this, but issues with PyLucene prevent that for now
+        cmd = ('@PYTHON@ -c "import sys; ' +
+               ''.join([('sys.path.insert(0, \'%s\'); ' % dir) for dir in site_packages_dirs]) +
+               'sys.path.insert(0, \'@UPLIB_CODE@\'); '
+               'import uplib.service; '
+               'uplib.service.daemon(\'@UPLIB_HOME@\', \'@UPLIB_CODE@\', \'%s\', %s);" > "%s" 2>&1 &' % (
+                   directory, angel_port, angelout_log_path))
+        #note(0, "startup command is <<%s>>", cmd)
+        issuecommandtime = time.time()
+        status, output, sig = subproc(cmd)
+        if (status != 0):
+            if not quiet: sys.stderr.write("Couldn't start angel!  Status %s, output: %s\n" % (status, output))
+            sys.exit(1)
+
+        if not USE_STUNNEL:
+
+            # no stunnel, but write stunnel.pid anyway
+            fp = open(os.path.join(directory, "overhead", "stunnel.pid"), 'w')
+            fp.write("0\n")
+            fp.close()
+
+            fp = open(os.path.join(directory, "overhead", "stunnel.log"), 'a')
+            fp.write("*** stunnel not used -- using built-in SSL module instead\n")
+            fp.close()
+
+        elif stunnel_version == 4:
+
+            time.sleep(10)
+
+            cmd = "(@STUNNEL@ \"%s\" 2>&1 &)" % conffilepath
+            status, output, sig = subproc(cmd)
+            if (status != 0):
+                if not quiet:  sys.stderr.write("Couldn't start stunnel!  Status %s, output: %s\n" % (status, output))
+                sys.exit(1)
+
+        else:
+
+            time.sleep(10)
+
+            # stunnel version 3
+            cmd = "@STUNNEL@ -D 7  -d %s -r %s -p \"%s\" -o \"%s\" -P \"%s\"" % (
+                stunnel_port, angel_port,
+                os.path.join("@UPLIB_LIB@", "stunnel.pem"),
+                os.path.join(directory, "overhead", "stunnel.log"),
+                os.path.join(directory, "overhead", "stunnel.pid"))
+            status, output, sig = subproc(cmd)
+            if (status != 0):
+                if not quiet: sys.stderr.write("Couldn't start stunnel!  Status %s, output: %s\n" % (status, output))
+                sys.exit(1)
+
+    startwaiting = time.time()
+    angel_started_path = os.path.join(directory, "overhead", "angel.started")
+    while ((time.time() - startwaiting) < startup_period):
+        if os.path.exists(angel_started_path):
+            modtime = os.path.getmtime(angel_started_path)
+            if modtime > issuecommandtime:
+                #note(0, "angel.started is modified")
+                fp = open(angel_started_path)
+                data = float(fp.read().strip())
+                fp.close()
+                if abs(time.time() - data) < 3:
+                    #note(0, "(time.time() - data) = %s", time.time() - data)
+                    break
+        time.sleep(1.0)
+        
+    status, output, sig = unix_ping_stunnel(directory, 10)
+    if status != 0 and (not quiet):
+        sys.stderr.write("Couldn't start UpLib server.  (Bad status %s: %s.)\n" % (status, output))
+        if (not os.path.exists(angelout_log_path)) or os.path.getsize(os.path.join(directory, "overhead", "angelout.log")) == 0:
+            sys.stderr.write("The angelout.log file is empty.\n")
+        else:
+            fp = open(os.path.join(directory, "overhead", "angelout.log"), 'r')
+            sys.stderr.write("The angelout.log file contains the following:\n")
+            for l in fp:
+                sys.stderr.write(l)
+            fp.close()
+        lines = open(os.path.join(directory, "overhead", "angel.log"), 'r').readlines()
+        for line in lines[max(0, len(lines)-20):]:
+            sys.stderr.write(line)
+        sys.exit(1)
+    else:
+        if not quiet: sys.stdout.write("UpLib guardian angel successfully started.\n")
+        return
+
+def start_angel (directory, startup_period=5):
+    if sys.platform.startswith("win"):
+        windows_start_angel(directory, startup_period=startup_period)
+    else:
+        unix_start_angel(directory, startup_period=startup_period)
+
+def stop_angel (directory, shutdown_period=15):
+    if sys.platform.startswith("win"):
+        return windows_stop_angel(directory, shutdown_period)
+    else:
+        return unix_stop_angel(directory, shutdown_period)
+
+def ping_stunnel(directory, timeout):
+    if sys.platform.startswith("win"):
+        if windows_ping_stunnel(directory, timeout):
+            status = 0
+        else:
+            status = 1
+    else:
+        status, output, sig = unix_ping_stunnel(directory, timeout)
+    if status != 0:
+        #if not quiet: sys.stderr.write("bad status on ping of stunnel:  %s, output is %s\n" % (status, output.strip()))
+        return False
+    else:
+        return True
+
+def ping_angel(directory, timeout):
+    if sys.platform.startswith("win"):
+        status, output, sig = windows_ping_angel(directory, timeout)
+    else:
+        status, output, sig = unix_ping_stunnel(directory, timeout)
+    if status != 0:
+        #if not quiet: sys.stderr.write("bad status on ping of repository:  %s, output is %s\n" % (status, output.strip()))
+        return False
+    else:
+        return True
+
+
+def usage():
+    sys.stderr.write("Usage:  %s [--stop | --restart | --check | --start ] [--quiet] REPO-DIRECTORY\n" % sys.argv[0])
+    sys.exit(1)
+
+if __name__ == "__main__":
+    startit = False
+    stopit = False
+    checkit = True
+    listit = False
+    repodirs = None
+    doing_known_repositories = False
+
+    if ("--quiet" in sys.argv):
+        set_verbosity(0)
+
+    conf = configurator()
+
+    import getopt
+    possible_opts = ["stop", "restart", "check", "start", "quiet", "list"]
+    try:
+        optlist, repodirs = getopt.getopt(sys.argv[1:], "", possible_opts)
+        for o, a in optlist:
+            if o == '--stop':
+                startit = False
+                stopit = True
+                checkit = False
+            elif o == '--restart':
+                startit = True
+                stopit = True
+                checkit = False
+            elif o == '--start':
+                startit = True
+                stopit = False
+                checkit = False
+            elif o == '--check':
+                startit = False
+                stopit = False
+                checkit = True
+            elif o == '--list':
+                startit = False
+                stopit = False
+                checkit = False
+                listit = True
+            elif o == '--quiet':
+                quiet = True
+
+    except getopt.GetoptError, x:
+        usage()
+    
+    if not repodirs:
+        repodirs = [repo[0] for repo in get_known_repositories()]
+        doing_known_repositories = True
+    else:
+        repodirs = [x.strip('\'"') for x in repodirs]
+
+    exitstatus = 1
+    fqdn = get_fqdn()
+    machineid = get_machine_id()
+    for repodir in repodirs:
+
+        if not os.path.exists(repodir) or not os.path.isdir(repodir):
+            sys.stderr.write("No repository at specified location %s.\n" % repodir)
+            continue
+
+        repo_metadata = read_metadata(os.path.join(repodir, "overhead", "metadata.txt"))
+
+        port = read_pid_file(os.path.join(repodir, "overhead", "stunnel.port"))
+
+        sections = []
+        if machineid:
+            sections.append("%s:%s" % (machineid, os.path.abspath(repodir)))
+            sections.append("%s:%s" % (machineid, port))
+        if fqdn:
+            sections.append("%s:%s" % (fqdn, os.path.abspath(repodir)))
+            sections.append("%s:%s" % (fqdn, port))
+        if machineid:
+            sections.append(machineid)
+        if fqdn:
+            sections.append(fqdn)
+        sections.append("default")
+        shutdown_timeout = conf.get_int("shutdown-timeout", 30, tuple(sections))
+        startup_timeout = conf.get_int("startup-timeout", 30, tuple(sections))
+        USE_HTTP = (repo_metadata.get("use-http") == "true") or conf.get_bool("use-http", False, tuple(sections))
+        USE_STUNNEL = conf.get_bool("use-stunnel", False, tuple(sections))
+        #note(0, "sections are %s, startup_timeout is %s, shutdown_timeout is %s, USE_HTTP is %s, USE_STUNNEL is %s",
+        #     sections, startup_timeout, shutdown_timeout, USE_HTTP, USE_STUNNEL)
+
+        exitstatus = 0
+        startthisone = False
+        stopthisone = False
+        
+        running = ping_stunnel(repodir, 90)
+
+        if stopit or stopthisone:
+            v = stop_angel(repodir, shutdown_period=shutdown_timeout)
+            if not v:
+                sys.exit(1)
+
+        if startit or startthisone:
+            start_angel (repodir, startup_period=startup_timeout)
+            running = ping_stunnel(repodir, 90)
+
+        if checkit:
+            if not running:
+                exitstatus = 1
+
+        if listit:
+            sys.stdout.write("%s: %s (%s)\n" % (running and "running" or "stopped", repodir, port))
+
+
+    sys.exit(exitstatus)
+        

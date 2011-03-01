@@ -1,0 +1,28 @@
+*** src/appl/tmrdemo.c	2007-01-19 12:43:08.000000000 -0800
+--- src/appl/tmrdemo.c	2010-04-12 16:26:03.000000000 -0700
+***************
+*** 1,5 ****
+--- 1,9 ----
+  #include <jasper/jasper.h>
+  
++ #if (defined(_WIN32) && defined(HAVE_WINDOWS_H))
++ #include <windows.h>
++ #endif
++ 
+  int main(int argc, char **argv)
+  {
+  	int i;
+***************
+*** 43,49 ****
+--- 47,57 ----
+  	printf("zero time %.3f us\n", t * 1e6);
+  
+  	jas_tmr_start(&tmr);
++ #if (defined(_WIN32) && defined(HAVE_WINDOWS_H))
++         Sleep(1000);
++ #else
+  	sleep(1);
++ #endif
+  	jas_tmr_stop(&tmr);
+  	t = jas_tmr_get(&tmr);
+  	printf("time delay %.8f s\n", t);

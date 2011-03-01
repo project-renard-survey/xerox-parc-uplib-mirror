@@ -1,0 +1,2 @@
+This installs UpLib, the extensible personal digital library system
+from PARC's Information Sciences and Technology Laboratory.

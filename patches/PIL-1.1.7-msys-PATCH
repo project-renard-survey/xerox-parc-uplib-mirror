@@ -1,0 +1,115 @@
+*** libImaging/Access.c	2009-10-31 17:44:12.000000000 -0700
+--- libImaging/Access.c	2010-04-04 19:42:39.000000000 -0700
+***************
+*** 32,38 ****
+  {
+      UINT32 i = hash(mode);
+      /* printf("hash %s => %d\n", mode, i); */
+!     if (access_table[i].mode) {
+          fprintf(stderr, "AccessInit: hash collision: %d for both %s and %s\n",
+                  i, mode, access_table[i].mode);
+          exit(1);
+--- 32,38 ----
+  {
+      UINT32 i = hash(mode);
+      /* printf("hash %s => %d\n", mode, i); */
+!     if (access_table[i].mode && (strcmp(mode, access_table[i].mode) != 0)) {
+          fprintf(stderr, "AccessInit: hash collision: %d for both %s and %s\n",
+                  i, mode, access_table[i].mode);
+          exit(1);
+diff -rc Imaging-1.1.7/setup.py modImaging-1.1.7/setup.py
+*** setup.py	2009-11-15 08:06:10.000000000 -0800
+--- setup.py	2010-04-01 14:26:12.000000000 -0700
+***************
+*** 15,21 ****
+  
+  def libinclude(root):
+      # map root to (root/lib, root/include)
+!     return os.path.join(root, "lib"), os.path.join(root, "include")
+  
+  # --------------------------------------------------------------------
+  # Library pointers.
+--- 15,24 ----
+  
+  def libinclude(root):
+      # map root to (root/lib, root/include)
+!     if not root:
+!         return None
+!     else:
+!         return os.path.join(root, "lib"), os.path.join(root, "include")
+  
+  # --------------------------------------------------------------------
+  # Library pointers.
+***************
+*** 33,44 ****
+  #
+  # TIFF_ROOT = libinclude("/opt/tiff")
+  
+! TCL_ROOT = None
+! JPEG_ROOT = None
+! ZLIB_ROOT = None
+! TIFF_ROOT = None
+! FREETYPE_ROOT = None
+! LCMS_ROOT = None
+  
+  # FIXME: add mechanism to explicitly *disable* the use of a library
+  
+--- 36,47 ----
+  #
+  # TIFF_ROOT = libinclude("/opt/tiff")
+  
+! TCL_ROOT = libinclude(os.environ.get("PIL_TCL_ROOT"))
+! JPEG_ROOT = libinclude(os.environ.get("PIL_JPEG_ROOT"))
+! ZLIB_ROOT = libinclude(os.environ.get("PIL_ZLIB_ROOT"))
+! TIFF_ROOT = libinclude(os.environ.get("PIL_TIFF_ROOT"))
+! FREETYPE_ROOT = libinclude(os.environ.get("PIL_FREETYPE_ROOT"))
+! LCMS_ROOT = libinclude(os.environ.get("PIL_LCMS_ROOT"))
+  
+  # FIXME: add mechanism to explicitly *disable* the use of a library
+  
+***************
+*** 314,326 ****
+              if feature.freetype_version == 20:
+                  defs.append(("USE_FREETYPE_2_0", None))
+              exts.append(Extension(
+!                 "_imagingft", ["_imagingft.c"], libraries=["freetype"],
+                  define_macros=defs
+                  ))
+  
+          if os.path.isfile("_imagingtiff.c") and feature.tiff:
+              exts.append(Extension(
+!                 "_imagingtiff", ["_imagingtiff.c"], libraries=["tiff"]
+                  ))
+  
+          if os.path.isfile("_imagingcms.c") and feature.lcms:
+--- 317,329 ----
+              if feature.freetype_version == 20:
+                  defs.append(("USE_FREETYPE_2_0", None))
+              exts.append(Extension(
+!                 "_imagingft", ["_imagingft.c"], libraries=["freetype"] + libs,
+                  define_macros=defs
+                  ))
+  
+          if os.path.isfile("_imagingtiff.c") and feature.tiff:
+              exts.append(Extension(
+!                 "_imagingtiff", ["_imagingtiff.c"], libraries=["tiff"] + libs
+                  ))
+  
+          if os.path.isfile("_imagingcms.c") and feature.lcms:
+***************
+*** 328,334 ****
+              if sys.platform == "win32":
+                  extra.extend(["user32", "gdi32"])
+              exts.append(Extension(
+!                 "_imagingcms", ["_imagingcms.c"], libraries=["lcms"] + extra
+                  ))
+  
+          if sys.platform == "darwin":
+--- 331,337 ----
+              if sys.platform == "win32":
+                  extra.extend(["user32", "gdi32"])
+              exts.append(Extension(
+!                 "_imagingcms", ["_imagingcms.c"], libraries=["lcms"] + libs + extra
+                  ))
+  
+          if sys.platform == "darwin":

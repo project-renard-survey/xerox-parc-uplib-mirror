@@ -1,0 +1,106 @@
+roman.py                                                Python licence          Mark Pilgrim
+java/com/parc/uplib/util/Base64.java                    Public Domain
+java/com/parc/uplib/util/BrowserLauncher.java           free-form [1]           browserlauncher.sourceforge.net
+java/com/parc/uplib/util/Rubberband.java                free-form [2]           Michael Barbre
+java/com/parc/uplib/util/ListCookieHandler.java         Berkeley                Sun Microsystems
+java/com/parc/uplib/readup/widget/PieMenu.java          Berkeley                Jason Hong
+java/com/parc/uplib/readup/widget/SwingWorker.java      Berkeley [3]            Sun Microsystems
+java/lucene-core-2.*.jar                                Apache                  lucene.apache.org
+prototype.js                                            MIT-style [4]           Sam Stephenson
+python/uplib/webutils.py                                Python licence [5]      Wade Leftwich
+python/uplib/plibUtil.py.in:OrderedDict                 MIT-style [6]           Raymond Hettinger
+unix/macosx/buildpkg.py                                 BSD                     Dinu Gherman
+
+
+[1] BrowserLauncher licence
+
+ * This code is Copyright 1999-2001 by Eric Albert (ejalbert@cs.stanford.edu)
+ * and may be redistributed or modified in any form without restrictions as long
+ * as the portion of this comment from this paragraph through the end of the
+ * comment is not removed. The author requests that he be notified of any
+ * application, applet, or other binary that makes use of this code, but that's
+ * more out of curiosity than anything and is not required. This software
+ * includes no warranty. The author is not repsonsible for any loss of data or
+ * functionality or any adverse or unexpected effects of using this software.
+
+
+[2] Rubberband licence
+
+ * Rubberband.java
+ * Copyright (c) 2003, J. Michael Barbre
+ * All rights reserved.
+ * 
+ * www.barbre44.com
+ * 
+ * Permission to use, copy, modify, and distribute this software
+ * and its documentation for NON-COMMERCIAL or COMMERCIAL purposes
+ * and without fee is hereby granted provided that the copyright
+ * and messages above appear in all copies. Copyright holder will 
+ * not be held responsible for any unwanted effects due to the 
+ * usage of this software or any derivative. No warrantees for 
+ * usability for any specific application are given or implied.
+
+
+[3] SwingWorker licence
+
+According to
+http://forum.java.sun.com/thread.jspa?threadID=283051&messageID=1118405,
+it's Berkeley.  See http://developer.java.sun.com/berkeley_license.html.
+
+
+[4] prototype.js license
+
+"Prototype is freely distributable under the terms of an MIT-style license."
+"For details, see the Prototype web site: http://prototype.conio.net/"
+
+which says,
+
+Copyright (c) 2005 Sam Stephenson
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+[5] the two functions, encode_multipart_formdata() and http_post_multipart().
+ 
+See http://aspn.activestate.com/ASPN/Cookbook/Python/Recipe/146306.
+
+For licence, see bottom of
+http://aspn.activestate.com/ASPN/Python/Cookbook/, which says, "Except
+where otherwise noted, recipes in the Python Cookbook are published
+under the Python license."
+
+[6] The class OrderedDict is from the PyPI OrderedDict 1.1, which is
+
+Copyright (c) 2009 Raymond Hettinger
+
+Permission is hereby granted, free of charge, to any person
+obtaining a copy of this software and associated documentation files
+(the "Software"), to deal in the Software without restriction,
+including without limitation the rights to use, copy, modify, merge,
+publish, distribute, sublicense, and/or sell copies of the Software,
+and to permit persons to whom the Software is furnished to do so,
+subject to the following conditions:
+
+    The above copyright notice and this permission notice shall be
+    included in all copies or substantial portions of the Software.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+    EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+    OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+    NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+    HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+    WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+    FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+    OTHER DEALINGS IN THE SOFTWARE.

@@ -1,0 +1,19 @@
+*** setup.py	2009-10-28 15:24:16.000000000 -0700
+--- setup.py	2010-03-29 22:08:56.000000000 -0700
+***************
+*** 262,268 ****
+          elif platform == 'win32':
+              jcclib = 'jcc%s.lib' %(debug and '_d' or '')
+              kwds["extra_link_args"] = \
+!                 lflags + ["/IMPLIB:%s" %(os.path.join('jcc', jcclib))]
+              package_data.append(jcclib)
+          else:
+              kwds["extra_link_args"] = lflags
+--- 262,268 ----
+          elif platform == 'win32':
+              jcclib = 'jcc%s.lib' %(debug and '_d' or '')
+              kwds["extra_link_args"] = \
+!                 lflags + ["-Wl,--out-implib,%s" %(os.path.join('jcc', jcclib))]
+              package_data.append(jcclib)
+          else:
+              kwds["extra_link_args"] = lflags

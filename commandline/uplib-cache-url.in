@@ -1,0 +1,78 @@
+#!@PYTHON@
+# -*- Python -*-
+#
+# This file is part of the "UpLib 1.7.11" release.
+# Copyright (C) 2003-2011  Palo Alto Research Center, Inc.
+# 
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+#
+
+import sys, os, re, urlparse, urllib, urllib2, traceback, tempfile, time, hashlib, codecs, types
+from HTMLParser import HTMLParser, HTMLParseError
+
+os.environ['UPLIBLIB'] = r'@UPLIB_LIB@'
+sys.path.append(r'@UPLIB_CODE@')
+
+from uplib.plibUtil import note, set_verbosity, UPLIB_VERSION
+from uplib.webutils import get_extension_for_type, parse_URL, htmlescape, get_cookies, Cache
+
+
+
+if __name__ == "__main__":
+
+    def usage():
+        sys.stderr.write("Usage:  %s [--verbosity=N] [--to=FILENAME-OR-FOLDER-NAME] URL\n" % sys.argv[0])
+        sys.exit(1)
+
+    dest = None
+    verbosity=1
+    argv = sys.argv[1:]
+    if len(argv) < 1:
+        usage()
+    while len(argv) > 1:
+        if argv[0].startswith("--verbosity="):
+            verbosity = int(argv[0][len("--verbosity="):])
+            argv = argv[1:]
+        elif argv[0].startswith("--to="):
+            dest = argv[0][len("--to="):]
+            argv = argv[1:]
+        else:
+            usage()
+    url = argv[0]
+
+    set_verbosity(verbosity)
+
+    if not dest:
+        destdir = tempfile.gettempdir()
+        destfile = "original"
+        use_correct_suffix = True
+    else:
+        destdir, destfile = os.path.split(dest)
+        use_correct_suffix = False
+    if not os.path.exists(destdir):
+        os.makedirs(destdir)
+    elif not os.path.isdir(destdir):
+        sys.stderr.write("Can't create folder %s; already exists\n" % folder)
+        sys.exit(1)
+
+    try:
+        c = Cache(url, os.path.join(destdir, destfile), use_correct_suffix=use_correct_suffix)
+    except:
+        sys.stdout.write(''.join(traceback.format_exception(*sys.exc_info())))
+        sys.exit(1)
+    else:
+        sys.stdout.write(url + " => " + c.filename + "\n")
+        sys.exit(0)
+    

@@ -1,0 +1,68 @@
+.. -*- Mode: rst -*-
+
+.. This file is part of the "UpLib 1.7.11" release.
+.. Copyright (C) 2003-2011  Palo Alto Research Center, Inc.
+.. 
+.. This program is free software; you can redistribute it and/or modify
+.. it under the terms of the GNU General Public License as published by
+.. the Free Software Foundation; either version 2 of the License, or
+.. (at your option) any later version.
+.. 
+.. This program is distributed in the hope that it will be useful,
+.. but WITHOUT ANY WARRANTY; without even the implied warranty of
+.. MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.. GNU General Public License for more details.
+.. 
+.. You should have received a copy of the GNU General Public License along
+.. with this program; if not, write to the Free Software Foundation, Inc.,
+.. 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+
+.. A description of various important metadata fields
+
+   It's written in something called "reStructuredText", which makes it seem a bit
+   odd, if you're looking at the plain text.
+
+   $Id: METADATA.txt,v 1.4 2010/07/16 06:41:20 janssen Exp $
+
+=====================================
+Document Metadata in the UpLib System
+=====================================
+
+.. Bill Janssen
+
+.. $Id: METADATA.txt,v 1.4 2010/07/16 06:41:20 janssen Exp $
+
+Document Metadata
+=================
+
+Each document folder contains a file called metadata.txt.  The format
+of this file is defined in the ARCHITECTURE document, but it's
+basically lines of text, each line containing a field name and a
+string value for that field.  This section describes the contents and
+use of some of those fields.
+
+page-numbers For documents that don't use decimal numbering, don't
+        start on page one, or don't have standard sequential page
+        numbers, this field allows a more flexible assignment of page
+        numbers to pages.  It consists of a sequence of
+        semicolon-separated fields, where each field consists of three
+        comma-separated subfields.  For each field, the three
+        subfields contain, in order, a page-number-type code, a
+        first-page number, and a page index or page index range.  The
+        page-number-type code is either "d", for decimal page numbers,
+        "b", for blank (no page numbers), or "r", for roman numeral
+        page numbers.  The first-page number is the number that should
+        be used for the first page in this sequence; subsequent pages
+        will have monotonically increasing page numbers.  Decimal page
+        numbers should be used for both decimal and roman page spans.
+        For the "b" (blank) number-type code, this field may be
+        ommitted, but the commas separating it from the first and
+        third fields must still be present.  The page index or page
+        range index may be either a single number, giving the
+        zero-based index of the page to label, or two page numbers
+        separated with a hyphen character, giving a range of pages to
+        label.  When a range is specified, both the first page index
+        given and the last one given should be in that range.
+
+title
+        The title of the document.

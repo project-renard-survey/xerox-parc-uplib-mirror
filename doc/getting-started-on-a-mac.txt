@@ -1,0 +1,176 @@
+.. -*- Mode: rst -*-
+
+.. This file is part of the "UpLib 1.7.11" release.
+.. Copyright (C) 2003-2011  Palo Alto Research Center, Inc.
+.. 
+.. This program is free software; you can redistribute it and/or modify
+.. it under the terms of the GNU General Public License as published by
+.. the Free Software Foundation; either version 2 of the License, or
+.. (at your option) any later version.
+.. 
+.. This program is distributed in the hope that it will be useful,
+.. but WITHOUT ANY WARRANTY; without even the implied warranty of
+.. MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.. GNU General Public License for more details.
+.. 
+.. You should have received a copy of the GNU General Public License along
+.. with this program; if not, write to the Free Software Foundation, Inc.,
+.. 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+
+.. instructions for starting up with UpLib on a Mac
+
+   It's written in something called "reStructuredText", which makes it seem a bit
+   odd, if you're looking at the plain text.
+
+   $Id: getting-started-on-a-mac.txt,v 1.9 2010/07/16 06:41:21 janssen Exp $
+
+===================================
+Getting Started with UpLib on a Mac
+===================================
+
+*This document assumes that you've run the Mac installer for UpLib.
+If you haven't, if you've installed manually from the UpLib sources,
+please read the section on putting the UpLib programs
+on your command line, at the bottom.*
+
+Once you've installed UpLib on a Mac, you will need to set up the SSL
+certificates that ensure your security, then make a repository, then
+put documents in that repository.  This manual guides you through the
+steps you'll want to take to set up your environment.
+
+Setting up Security Certificates
+================================
+
+
+Using UpLib certificates with the Safari browser
+------------------------------------------------
+
+You will want to read `the section on how to do this`__, so that you don't
+have to keep re-allowing the UpLib SSL certificate.  You only have to do this once.
+
+__ allowing-ssl-certificates-in-the-safari-browser_
+
+
+Setting up Java certificates for the UpLib Portal
+-------------------------------------------------
+
+This isn't done automatically, so that Java users who already have
+keystores can do it in a fashion suitable for their environment.
+However, if you don't already know about Java keystores, you can just
+follow these directions.
+
+At a Terminal shell, type the following line:
+
+   ``openssl x509 -in /usr/local/uplib/``\ *<version>*\ ``/lib/UpLib-``\ *<version>*\ ``/stunnel.pem -trustout -out /tmp/cert.x509``
+
+where *<version>* is the version of UpLib that you are using.
+
+Create a new Java keystore by typing the following line:
+
+   ``keytool -keystore ~/.keystore -import -file /tmp/cert.x509``
+
+Finally, create a file called ``~/.uplibrc``, and in it, place the lines::
+
+   [default]
+
+   java-default-trust-store: ~/.keystore
+
+This is all explained more fully `here in the USAGE manual`__.
+
+__ uplib-and-java-security_
+
+
+Laptop machine names
+--------------------
+
+Installing UpLib on laptops provides some special issues having to do
+with the machine's name.
+
+Because UpLib is a client-server system, UpLib clients on your laptop
+have to know where to connect to, when they want to talk to an UpLib
+repository.  This is typically done by having the client specify the
+name of the machine to which it wants to connect.  But laptops can
+have many names, which typically differ depending on what network it's
+connected to, or whether it's using hardwired Ethernet or WiFi to
+connect to that network.  This means that the name of your computer can
+change quite a bit.
+
+This causes some problems with security, because there's only one
+hostname in a security certificate, and typically it has to match the
+hostname that the client is using to connect to that machine.
+
+UpLib has some work-arounds for this problem.  First of all, when you are
+using a laptop, you can put the "default repository" setting
+of ``https://127.0.0.1:``\ *<port>*\ ``/``
+in your ``~/.uplibrc`` file, as the value of ``default-repository``.  See `the section
+of the USAGE manual about the uplibrc file`__ for more information on this.
+
+__ the-uplibrc-configuration-file_
+
+However, this still causes issues with Java, which internally usually insists
+on correspondence between machine names and certificate hostnames.  To get around
+this, we tell Java exactly what machine name to expect in the certificate.  You
+can find out what this is by using the command ``hostname`` in a Terminal shell.
+Add a line with this in it to the ``[default]`` section of your ``~/.uplibrc`` file:
+
+    ``java-default-certificate-hostname:``  *machine-name*
+
+where *machine-name* is the name returned by the ``hostname`` command.  You can
+see more information `on this in the USAGE manual`__
+
+__ java-default-certificate-hostname_
+
+Making your repository
+======================
+
+Once you have the certificates set up, you'll want to make a
+new repository.  This is where your UpLib documents are stored.  The
+process for doing this is described `here in the USAGE manual`__.
+Once you've done that, you can point a browser at your repository to
+see that it's empty.
+
+__ creating-a-repository_
+
+Starting the UpLib Portal and UpLib Janitor
+===========================================
+
+The installation will leave an application in
+``/Applications/Utilities``, called the "UpLibPortal".  When you
+start it, it will put a small icon on your desktop, which can be used
+to add documents or find documents.  You can find more information on
+using the Portal `in the USAGE manual here`__.
+
+__ using-the-uplib-portal_
+
+You can also use ``System Preferences`` to put this in the set of programs which start up when you
+login, so that it's always available to you.
+
+There's a similar program called the UpLib Janitor, which allows you
+to monitor the state of UpLib repositories on the machine it's running
+on.  This can also be found in ``/Applications/Utilities``.
+
+Documentation
+=============
+
+There are man pages for the main UpLib programs, ``uplib-make-repository``, ``uplib-add-document``,
+``uplib-get-document``, and ``uplib-check-angel``.  There's also a man page for ``uplib``.
+
+There's a whole `user manual`__, as well.
+
+__ user-manual_
+
+There's also a `PDF version of the user manual`__.
+
+__ pdf-manual_
+
+
+.. _allowing-ssl-certificates-in-the-safari-browser: USAGE.html#adding-the-uplib-certificate-to-your-safari-browser-on-the-mac
+.. _uplib-and-java-security: USAGE.html#uplib-and-java-security
+.. _user-manual: index.html
+.. _pdf-manual: manual.pdf
+.. _using-the-uplib-portal: USAGE.html#the-uplib-portal
+.. _creating-a-repository: USAGE.html#creating-a-repository
+.. _java-default-certificate-hostname: USAGE.html#configuration-options
+.. _the-uplibrc-configuration-file: USAGE.html#the-uplibrc-configuration-file
+.. _USAGE: USAGE.html
+.. _REQUIREMENTS: REQUIREMENTS.html

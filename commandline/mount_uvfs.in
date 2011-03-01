@@ -1,0 +1,119 @@
+#!@PYTHON@
+# -*- Python -*-
+#
+# This file is part of the "UpLib 1.7.11" release.
+# Copyright (C) 2003-2011  Palo Alto Research Center, Inc.
+# 
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+#
+# $Id: mount_uvfs.in,v 1.12 2008/12/09 02:51:44 janssen Exp $
+
+import logging
+import os
+import sys
+import threading
+import time
+import urlparse
+
+os.environ['UPLIBLIB'] = r'@UPLIB_LIB@'
+sys.path.append(r'@UPLIB_CODE@')
+PYTHON = r'@PYTHON@'
+BIN_DIR = r'@UPLIB_BIN_MSYS@'
+
+from uplib.plibUtil import note, configurator, get_fqdn, get_machine_id
+from uplib.fuse import UVFS, UbidocsBackingStore, fetch_url_result
+
+
+def usage():
+    sys.stderr.write("Usage:  %s MOUNTPOINT REPOSITORY-URL OPTIONAL-PASSWORD\n" % sys.argv[0])
+    sys.exit(1)
+
+def main(argv):
+    """Invoke with mount_point, repository URL, and repository password as args.
+    Daemonizes and calls mount_uvfs2 to get the real work done."""
+
+    if hasattr(os, 'uname'):
+        osname = os.uname()[0]
+    else:
+        osname = sys.platform
+    hostname = get_fqdn()
+    machineid = get_machine_id()
+
+    sections = (machineid, hostname, osname, "client", "default",)
+
+    conf = configurator(sections)
+    default_mount_point = conf.get("default-uvfs-mount-point") or \
+        os.path.join(os.environ['HOME'], 'UbiDocs')
+    default_repository = conf.get("default-repository")
+    password_needed = not conf.get_bool("assume-no-password")
+    volname = conf.get("uvfs-volume-name", "") or "UpLib Virtual File System"
+    volicon = conf.get("uvfs-volume-icns", "")
+
+    p = ''
+    if os.environ.get('PYTHONPATH'):
+        p = os.environ['PYTHONPATH'] + ':'
+    code = r'@UPLIB_CODE@'
+    os.environ['PYTHONPATH'] = p + code
+
+    if len(sys.argv) == 1:
+        sys.argv.append(default_mount_point)
+
+    if len(sys.argv) == 2:
+        if not default_repository:
+            sys.stderr.write("No default repository to mount.\n")
+            usage()
+        sys.argv.append(default_repository)
+
+    if len(sys.argv) == 3:
+        if password_needed:
+            sys.stderr.write("No password specified.\n")
+            usage()
+        sys.argv.append('')  # Password is optional; we can rely on server cert.
+
+    prog = os.path.join(BIN_DIR, 'mount_uvfs2')
+    dir, url, password = sys.argv[1:]
+    note(3, "mounting %s on %s", url, dir)
+    v = fetch_url_result(urlparse.urljoin(url, '/action/UVFS/current_version'))
+
+    daemonize()
+
+    # At this point, on OS/X, about all we may do safely is exec().
+    # __THE_PROCESS_HAS_FORKED_AND_YOU_CANNOT_USE_THIS_COREFOUNDATION_FUNCTIONALITY___YOU_MUST_EXEC__()
+    # is covered in http://developer.apple.com/technotes/tn2005/tn2083.html
+
+    os.execv(prog, [prog, dir, url, password, volname, volicon])
+
+
+def daemonize():
+    """Change to unique process group, to make the current process a daemon."""
+    # from Nir Soffer's code in moin-1.5.8 (MIT license)
+    if os.fork():   # launch child and...
+        os._exit(0) # kill off parent
+    os.setsid()
+    if os.fork():   # launch child and...
+        os._exit(0) # kill off parent again.
+    os.umask(077)
+    null=os.open('/dev/null', os.O_RDWR)
+    for i in range(3):
+        try:
+            os.dup2(null, i)
+        except OSError, e:
+            if e.errno != errno.EBADF:
+                raise
+    os.close(null)
+
+
+if __name__ == '__main__':
+   sys.exit(main(sys.argv))

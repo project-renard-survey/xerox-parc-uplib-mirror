@@ -1,0 +1,138 @@
+'\" t
+.\" $Id: uplib-certificate.1,v 1.5 2008/10/09 17:25:46 janssen Exp $
+.\"
+.\" This file is part of the "UpLib 1.7.11" release.
+.\" Copyright (C) 2003-2011  Palo Alto Research Center, Inc.
+.\" 
+.\" This program is free software; you can redistribute it and/or modify
+.\" it under the terms of the GNU General Public License as published by
+.\" the Free Software Foundation; either version 2 of the License, or
+.\" (at your option) any later version.
+.\" 
+.\" This program is distributed in the hope that it will be useful,
+.\" but WITHOUT ANY WARRANTY; without even the implied warranty of
+.\" MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.\" GNU General Public License for more details.
+.\" 
+.\" You should have received a copy of the GNU General Public License along
+.\" with this program; if not, write to the Free Software Foundation, Inc.,
+.\" 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+.\" 
+.\" uplib-certificate.1
+.TH UPLIB-CERTIFICATE 1 "UpLib 1.1 - http://www.parc.com/UpLib/"
+.SH NAME
+uplib-certificate \- maintain or inspect UpLib SSL certificates 
+.SH SYNOPSIS
+\fBuplib-certificate\fR
+[--repository=\fIrepository-url\fR]
+[--repository=\fIrepository-root-directory\fR]
+[--keystore=\fIfilename\fR]
+[--storepass=\fIkeystore-password\fR]
+[--java-default-trust-store]
+[--certificate=\fIfilename\fR]
+[--hostname=\fIfully-qualified-domain-name\fR]
+[--safari=\fIfilename\fR]
+[--verbosity=\fIlevel\fR]
+.SH DESCRIPTION
+.B uplib-certificate
+is a command-line program to manipulate server certificates used by UpLib repository services.
+It can be used in several ways:  to inspect a repository's certificate,
+to fix or replace that certificate, to add a certificate from a file or repository to a Java
+keystore, or to list the certificates in a Java keystore.
+.SH OPTIONS
+.TP
+\fB--repository=\fIrepository-url\fR
+Specifies an UpLib repository's \fChttps:\fR URL.  If this appears as the only option, the subject and
+dates for the repository's certificate are written to stdout.  If used in conjunction with a keystore
+filename, the certificate will be added to the keystore if it's not already there.  If used with a keystore
+filename, the \fC--storepass\fR option can also be used to avoid being prompted for the keystore's password.
+.TP
+\fB--repository=\fIrepository-root-directory\fR
+Specifies an UpLib
+repository's location (the top level directory).  If this appears as
+the only option, the subject and dates for the repository's
+certificate for the current hostname are written to stdout.  If the
+certificate seems to be wrong (missing, or wrong location, or wrong
+filename, or wrong hostname in the certificate), the certificate
+filename will moved, or a new certificate with the right hostname will
+be generated.  If used in conjunction with a keystore filename, that
+certificate will be added to the keystore if it's not already there.
+The \fC--hostname\fR option can be used to force consideration of a
+hostname other than the current "native" hostname.  If used with a
+keystore filename, the \fC--storepass\fR option can also be used to
+avoid being prompted for the keystore's password.  If used with \fC--certificate\fR, the specified
+certificate will be added to the repository.
+.TP
+\fB--hostname=\fIfully-qualified-domain-name\fR
+For use with \fC--repository=DIRECTORY\fR to specify an alternate hostname to use when making new certificates.
+If not specified, this defaults
+to the standard UpLib technique for finding the fully-qualified-domain-name (e.g., \fCfoo.bar.com\fR) for the
+machine on which this utility is being run.  This option can be specified multiple times on the same command line;
+the generated certificate will contain all of the specified hostnames.  Some browsers, such as Safari on the
+Mac, understand this.  Other browsers will only see one of the hostnames.
+.TP
+\fB--certificate=\fIfilename\fR
+Specifies a filename containing a standard SSL server certificate.  If used with \fC--repository=DIRECTORY\fR, the certificate
+will be moved to the repository.  If specified with \fC--keystore\fR, the certificate will be added to the keystore.  If specified
+with both, both actions will happen.  If specified with neither, the subject and dates of the certificate will be displayed.
+.TP
+\fB--keystore=\fIfilename\fR
+Specifies a file containing a Java keystore.  If used alone or with only \fC--storepass\fR, will produce a verbose display of the
+certificates in the keystore.  If used with \fC--repository\fR, will make sure the certificate for the specified repository
+is present in the keystore.
+.TP
+\fB--java-default-trust-store\fR
+An alternate way of specifying a keystore file.  If the user's configuration file specifies a value
+for \fCjava-default-trust-store\fR, that file will be used.  Otherwise, the Java default keystore for
+cacerts will be used.  Should be used with \fC--repository\fR, \fC--certificate\fR, and \fC--storepass\fR
+just as you would use \fC--keystore\fR.  If used alone, will produce a verbose display of the certificates
+in the keystore.
+.TP
+\fB--safari=\fIfilename\fR
+When used with \fC--repository\fR or \fC--certificate\fR, this produces a version of the certificate
+in the X509 format used when adding a certificate to the Safari Web browser keychain.
+.TP
+\fB--storepass=\fIkeystore-password\fR
+If used with the \fC--keystore\fR or \fC--java-default-trust-store\fR options, specifies the password to be used
+for the keystore.
+.TP
+\fB--verbosity=\fIlevel\fR
+Level should be an small integer specifying the UpLib debugging output verbosity.  Defaults to 1.
+.SH EXAMPLES
+To make sure a repository in \fC/home/user1/uplib-repo\fR has the right certificate for the current hostname:
+.sp
+\fC% uplib-certificate --repository=/home/user1/uplib-repo
+\fR
+.sp
+To make sure that the certificate for an UpLib repository at \fChttps://foo.bar.com:8080/\fR is in the keystore at \fC/home/user1/my-keystore:
+.sp
+\fC% uplib-certificate --repository=https://foo.bar.com:8080/ \\
+.br
+        --keystore=/home/user1/my-keystore
+\fR
+.sp
+To see what certificates are in the default Java keystore:
+.sp
+\fC% uplib-certificate --java-default-trust-store
+\fR
+.sp
+To see what certificate is in a \fC.pem\fR file \fC/tmp/foo.pem\fR:
+.sp
+\fC% uplib-certificate --certificate=/tmp/foo.pem
+\fR
+.sp
+.SH "CONFIGURATION FILES"
+The standard UpLib configuration files are examined to get the values of \fCjavahome\fR and \fCjava-default-trust-store\fR.  See the man page for \fBuplib-add-document\fR for more information on these configuration files.  In addition, if \fCemail-address\fR is defined, it will be used as the value of \fCemailAddress\fR in any certificates created.
+.sp
+.SH "ENVIRONMENT VARIABLES"
+If the environment variable \fCUPLIB_CERTIFICATE_EMAIL_ADDRESS\fR is set, it will be included in new certificates as the \fCemailAddress\fR of the subject of that certificate.  This variable overrides the setting of \fCemail-address\fR in the configuration file.
+.SH "SEE ALSO"
+\fCuplib-add-document (1), \fChttp://parcweb.parc.xerox.com/project/uplib/\fR.
+.br
+See \fChttp://java.sun.com/j2se/1.5.0/docs/tooldocs/solaris/keytool.html\fR for more information on Java keystore files.
+.br
+See \fChttp://www.openssl.org/support/faq.html\fR for more information on SSL server certificates.
+.SH "BUGS"
+Report bugs to \fCuplib-tech@parc.com\fR.
+.SH "AUTHORS"
+Bill Janssen, <janssen@parc.com>

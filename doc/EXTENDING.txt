@@ -1,0 +1,1175 @@
+.. -*- Mode: rst -*-
+
+.. This file is part of the "UpLib 1.7.11" release.
+.. Copyright (C) 2003-2011  Palo Alto Research Center, Inc.
+.. 
+.. This program is free software; you can redistribute it and/or modify
+.. it under the terms of the GNU General Public License as published by
+.. the Free Software Foundation; either version 2 of the License, or
+.. (at your option) any later version.
+.. 
+.. This program is distributed in the hope that it will be useful,
+.. but WITHOUT ANY WARRANTY; without even the implied warranty of
+.. MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.. GNU General Public License for more details.
+.. 
+.. You should have received a copy of the GNU General Public License along
+.. with this program; if not, write to the Free Software Foundation, Inc.,
+.. 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+
+.. How to write extensions to the UpLib system
+
+   It's written in something called "reStructuredText", which makes it seem a bit
+   odd, if you're looking at the plain text.
+
+   $Id: EXTENDING.txt,v 1.37 2010/07/16 06:41:20 janssen Exp $
+
+   Bill Janssen
+
+==========================
+Extending the UpLib System
+==========================
+
+Introduction
+============
+
+UpLib is designed to be highly extensible.
+
+There are three primary forms of extension in UpLib.  Two are to the
+UpLib repository.  An UpLib repository mainly consists of a daemon
+called the "guardian angel", which watches over a directory full of
+documents, and serves them up in various forms via HTTP to web
+browsers and other clients, in response to HTTP invocations of
+specific URL forms.  Most generally, an *extension* is a code module
+that is loaded into the guardian angel, and which executes in the
+angel's context.  It may do almost anything, including replacing
+standard classes or functions in the angel's code.  Typically,
+however, it will provide either one or more *actions* (see `Adding New
+Actions`_), which are additional functionality which can be invoked
+via HTTP by a client, or one or more *rippers* (see `Document
+Ripping`_), which are document analysis functions run automatically on
+new documents added to the repository, typically to extract and cache
+some aspect of a document.  An extension may provide both actions and
+rippers.
+
+The third form of extension is to the client code which submits new
+documents to the repository angel.  This code forms *projections* of
+the submitted document, typically page-image and text projections.
+New document formats can be supported by creating new subclasses of
+the ``DocumentParser`` class to be used by this code, via a defined
+extensibility mechanism (see `Adding Support for New Document
+Formats`_).
+
+The actions of a repository form an API which can be used by clients.
+There are some standard "methods" in this API (see `External API`_),
+and repository extensions allow this API to be extended arbitrarily.
+Additionaly, the code for these actions rely on an internal UpLib API
+(see `Internal API`_).  Both of these API's are described in this
+document.
+
+All of these extensions are created using UpLib's scripting language,
+Python_.  (Repository extensions `may be multi-file`_, and may
+additionally contain code in other programming languages, or data
+files, or executables for specific platforms.)  Extensions are
+automatically loaded by the Angel either from its standard extensions
+directory, or from directories specified by the user.  They are
+re-loaded automatically if the user changes them.  They are invoked
+via actions, by using a particular form of URL in an HTTP request to
+the repository.  Extensions can be added to a site-wide library, and
+the Web interface to the repository angel allows extensions to be
+downloaded from this library and installed in specific repositories.
+
+Some limited support for debugging these extensions is provided; see
+`Debugging`_ for details.
+
+
+Adding New Actions
+==================
+
+Given a URL, the "path" is that part of the URL which occurs after the
+hostname and port, and the "query" is that part which occurs after the
+path, and normally contains a number of parameters which are separated
+from the path by the "?" character.  For example, in the URL
+
+  ``https://foo.com/bar/bletch?parm1=basic&parm2=extended``
+
+the path would be "/bar/bletch", and the query would be
+"parm1=basic&parm2=extended".
+
+In UpLib, there are basically two kinds of paths.  The first is used
+to directly return a static document item from the repository, and
+always begins with "/docs/" or "/html/".  The second is an "action
+URL", and always begins with "/action/".  In an action URL, the path
+is used to invoke a particular method, and the query is used to pass
+parameters to the method.  Action URLs always have three parts, as in
+"/action/basic/repo_show".  The first part marks it as an action URL,
+the second specifies a module, and the third denotes a particular
+function in that module.  The special module "basic" is always
+present; it provides a small set of pre-implemented functions which
+provide the base functionality of an UpLib repository.  (See
+`External API`_ for more information on the
+functions provided in the "basic" module.)
+
+When a caller performs an HTTP GET, HEAD, or POST on an action URL not
+using the basic module, UpLib assumes that the specified module is a
+user-supplied extension.  The Angel finds user-supplied modules by
+looking in directories specified by the extension-path settings for
+that repository.  This consists of three parts: the repository's
+"extensions-path" configuration value, the repository's standard
+extensions directory, and the installation's site-extensions
+directory.  The "extensions-path" value is a list of colon-separated
+directories that is initially derived from the user's "actions-path"
+setting when the repository is first created, and thereafter managed
+by the extensions manager in UpLib.  UpLib will look in each of the
+directories in turn, in the order in which they appear in the list,
+then in the repository's standard directory, then in the
+site-extensions directory.  When it finds a file called
+"<modulename>.py" in one of those directories, it stops looking and
+tries to load that file.  If it can't find the file, or if it
+encounters an error loading the file, due to an error in the file, it
+writes an exception stack trace to the repository logfile
+(``ROOT/overhead/angel.log``), and returns to the caller an error message
+indicating that the specified modulename wasn't successfully found.
+
+If the module is successfully loaded, the Angel then checks to see if
+it defines a function with the same name as the function being
+invoked.  This function must take 3 parameters: the repository object,
+a response object which the function can use to send data back to the
+caller, and a parameter dictionary, which contains a set of name-value
+pairs indicating the parameters passed to the function in the "query"
+part of the URL.  The parameter dictionary may be empty.  The function
+should not return any value.  If the module does not define the
+function, the Angel checks to see if the module defines a function
+called "lookup_action", which takes a function name as an argument and
+returns a function to call.  If "lookup_action" is defined, the Angel
+calls it with the desired function's name to see if the module defines
+that function under a different name.  (See EXAMPLES for an example of
+a lookup_action function.)  If the desired function cannot finally be
+located, the Angel again returns an error message to the caller
+stating that the specified modulename was not found.
+
+If a function is successfully located, the Angel will invoke the
+function.  The function may execute arbitrary code, but there are some
+guidelines to keep in mind.  In particular, actions should not take
+much time, as the Angel is by default single-threaded.  An action can
+spawn a new thread, if necessary.  In fact, an action can wreak
+arbitrary havoc on the Angel, and on the stored data.  Use with care!
+
+The function should use the response object to communicate a result
+back to the caller.  This object supports five standard methods:
+
+  reply(message) => None
+
+    Send back an HTML message to the caller, along with an HTTP reply
+    code indicating successful completion.
+
+  error(code, message) => None
+
+    Send back the specified HTTP error code and HTML message.  Symbolic
+    names for HTTP error codes are available in the plibUtil.HTTPCodes
+    namespace, as HTTPCodes.OK, HTTPCodes.NOT_FOUND, etc.
+
+  redirect(url) => None
+
+    Sends back to the browser a command to redirect this request to the
+    URL specified by "url".
+
+  return_file (MIME-TYPE, FILEPATH [, DELETE_ON_CLOSE = false]) => None
+
+    Sends back the file specified by FILEPATH, which should be a full
+    path to the file.  The contents of the file should be of the type
+    specified as MIME-TYPE; e.g., "text/plain" or "image/tiff" or
+    "application/pdf", or whatever is in the file.  The optional
+    argument DELETE_ON_CLOSE, which defaults to "false", will cause
+    the file to be deleted when it's closed.  This is handy if you
+    want to build a temporary file to return, and have it
+    automatically deleted after it's sent back to the caller.
+
+  open( [ MIME-TYPE ] ) => file-pointer
+
+    Returns an open Python file stream to which content can be
+    written.  If no MIME-TYPE is specified, the default type
+    "text/html" is used.  Any valid HTTP media type can be used as the
+    MIME-TYPE.  Be sure to write data of the type to the file pointer!
+    When the code is finished writing to the file stream, it should be
+    closed by invoking its "close()" method; otherwise the data will
+    not be sent back to the caller.
+
+  fork_request ( FN, [ARGS...] )
+
+    Delegates handling of the extant request to a new thread, which
+    invokes function ``FN`` on ``ARGS``.  Note that one of the args
+    has to be the response object itself (or the result of calling its
+    ``open`` method), as it is the conduit to finish the call by
+    returning a result to the user.  This method functions by raising
+    an exception, so it should not be used inside a try-except block
+    that catches the exception ``ForkRequestInNewThread``, and it
+    never returns normally.
+
+The function can use the internal API of UpLib to perform actions and
+find data to operate on.  This internal API is documented in a later
+section.
+
+.. _`may be multi-file`:
+
+An action that is implemented in multiple files should be packaged as
+a Python package, with the package name used as the action-module
+name.  Names should be verbose rather than terse to avoid collision
+with someone else's action.  It's also generally a bad idea to depend
+on a the Python load-path being any particular value for code loaded
+into the repository.  In addition, extensions may be loaded before the
+repository object is instantiated; top-level (module-level) statements
+in the code should be prepared for this.
+
+
+Setup
+-----
+
+Actions are managed through the UpLib web interface by the "Extensions
+Manager".  If you go to the bottom of an UpLib page view, you'll see a
+button labelled "Manage Extensions".  Press it to get to the
+extensions manager.  The manager will allow you to see and manage all
+actions that are currently active in that repository, and to download
+more actions from a library of actions.  At the bottom of the page,
+you will see controls for managing your repository's
+"Extensions-Path", which is a list of directories to look for actions
+on.  You should add a directory to this, the directory in which you
+will be placing your action.  After the action has been developed, you
+can contribute it to the library, through the same Extensions Manager
+interface.
+
+It's a good idea to keep this new directory (or directories) under the
+root of your repository, as that provides good protection against
+malicious changes to the code.  Remember that the code will be loaded
+into your repository Angel, and will run with your protections and
+privileges.
+
+If you had the configuration option "actions-path" defined in your
+.uplibrc file when you created the repository, you will notice that
+the extensions path has already been initialized to this value.
+
+
+Examples
+--------
+
+The following examples are small Python scripts which illustrate the
+use of the internal API to extend the external API.  (Note that the
+code for the examples is indented in this text; in a real code file
+each line would not have the four leading spaces that it has here.
+For more information on the Python language, including a nice
+tutorial, see http://www.python.org/doc/2.3/.)
+
+Hello, World
+````````````
+
+Just to satisfy tradition, here's a complete module that supplies
+exactly one function, hello_world.  We'll call the file "hello.py", so
+the action would have the URL path "/action/hello/hello_world"::
+
+
+    def hello_world (repository, response, params):
+        response.reply("Hello, world!")
+
+
+That's the complete code that would be in hello.py.
+
+However, you also need a companion file giving some metadata for the
+extension, "hello.info".  It would contain something like this::
+
+  author: Your Name
+  version: 1
+  before: off
+  after: off
+  url: 0
+  date: 12/6/09
+  uplib-min-version: 1.7
+  description: This extension contains a single function, "hello_world", which when invoked will respond with the string "Hello, world!".
+
+Note that each name+value must be on a single line.  The fields
+"author", "version", and "date" are fairly self-explanatory.  The
+fields "before" and "after" indicate whether the extension contains
+'before' or 'after' initializers (discussed in `Initialization functions`_); this
+extension contains neither.  The "url" field points to the URL of a
+Web site for the extension, if any; it should be specified as "0" for
+no URL.  The "description" is a single line of text describing the
+extension.  And the "uplib-min-version" field gives the version number
+of the minimum version of UpLib capable of executing the extension.
+
+
+Listing the documents
+`````````````````````
+
+A more interesting example would be to list the documents in the
+repository.  Let's list one document per line, giving the ID that the
+repository assigns, and the "title" that the user assigns, for each
+document.  Note that the "title" may not have been assigned by the
+user yet, so we should allow for the possibility that it's not there.
+Note also that the title may contain some characters not valid in
+HTML, such as less-than signs, so we need to appropriately quote the
+title string.  Let's put the code for this action in the same "hello"
+module that we created for the Hello, World! example.
+
+Here's the code to implement the "list_docs" action::
+
+    def list_docs (repository, response, params):
+
+	import cgi	# the Python library provides this
+	fp = response.open()
+	docs = repository.list_docs()
+	for doc in docs:
+	    title = doc.get_metadata("title") or "(no title)"
+	    title = cgi.escape(title)
+	    fp.write("<p>" + doc.id + ": " + title + "\n")
+	fp.close()
+
+We could make "list_docs" fancier by putting out a header line giving
+the name of the repository::
+
+    def list_docs (repository, response, params):
+
+	import cgi	# the Python library provides this
+	fp = response.open()
+	repository_name = cgi.escape(repository.name())
+	fp.write("<head><title>" + repository_name + "</title></head><body>")
+	fp.write("<body><h1>Documents in " + repository_name + "</h1>\n")
+	docs = repository.list_docs()
+	for doc in docs:
+	    title = cgi.escape(doc.get_metadata("title") or "(no title)")
+	    fp.write("<p>" + doc.id + ": " + title + "\n")
+	fp.close()
+
+And so on and so forth.
+
+Setting the name of a document
+``````````````````````````````
+
+Here's an example of an action that does something with the "params"
+argument.  Let's suppose we want to assign a name to a document.  The
+name would be stored as metadata about the document, perhaps as the
+value of the "name" property.  The user would set the name by calling
+the set_name action with two parameters: the repository ID of the
+document, and the desired name.  (For HTTP experts, the parameters
+could be passed with either a GET or POST HTTP method, using either
+"application/www-url-encoded" or "multipart/form-data" content types.)
+If we put this action in the same "hello" module, a typical URL for
+this use would be something like::
+
+  https://repo:port/action/hello/set_name?doc_id=01050-10-2038-999&name=mainpage
+
+to assign the name "mainpage" to the document 01050-10-2038-999.
+
+Here's the code::
+
+    def set_document_name (repository, response, params):
+
+        from plibUtil import HTTPCodes
+
+	# check the parameters
+	doc_id = params.get('doc_id')
+	if not doc_id:
+	    response.error(HTTPCodes.BAD_REQUEST,
+			   "<p>No doc_id specified.")
+	    return
+	name = params.get('name')
+	if not name:
+	    response.error(HTTPCodes.BAD_REQUEST,
+			   "<p>No name specified.")
+	    return
+	if not repository.valid_doc_id(doc_id):
+	    response.error(HTTPCodes.NOT_FOUND,
+			   "<p>No document with ID " + doc_id + ".")
+	    return
+
+	# get the document and update the metadata
+	doc = repository.get_document(doc_id)
+	doc.update_metadata({ 'name' : name })
+
+	# send the caller's browser to the newly renamed doc
+	response.redirect("/docs/" + doc_id + "/")
+
+
+There are a few points to make about this.  First, note the use of
+HTTPCodes for symbolic names for the numeric error codes used by HTTP.
+There are 30 or so codes, but only a handful are typically used.
+NOT_FOUND, BAD_REQUEST, UNAUTHORIZED, NOT_IMPLEMENTED, and
+INTERNAL_SERVER_ERROR are the only ones of interest to most users.
+
+Secondly, note the way in which the metadata is updated.  The argument
+to "update_metadata" is a Python dictionary, that is, a mapping of
+name-value pairs.  Any properties stored in the dictionary are written
+to the document's permanent metadata store, overwriting any value for
+those properties that are already there.
+
+Finally, note that on successful completion, the action does not send
+back output to the caller.  Instead, it re-directs the caller's
+browser to visit the document which has just been renamed, using the
+static URL for the document, which is /docs/<doc-id>/.
+
+If for some reason, you would like the names of the functions in the
+action file to be different from the names used to invoke them (for
+instance, you might want to call "list_docs" by the name "list-docs",
+which is an invalid Python name), you can add a function called
+"lookup_action" which takes a name, and returns the appropriate
+function (or None if the name doesn't match anything).  Here's a
+version of lookup_action for this example where the
+"set_document_name" function is called as "set_name".  (Note that
+either name will work.)::
+
+    def lookup_action (action_name):
+	if action_name == "set_name": return set_document_name
+	return None
+
+It's often useful to be able to invoke an action on a particular
+document.  But this is kind of clumsy, since you normally hve to pass
+the document ID to the action as a parameter.  An easy way to do this
+is to define a template file for the "Controls" section of the
+document reader, and add a button or link which embeds the document ID
+along with your action.  Note that changes to this template will only
+show up in documents added to the repository after the template has
+been modified.  See USAGE for more on the configuration option
+"default-html-controls-template-file".
+
+Initialization functions
+````````````````````````
+
+Extensions can define either (or neither) of two initialization
+functions, ``before_repository_instantiation`` and
+``after_repository_instantiation``.  ``before_repository_instantiation`` is called with
+a single parameter, the location of the repository (the path to the top-level directory),
+as early as possible in the setup of the guardian angel, and before the
+``uplib.repository.Repository`` instance is instantiated.  ``after_repository_instantiation``
+is called after the ``uplib.repository.Repository`` has been created, and is passed the instance
+as its parameter.  This makes it a convenient place to add new document Rippers, as described
+in the following section.
+
+
+Document Ripping
+================
+
+When a new document is added, certain fixed operations are performed.
+A new ID is assigned, a directory is created, and any elements
+provided are copied to that directory.  (See the ARCHITECTURE document
+for possible elements.)  After those basic operations have been
+performed, a new thread is forked, and in that thread a series of
+document analysis steps are called to create thumbnails, generate
+HTML, and so forth.  These actions are called "ripping", and are
+performed by a set of Ripper objects.  It's possible for user code to
+modify this set of Ripper objects by adding new Ripper instances.
+It's even possible to remove or replace existing Rippers, though this
+is not recommended, as it may cause actions in the "basic" module to
+fail.  It's safest just to add new rippers at the end of the ripper
+list.  After all the rippers have been invoked, the directory is moved
+to a different location for actual use, and the repository object is
+notified that it is available.
+
+The top level ripper.Ripper class has the following interface:
+
+  __init__ (REPOSITORY) => None
+
+    Initializes the instance.
+
+  repository () => <repository>
+
+    Returns the repository object.
+
+  rip (LOCATION, DOC-ID) => None
+
+    "Rips" the document in the directory LOCATION, with the DOC-ID, in
+    some form.  This is the only method that user-written rippers
+    should have to subclass.  Note that the location path passed in
+    here is not the location the document will finally have in the
+    repository, but rather the location of the document's directory in
+    a staging area.  User code should therefore not attempt to
+    interpret the elements of the path.
+
+along with the following utility methods:
+
+  folder_metadata_path (LOCATION) => <filepath>
+
+    Returns the path to the metadata.txt file in the folder indicated by LOCATION
+
+  get_folder_metadata (LOCATION) => <metadata dictionary>
+
+    Returns the metadata.txt file in LOCATION as a Python dict
+
+  update_folder_metadata (LOCATION, DICT)
+
+    Updates the metadata.txt file in LOCATION with the values in DICT
+
+  folder_text_path (LOCATION) => <filepath>
+
+    Returns the path to the contents.txt file in the folder indicated by LOCATION
+
+  get_folder_text_bytes (LOCATION) => <bytes>, <charset-tag>, <language-tag>
+
+    Returns three values, the bytes of the text of the document folder at LOCATION,
+    the charset (RFC 2047) the bytes are in, and the language (RFC 3066) the text is in.
+
+  get_folder_text (LOCATION) => <text>, <language-tag>
+
+    Returns the text of the document in the folder at LOCATION, and the language (RFC 3066)
+    the text is in.
+
+
+User code should get the list of rippers of the repository by calling
+the "rippers" method on repository, then modify this list directly.
+You can do this at repository startup, by using a user initialization
+module that defines an after-repository-instantiation function (see
+USAGE for more on the configuration option
+"user-initialization-modules").
+
+Note that the last ripper is traditionally the indexing ripper.  So if
+you want what you calculate indexed so that you can search on it, you
+want to look for the indexing ripper, which has the name
+"LuceneRipper", and put your ripper just before that one.  For
+example::
+
+    # create a new ripper instance
+    r = MyNewRipper(repository)
+
+    # put it just before Lucene ripper
+    rippers = repository.rippers()
+    for i in range(len(rippers)):
+        if rippers[i].name() == "LuceneRipper":
+            rippers.insert(i, r)
+            break
+
+Typically, if a ripper raises an exception, incorporation of the
+document into the repository is halted; it is left in the "pending"
+subdirectory of the repository, and every time the angel is
+re-started, the rippers will try again to incorporate it.  However, a
+ripper can abort the incorporation of a document once and for all by
+raising the exception ``newFolder.AbortDocumentIncorporation``, which will
+cause the bits to be removed from the "pending" folder.  Ingenious
+minds will find a variety of uses for this mechanism.
+
+Adding Support for New Document Formats
+=======================================
+
+The program uplib-add-document uses a set of parser classes to
+understand various document formats and form the projections into an
+UpLib folder.  As of release 1.3, the following formats were
+understood: PDF, Text, HTML, Postscript, UpLib (an UpLib folder), TIFF
+(multi-page), and Image (single-page: GIF, PBM, PNG, JPEG).
+Additional parsers may be added by the user for other formats by
+putting Python files defining subclasses of DocumentParser in a
+directory or directories, then defining the configuration parameter
+``additional-document-parsers``, or by using the ``--extra-parsers``
+command-line option with ``uplib-add-document``.
+
+See addDocument.py for an example of some DocumentParser subclasses.
+In general, a new parser should do the following:
+
+0)  import a parser class (usually DocumentParser or FakePDFDoc) from
+    addDocument and inherit from it.
+
+1)  define a staticmethod called "myformat" which takes a filename as
+    an argument, and returns true if the file is the right format for
+    this parser class, false otherwise.  This format need not assume
+    that the "filename" is a real filename; it should check for the
+    existence of the file if it wishes to make that assumption.
+
+2)  define "get_page_images()" and "get_text()" methods.
+
+3)  set a class value for "format_mimetype".
+
+It may also set up an before-method for "write_metadata()", if it has
+the ability to extract interesting metadata from the file.  This may
+also be done as an after-method on "__init__()", or elsewhere in the
+chain.  See addDocument.DocumentParser.process() for the steps in the
+processing chain.
+
+The class addDocument.FakePDFDoc is an abstract class that allows
+subclasses to use PDF as the intermediate format for get_text and
+get_page_images.  See TextDoc for an example.
+
+Here's a complete example for a bogus format called "foo"::
+
+  import os, sys, Image
+
+  from plibUtil import false, true
+  from addDocument import DocumentParser
+
+  class FooDoc (DocumentParser):
+
+    format_mimetype = "application/x-foo"
+
+    def myformat (pathname):
+        return (os.path.exists(pathname) and
+                os.path.splitext(pathname)[1] == '.foo')
+    myformat = staticmethod(myformat)
+
+    def get_page_images(self):
+
+        # create a new 100x100 red image to be our page image
+  
+        im = Image.new("RGB", (100,100), (255, 0, 0))
+
+        # we don't want this to be blank (blank pages may be eliminated),
+        # so let's write something on it.  Or we could just set the
+        # "saveblanks" property to true...
+
+        self.saveblanks = true
+        if self.uses_png:
+            os.mkdir(self.images_path())
+            im.save(os.path.join(self.images_path(), "page00001.png"), "PNG")
+        else:
+            im.save(self.images_path(), "TIFF")
+
+    def get_text (self):
+
+        f = open(self.text_path(), "wb")
+        f.write("foo")
+        f.flush()
+        f.close()
+
+
+Internal API
+============
+
+There are some general Python characteristics to be aware of here: the
+Python in which you are running will be 2.3.5 or later, and the Python
+Imaging Library (PIL), 1.1.6 or later, will be available.  In UpLib
+itself, there are three major classes: ``Repository``, ``Document``, and
+Collection (and its subclasses ``PrestoCollection`` and ``QueryCollection``).
+In addition, there is a utility module, ``plibUtil``.
+
+The Repository class defines the operations that can be performed on
+the repository itself; there is only one instance of this class, and
+it is bound to the variable repository.TheRepository.  The following
+methods may be called by user code:
+
+  mod_time() => <time>
+
+    Returns float value giving time the repository was last modified
+    (typically by adding or removing a document or collection).  The
+    time is in seconds past the Unix epoch of Jan 1, 1970, the
+    standard Python time format.
+
+  create_new_document (BITS, FORMAT [, METADATA]) => None
+
+    Will cause a new document to be created from the bits passed as
+    BITS.  The bits must be in the format specified as FORMAT.
+    (Currently, the only acceptable formats are "tarred-folder", which
+    is a folder as specified in the ARCHITECTURE document, then
+    compacted to a single data stream with tar, and "zipped-folder",
+    which is a folder as specified in the ARCHITECTURE document, the
+    compacted to a single data stream with "zip" -- basically a zip
+    archive containing the folder) If this succeeds, a new thread is
+    forked to integrate the document, and it will at some point be
+    available as part of the contents of the repository.
+
+  delete_document (DOC-ID) => None
+
+    Removes the specified document from the repository (actually,
+    moves it to a subdirectory in the repository called "deleted").
+    Updates the full-text index.  May raise ValueError if DOC-ID is
+    not valid.
+
+  valid_doc_id (DOC-ID) => boolean
+
+    Returns true if repository contains a document with the specified
+    DOC-ID, false otherwise.
+
+  doc_location (DOC-ID) => <path>
+
+    Returns a string giving the directory in which the document and
+    its cached data is kept.
+
+  docs_folder () => <path>
+
+    Returns a string giving the location of the directory containing
+    the documents in the repository.
+
+  list_docs () => <list-of-docs>
+
+    Returns a Python list of document objects, sorted by order of
+    addition to the repository so that the most recently added is
+    first in the list.
+
+  index_path () => <path>
+
+    Returns a string giving the directory where the full-text index of
+    the repository is kept.
+
+  name () => <name-string>
+
+    Returns the name of the repository, or the root directory of the
+    repository if it has not been given a name.
+
+  set_name (NAME) => None
+
+    Set the name of the repository to NAME.
+
+  categories () => <list-of-category-names>
+
+    Returns a list of strings, where each string is a category known
+    to the repository.
+
+  add_category (CATEGORY-NAME) => None
+
+    Adds the category specified by CATEGORY-NAME, a string.  The list
+    of categories is thread-protected by a lock which must be acquired
+    during the process of adding a category, so it may take longer
+    than you would think to complete.
+
+  get_document (DOC-ID) => <document>
+
+    Return the document object for the given DOC-ID, or raise
+    ValueError if an invalid DOC-ID.
+
+  change_password (OLD-PASSWORD, NEW-PASSWORD) => boolean
+
+    Change the password on the repository from OLD-PASSWORD to
+    NEW-PASSWORD.  Return true if successfully changed, false
+    otherwise (typically because the OLD-PASSWORD was wrong).
+
+  check_password (TEST-PASSWORD) => boolean
+
+    Return true if the TEST-PASSWORD is correct for this repository.
+
+  get_version () => <version-string>
+
+    Returns the version string.
+
+  get_favicon () => <icon-bits>
+
+    Returns the data of the favicon associated with the repository
+    (and stored in ROOT/html/images/favicon.ico).  These bits are in
+    the Windows icon format, for which no registered IETF media-type
+    seems to exist!).
+
+  list_collections () => <list-of-collections>
+
+    Returns arbitrarily-ordered list of collection objects known to
+    the repository.  Note that additional collection objects may exist
+    that are not known to the repository.
+
+  get_collection (COLLECTION-NAME [, BY-ID=false]) => <collection>
+
+    Returns the collection specified by COLLECTION-NAME (which can be
+    an ID if the optional boolean parameter BY-ID is specifed and is
+    true), or None if there is no collection by that name.
+
+  delete_collection (COLLECTION) => boolean
+
+    Deletes the specified COLLECTION (which may either be a collection
+    ID or a collection object), and returns true if the collection
+    exists and is deleted, false otherwise.
+
+  rename_collection (OLD-NAME, NEW-NAME) => boolean
+
+    Renames the collection specified by OLD-NAME to NEW-NAME, and
+    returns true if the collection exists, false otherwise.
+
+  add_collection (NAME, OBJECTS) => <collection>
+
+    Creates a new Collection instance with the specified OBJECTS in it
+    (which should be a sequence of Document objects), and adds it to
+    the repository's list of collections, with the specified NAME.
+    Returns the new collection object.  If you create a Collection
+    instance directly, you can also use this method to add it to the
+    repository's list of known collections; just pass the Collection
+    object as the OBJECTS parameter.
+
+  add_query_collection (NAME, QUERY) => <collection>
+
+    Creates a new QueryCollection instance with the specified QUERY
+    (which should be a string), and adds it to the repository's list
+    of collections, with the specified NAME.  Returns the new
+    collection object.  If you create a QueryCollection instance
+    directly, you can also use this method to add it to the
+    repository's list of known collections; just pass the Collection
+    object as the QUERY parameter.
+
+  do_query (QUERY-STRING) => <list-of-hits>
+
+    Runs the specified Lucene QUERY-STRING over the repository's
+    collection of documents, and returns a list of results, where each
+    result is a tuple consisting of a float "score" and a Document
+    instance.  May raise various exceptions, particularly Error.
+
+  rippers () => <list-of-rippers>
+
+    Returns the (mutable) list of document rippers used when new
+    documents are added to the repository.  This list can be
+    manipulated to modify the document analysis done by the angel when
+    a new document is uploaded.  See the section on DOCUMENT RIPPING
+    below.
+
+  add_shutdown_hook(FUNCTION)
+
+    Adds the specified FUNCTION, which should be a function with no
+    arguments, to a list of functions to be called when the repository
+    angel shuts down.
+
+The Document class represents documents in the repository.  They give
+access to some of the data of the document.  They have the following
+methods accessible to user code:
+
+  id => string
+
+    This is an attribute of the document object, which can be accessed
+    directly.  It is the repository-unique ID of the document.
+
+  folder () => <path>
+
+    Returns the directory in which the document is stored, as a path
+    string.
+
+  add_time() => <time>
+
+    Returns a float giving the approximate time the document was added
+    to the repository.  This time is specified in seconds past the
+    UNIX epoch of Jan 1, 1970, the standard Python time format.
+
+  get_metadata ([FIELD-NAME=None]) => <metadata-string-or-dictionary>
+
+    When used without the optional FIELD-NAME parameter, returns the
+    entire metadata of the document as a Python dictionary, with the
+    field names as the keys.  If FIELD-NAME is specified, will return
+    just the value of that field, as a string.
+
+  update_metadata (DICT) => None
+
+    Will update the document's metadata to the values specified in
+    DICT, which should be a Python dictionary.  Any fields in DICT
+    that are not in the existing metadata will be added; any fields in
+    DICT which already exist will be modified to the values specified
+    in DICT.
+
+  pdf_original () => <path>
+
+    If the document has a single-file PDF original, will return the
+    path to that stored PDF file.
+
+The Collection class represents groups of Document and Collection
+objects in the repository.  The base Collection class can hold a mix
+of either Document or other Collection objects, and can give each a
+name unique in that Collection.  The elements of the collection can be
+referenced either by their ID, or by the given name.  A subclass, the
+QueryCollection class, holds only Document objects, and is dynamic;
+that is, it runs its query whenever the objects of the class are
+requested, and returns the results.  The following methods are
+available on the Collection object:
+
+[TBD.  Not happy yet with API of Collection object.]
+
+The Python module "basicPlugins.py" exports two functions which allow
+a user extension to either add a button to the toolbar that appears at
+the top of the page, or add a function to the list of functions that
+can be invoked on a particular document.  This are usually called in an
+after-repository-instantiation function, to add access to an action
+function.  They are
+
+  add_user_button (LABEL, FUNCTION [, TARGET]) => None
+
+    This should be called with a string LABEL and a function FUNCTION,
+    which should take the three arguments of an action function
+    (repository, response, and parameters).  It will cause a button
+    with the specified LABEL to be placed on the top toolbar of the
+    top-level view of the repository (and various subviews which show
+    multiple documents).  When the button is pressed, the user's
+    FUNCTION will be invoked.  If the optional TARGET window is
+    specified, the results of calling the function will be shown in
+    that target window.
+
+  add_document_function (LABEL, FUNCTION [, TARGET]) => None
+
+    This should be called with a string LABEL and a function FUNCTION,
+    which should take the three arguments of an action function
+    (repository, response, and parameters).  It will add the function
+    specified to the list of functions which can be selected from the
+    document icon menu, or the document reader menu.  If the optional
+    TARGET window is specified, the results of calling the function
+    will be shown in that target window.
+
+Finally, a module called "plibUtil" defines a haphazard set of useful
+functions and classes.  Here are some of the functions defined in
+"plibUtil":
+
+  .. _`note`:
+
+  note([VERBOSITY = 1, ] FORMAT [, ARG, ARG...]) => None
+
+    If the global verbosity is greater than or equal to VERBOSITY,
+    write this message to the log file.  FORMAT is a string containing
+    Python string-formatting codes, and any additional arguments are
+    values to be formatted into this string (so it's a lot like C's
+    printf).  If VERBOSITY is omitted, the default value is 1.
+
+  set_verbosity(VERBOSITY) => None
+
+    Set the global verbosity to VERBOSITY, a non-negative int.
+
+  subproc (COMMAND) => status, output, tsignal
+
+    Runs the COMMAND in a Bourne-compatible shell, and returns the
+    exit status, any output (stdout and stderr comingled), and if
+    terminated by a signal, the signal.  Note that COMMAND should not
+    redirect stdout or stderr, as "subproc" does this to catch the
+    output.  COMMAND may be a pipe of subcommands.
+
+  configurator() => <configuration-obj>
+
+    The class "configurator" is an API to the configuration system.
+    The configurator will read the system-wide configuration file, and
+    any ~/.uplibrc file in your home directory, and make configuration
+    values available via the following methods:
+
+      get (NAME [, DEFAULT]) => string
+
+        Looks for a configuration value for NAME, and returns it.  If
+        no value for NAME is found, returns None, or DEFAULT if
+        specified.
+
+      get_int (NAME [,DEFAULT]) => int
+
+        Looks for a configuration value for NAME, and returns it.  If
+        no value for NAME is found, returns None, or DEFAULT if
+        specified.  Values should be integers, as should DEFAULT.
+
+      get_bool (NAME [,DEFAULT]) => boolean
+
+        Looks for a configuration value for NAME, and returns it.  If
+        no value for NAME is found, returns None, or DEFAULT if
+        specified.  Values should be boolean, as should DEFAULT.
+
+    Note that creating a new instance of configurator will cause the
+    configuration files to be re-read and re-parsed, a relatively
+    expensive operation.
+
+Threading and Locks
+===================
+
+The plibUtil module also provides simple thread and lock classes, called ``uthread`` and ``MutexLock``.  This class wraps threading to satisfy various constraints imposed by some of the packages UpLib depends on, so it should always be used instead of the regular Python ``thread`` or ``threading`` modules.  An instance of the ``uthread`` class represents a thread.  The class has the following static functions:
+
+    get_ident() => int
+
+      Returns a thread id for the current thread.
+
+    start_new_thread (FN, ARGS)
+
+      Run the function FN in a new daemon thread with the arguments passed in
+      the tuple ARGS.
+
+    create_new_thread (FN, ARGS)
+
+      Like ``start_new_thread``, but doesn't start the thread.  Call the ``start()`` method on the thread to start it.
+
+The ``MutexLock`` class is used to provide a lock for critical
+sections.  When creating an instance, pass a name to identify it:
+
+    lock = MutexLock("my nifty database")
+
+It supports two methods, ``acquire`` and ``release``.  Calling ``release`` will "notify" the other threads waiting for
+the lock.
+
+External API
+============
+
+There are a number of actions built-in to the UpLib system, which can
+be accessed under the action "module" called "basic", as in
+/action/basic/repo_show.  These constitute an RPC interface to the
+angel process.  Most of these are strictly for use by Web browsers,
+and return documents only of interest to human viewers, but a few of
+these actions may be fruitfully called by programs.  This section
+documents that API.
+
+For each remote call, there are four elements to consider: the HTTP
+method to use (GET, HEAD, POST, etc.); the action "path" (e.g.,
+/action/basic/repo_show); possible parameters to pass to the action
+(as an HTTP "query" element, or as a multipart/form-data body, and
+also as HTTP header values); and the return value, if any.
+
+* Action:       ``/action/externalAPI/upload_document``
+
+  HTTP Method:  ``POST``
+
+  This call is the way for a client program to upload a new document
+  to the repository.  Typically, the parameters are passed as a
+  multipart/form-data body.  Note that the document will not be
+  available for some period of time after the call returns, until the
+  document rippers have finished with it.
+
+  Parameters:
+
+    "filetype" -- this is the type of file being uploaded.  Currently,
+    the only supported types are "tarred-folder", which is a tar file
+    containing a directory structure as outlined in the ARCHITECTURE
+    file, and "zipped-folder", which is a zip file containing the
+    directory structure (and using '|' as the pathname separator in
+    filenames).  (required)
+
+    "newfile" -- bits of the uploaded document. (required)
+
+    "title" -- title for the document (opt).
+
+    "authors" -- names of the authors of the document,
+    "and"-separated.  These should be full names, not initials.  (opt)
+
+    "source" -- a string identifying the source of the document. (opt)
+
+    "date" -- publication date, as "MM/DD/YY".  If any of the fields
+    are not known or not applicable, use zero.  (opt)
+
+    "keywords" -- a string of comma-separated keywords.  (opt)
+
+    "categories" -- a string of comma-separated category names.  (opt)
+
+    "abstract" -- an abstract for the document; may be multiple lines.  (opt)
+
+    "citation" -- a citation in some form for the document; may be
+    multiple lines.  (opt)
+
+    "comment" -- a user comment on the document; may be multiple
+    lines.  (opt)
+
+    "name" -- a user name for the document.  (opt)
+
+  Returns: a text/plain string containing the repository doc-id for
+  the uploaded document
+
+
+
+* Action:       ``/action/externalAPI/search_repository``
+
+  HTTP Method:  ``GET``
+
+  This call performs a search over the repository for a specified
+  query.  It returns a list of document hits as a sequence of text
+  lines.
+
+  Parameters:
+
+    "query" -- a Lucene query string
+
+  Returns: a text/plain document containing zero or more lines, each
+  line containing one 'hit' for the query.  Each line contains the
+  following three fields, comma-separated: search score (a
+  floating-point number), the document ID, and the title of the
+  document (which may be a zero-length string if there's no title for
+  that document).
+
+
+
+* Action:       ``/action/externalAPI/fetch_folder``
+
+  HTTP Method:  ``GET``
+
+  This call returns the specified document as a zipped UpLib folder,
+  containing everything the repository folder has in it.
+
+  Parameters:
+
+    "doc_id" -- the document ID for the document to return
+
+  Returns: a zipped file containing the files in the document's
+  UpLib folder.  The plibUtil function "unzip" can be used to unpack
+  the file.
+
+
+
+* Action:       ``/action/externalAPI/fetch_original``
+
+  HTTP Method:  ``GET``
+
+  This call returns the originals of the specified document either
+  directly, if the original content consists of only one file, or as a
+  zipped file with the MIME type "application/x-folder-zipped", if
+  there are multiple files in the original content.
+
+  Parameters:
+
+    "doc_id" -- the document ID for the document to return
+
+  Returns: Either the direct bits of the original content, if
+  single-file, or a zipped file containing the files in the document's
+  content, if multi-file.  (The plibUtil function "unzip" can be used
+  to unpack the zipped file.)
+
+
+* Action:       ``/action/externalAPI/doc_metadata``
+
+  HTTP Method:  ``GET``
+
+  This call returns the metadata of the document, formatted as the
+  storage file is formatted.
+
+  Parameters:
+
+    "doc_id" -- the document ID for the document to return
+
+  Returns: the stored metadata for the document, in the same format as
+  that used for the "metadata.txt" file (see the ARCHITECTURE document
+  for details).
+
+
+
+* Action:       ``/action/externalAPI/repo_properties``
+
+  HTTP Method:  ``GET``
+
+  This call returns some of the properties of the repository, such as
+  the name, port, category names, and document IDs.
+
+  Parameters:
+
+     None
+
+  Returns: a metadata file, formatted the same way as the
+  "metadata.txt" file is formatted, containing four properties of the
+  repository: its name (as "name"), its port (as "port"), a
+  comma-separated list of category names (as "categories"), and a
+  comma-separated list of document IDs (as "docs").
+
+
+
+* Action:       ``/action/basic/doc_pdf``
+
+  HTTP Method:  ``GET``
+
+  This call returns a PDF version of a specified document.  If none is
+  available, one will be constructed from the page images of the
+  document.  Text may or may not be available in the PDF version.
+
+  Parameters:
+
+    "doc_id" -- the repository ID of the document to fetch.
+
+  Returns: an application/pdf payload containing the PDF version.
+
+
+
+* Action:       ``/action/basic/doc_pageimages``
+
+  HTTP Method:  ``GET``
+
+  This call returns a zip file containing a set of PNG page images for
+  the document.  Each page is named "DDDDDD.png" in the zip file.
+
+  Parameters:
+
+    "doc_id" -- the repository ID of the document to fetch.
+
+  Returns: an application/zip payload containing the page images.
+
+
+
+
+Debugging
+=========
+
+There are a few things you can use to debug your code.  First, each
+guardian angel generates a log file, in ``ROOT/overhead/angel.log``.  This
+will, by default, log every accesss, and additional messages as
+generated by the code.  A new log file is started once a week; the
+older log files are kept in appropriately renamed files.  To write
+something to the log file, use the function `note`_ from the module
+``plibUtil``.  Exceptions generated while attempting to load and execute
+extension code are also written to the log file.  There's another log
+file, ``ROOT/overhead/angelout.log``, which contains error messages written to standard
+error by the angel.  If this file is ever non-empty, things have gone
+bad, and there should be an informative error message in that file.
+
+.. _Python:  http://www.python.org/

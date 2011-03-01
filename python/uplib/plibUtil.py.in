@@ -1,0 +1,2948 @@
+#
+# This file is part of the "UpLib 1.7.11" release.
+# Copyright (C) 2003-2011  Palo Alto Research Center, Inc.
+# 
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+#
+"""
+This module contains various utility programs and values for use by other UpLib modules
+"""
+
+__author__ = "Bill Janssen"
+__version__ = "$Revision: 1.247 $"
+__docformat__ = "restructuredtext"
+
+import re, os, sys, ConfigParser, string, time, shutil, tempfile, traceback, imp, cgi, quopri, base64, StringIO, types, codecs, struct, unicodedata, math, stat, threading, logging
+from thread import get_ident as _get_ident
+
+if not sys.platform.startswith("win"):
+    import pipes        # need this for UNIX variant of "subproc"
+
+############################################################
+###
+###  Make sure any of our custom-installed Python modules
+###  are available
+###
+############################################################
+
+if not os.environ.has_key("UPLIB_SITEPATH"):
+    import site
+    import distutils.sysconfig as sc
+    nonplat = os.path.normpath(sc.get_python_lib(plat_specific=False, prefix=r"@UPLIB_HOME@"))
+    platspec = os.path.normpath(sc.get_python_lib(plat_specific=True, prefix=r"@UPLIB_HOME@"))
+    if nonplat == platspec:
+        site_packages_dirs = [nonplat]
+    else:
+        site_packages_dirs = [nonplat, platspec]
+    site_insert = ""
+    for spdir in site_packages_dirs:
+        if os.path.exists(spdir) and spdir not in sys.path:
+            sys.path.insert(0, spdir)
+            for filename in os.listdir(spdir):
+                if filename.endswith(".pth"):
+                    site.addpackage(spdir, filename, set(sys.path))
+if sys.platform == "win32":
+    # make sure the spot where the Python DLLs live is in 'Path'
+    dllpath = [os.path.normpath(x) for x in os.environ.get('Path').split(os.pathsep)]
+    if os.path.normpath(sys.exec_prefix) not in dllpath:
+        dllpath.append(sys.exec_prefix)
+        os.environ['Path'] = os.pathsep.join(dllpath)
+    # make sure the spot where the UpLib DLLs live is in 'Path', too
+    if os.path.normpath(r"@UPLIB_BIN@") not in dllpath:
+        dllpath.append(os.path.normpath(r"@UPLIB_BIN@"))
+        os.environ['Path'] = os.pathsep.join(dllpath)
+
+############################################################
+###
+###  Various constants
+###
+############################################################
+
+UPLIB_VERSION = r"@UPLIB_VERSION@"
+"""The version of UpLib being used, as a string."""
+
+false = (0 == 1)
+"""Obsolete declaration of a boolean value false.  Use the built-in Python False instead."""
+
+true = (1 == 1)
+"""Obsolete declaration of a boolean value true.  Use the build-in Python true instead."""
+
+PATH_SEPARATOR = "|"
+"""Separator character for extension paths."""
+
+SECONDS_PER_DAY = 24 * 60 * 60
+"""Number of seconds in one day."""
+
+SECONDS_PER_WEEK = 24 * 60 * 60 * 7
+"""Number of seconds in one week."""
+
+URLPATTERN = re.compile(r'(^|\W)(?P<url>(?P<scheme>http|ftp|https)://(?P<host>[-a-z0-9A-Z_\.]+[a-zA-Z0-9])(:(?P<port>[0-9]+)){0,1}(?P<path>(/[-+~&$/\w,.?=%#]*[-+~$/\w?=%#])|))')
+"""Pattern which matches HTTP, FTP, and HTTPS URL strings."""
+
+# standard email address pattern
+#
+EMAILPATTERN = re.compile(r'(?P<email>(?P<mailbox>[-a-zA-Z0-9._]+)@(?P<domain>[-a-zA-Z0-9_$.]+\.((com)|(edu)|(net)|(info)|(org)|(name)|([A-Za-z]{2})){1}))')
+"""Pattern which matches most email address strings."""
+
+# email adresses in papers often appear as {mailbox1, mailbox2}@domain
+#
+GEMAILPATTERN = re.compile(r'({(?P<group>([-a-zA-Z0-9._]+(\s*,\s*[-a-zA-Z0-9._]+)+))}@(?P<domain>[-a-zA-Z0-9_$.]+\.(com|edu|net|info|org|name|[A-Za-z]{2}){1}))')
+"""Pattern which matches many multi-email address forms found in the authors section of papers."""
+
+# note lines begin with either a newline or the actual beginning of the
+# string, followed by some other character
+#
+NOTELINE_BEGINNING = re.compile(r'(?P<linestart>\A|\n)(?P<firstchar>.)', re.MULTILINE)
+"""Pattern which matches the beginning of a string."""
+
+#
+#  Compiled value to represent name of a document folder, and a collection
+
+DOC_ID_RE = re.compile('[0-9]{5}-[0-9]{2}-[0-9]{4}-[0-9]{3}')
+"""Pattern matching an UpLib doc ID string."""
+
+HIER_DOC_ID_RE = (re.compile('[0-9]{5}'), re.compile('[0-9]{2}'), re.compile('[0-9]{4}'), re.compile('[0-9]{3}'))
+"""Tuple of patterns matching individual parts of a doc ID."""
+
+COLL_ID_RE = re.compile('[0-9]{5}-[0-9]{2}-[0-9]{4}-[0-9]{3}-[0-9]+')
+"""Pattern matching an UpLib collection ID string."""
+
+CHARSET_PATTERN = re.compile(r"^Content-Type:\s*text/plain;\s*charset=([^)]*)\n", re.IGNORECASE)
+"""A pattern matching the Content-Type header in a contents.txt file"""
+
+LANGUAGE_PATTERN = re.compile(r"^Content-Language:\s*(.*)\n", re.IGNORECASE)
+"""A pattern matching the Content-Language header in a contents.txt file"""
+
+PAGENUMBER = re.compile(r'page(\d+)\.png')
+"""A pattern matching the name of a file in an UpLib page-images sub-folder."""
+
+############################################################
+###
+###  Error (an exception type)
+###
+############################################################
+
+class Error(Exception):
+    """Standard base class for UpLib errors."""
+    pass
+
+############################################################
+###
+###  find_class (CLASSNAME)
+###
+############################################################
+
+def find_class (name):
+    """
+    Given a class name, return the Python class matching that name.
+
+    :param name: the name of the class, e.g. uplib.document.Document
+    :type name: string
+
+    :return: a Python class matching that name, or None if the class can't be found
+    :rtype: a Python class
+    """
+
+    components = name.split('.')
+    if len(components) > 1:
+        mod = __import__('.'.join(components[:-1]))
+        components = name.split('.')
+        for comp in components[1:]:
+            mod = getattr(mod, comp)
+        return mod
+    else:
+        return None
+
+############################################################
+###
+###  function subproc (COMMAND-LINE)
+###
+###  Run COMMAND-LINE in a subprocess and return the exit
+###  status and any output it produced.  STDERR and STDOUT
+###  are commingled in the output.
+###
+############################################################
+
+_SHELL = None
+
+def subproc (command):
+    """
+    Run ``command`` in a subprocess, and return the exit status, any output produced,
+    and, if terminated with a signal, the signal number.  STDERR and STDOUT are commingled
+    in the output.  On Windows, this command line is run in ``cmd.exe``, and no special
+    quoting is performed.  On UNIX systems, the Bourne shell is used, and the function
+    attempts to quote special characters in the command line appropriately.
+
+    :param command: the shell command to run
+    :type command: shell command line suitable for the system
+    :return: the exit status (zero for success), any output, and a termination signal number (or 0 if not terminated by a signal)
+    :rtype: int, string, int
+    """
+
+    global _SHELL
+
+    note(5, "subproc('" + command + "')")
+
+    if sys.platform.lower().startswith("win"):
+        winver = sys.getwindowsversion()
+        if winver[0] == 6:
+            # Windows Vista, Server 2008, Windows 7
+            _SHELL = r"c:\windows\system32\cmd.exe"
+        elif winver[0] == 5:
+            if winver[1] == 0:
+                # Win2K
+                _SHELL = r"c:\winnt\system32\cmd.exe"
+            elif winver[1] >= 1:
+                # Win XP, Windows Server 2003
+                _SHELL = r"c:\windows\system32\cmd.exe"
+        elif winver[0] == 4:
+            # Windows NT
+            _SHELL = r"c:\winnt\system32\cmd.exe"
+        elif (winver[0] > 6) and os.path.exists(r"c:\windows\system32\cmd.exe"):
+            _SHELL = r"c:\windows\system32\cmd.exe"
+        else:
+            raise ValueError("Windows version %s not supported." % str(winver))
+
+        if "COMSPEC" not in os.environ:
+            os.environ["COMSPEC"] = _SHELL	
+
+        # pass command to the _SHELL
+        cmd = '%s /s /c "%s 2>&1"' % (_SHELL, command)
+        proc = os.popen(cmd, 'r')
+        output = proc.read()
+        status = proc.close() or 0
+        return (status, output, 0)
+    else:
+        if not _SHELL:
+            conf = configurator()
+            _SHELL = conf.get("bourne-shell", "/bin/sh")
+        command = "%s -c %s" % (_SHELL, pipes.quote(command + " 2>&1"))
+        note(4, "subproc: %s", command)
+        proc = os.popen(command, 'r')
+        output = None
+        while True:
+            try:
+                output = proc.read()
+                break
+            except IOError, x:
+                if x.errno == 4:
+                    note(3, "EINTR on proc.read() in subproc()")
+                    continue
+                else:
+                    break
+            except:
+                break
+        status = proc.close() or 0
+        return ((status >> 8 & 0xFF), output, status & 0x7F)
+    
+############################################################
+###
+###  function find_JAVAHOME
+###
+############################################################
+
+def find_JAVAHOME ():
+    """
+    Return the correct value for JAVAHOME.
+
+    :return: the correct value for JAVAHOME
+    :rtype: string
+    """
+
+    if sys.platform == 'win32':
+
+        # figure out where the jvm.dll is, and make sure that location is on sys.path
+        try:
+            import _winreg as wreg
+        except ImportError:
+            import winreg as wreg
+            # if this fails, let exception propagate, because something's wrong
+
+        registry = wreg.ConnectRegistry(None, wreg.HKEY_LOCAL_MACHINE)
+        try:
+            key = wreg.OpenKey(registry, r"SOFTWARE\JavaSoft\Java Runtime Environment")
+            if not key:
+                return None
+            v, t = wreg.QueryValueEx(key, "CurrentVersion")
+            key = wreg.OpenKey(registry, r"SOFTWARE\JavaSoft\Java Runtime Environment\%s" % v)
+            javahome, t = wreg.QueryValueEx(key, "JavaHome")
+            # if we have a javahome, make sure it's on the list for DLL loading
+            if javahome:
+                location = os.path.join(javahome, "bin", "client")
+                os.environ['Path'] = os.pathsep.join(os.environ['Path'].split(os.pathsep) + [location,])
+            return javahome
+        finally:
+            registry.Close()
+
+    elif sys.platform == 'darwin':
+
+        if "JAVAHOME" in os.environ:
+            return os.environ["JAVAHOME"]
+        if os.path.exists("/usr/libexec/java_home"):
+            status, output, tsig = subproc("/usr/libexec/java_home 1.5+")
+            if status == 0:
+                return output.strip()
+        return "/Library/Java/Home"
+
+    else:
+        return os.environ.get("JAVAHOME")
+
+############################################################
+###
+###  function set_verbosity (LEVEL)
+###
+############################################################
+
+_verbosity = -1
+__note_sink = sys.stdout
+
+def set_verbosity (level):
+    """
+    Set the logging level for this process.  Messages above this level will not be displayed.
+    Messages at this level, or below it, will be added to the log.
+
+    :param level: the level to set it to
+    :type level: small integer (0-6)
+    """
+
+    global _verbosity
+    _verbosity = level
+
+def set_note_sink (sink):
+    """
+    Set the output sink for logging messages.  The default value is sys.stdout.
+
+    :param sink: the sink to which to send messages.
+    :type sink: a Python file object
+    """
+
+    global __note_sink
+    __note_sink = sink
+
+def get_note_sink ():
+    """
+    Get the Python file object to which logging messages are sent.
+
+    :return: the logging sink
+    :rtype: Python file object
+    """
+    return __note_sink
+
+class _ThreadCounter:
+    def __init__(self):
+        self.counter = 0
+        self.threadsmap = {}
+
+    def get_thread_id(self):
+        tid = uthread.get_ident()
+        if self.threadsmap.has_key(tid):
+            return self.threadsmap[tid]
+        else:
+            label = "thr%03d" % self.counter
+            self.threadsmap[tid] = label
+            self.counter = self.counter + 1
+            return label
+
+_THREAD_COUNTER = None
+
+def set_threaded(arg = true):
+    """Enable/disable threaded logging.  If enabled, will add current thread ID to log messages.
+
+    :param arg: whether or not to enable it
+    :type arg: boolean
+    """
+    global _THREAD_COUNTER
+    if arg and not _THREAD_COUNTER:
+        _THREAD_COUNTER = _ThreadCounter()
+    else:
+        _THREAD_COUNTER = None
+
+############################################################
+###
+###  function note ([VERBOSITY, ] FORMAT-STRING [, ARGS])
+###
+############################################################
+
+def note(*args):
+    """
+    Write a message to the log, if the level of the message is high enough.
+
+    Usage:  note ([MIN_VERBOSITY_LEVEL (defaults to 1), ] FORMAT_STRING [, ARGS...])
+    If CurrentVerbosityLevel is greater than or equal to MIN_VERBOSITY_LEVEL, will write
+    the message to __note_sink.
+    """
+
+    global __note_sink, _verbosity, _THREAD_COUNTER
+
+    def unicode_check(s):
+        # this addresses an issue fixed in Python 2.4, so it can be removed
+        # when we switch to that release
+        if isinstance(s, str):
+            return unicode(s, 'ISO-8859-1', 'replace')
+        elif isinstance(s, unicode):
+            return s
+        elif type(s) in (types.IntType, types.LongType, types.FloatType, types.ComplexType, types.BooleanType):
+            # pass these through unchanged to support %d, %f
+            return s
+        else:
+            return unicode_check(repr(s))
+
+    if len(args) < 1:
+        raise ValueError("call to 'note' with no arguments")
+    if type(args[0]) == type(2):
+        verbosity_level = args[0]
+        args = args[1:]
+    else:
+        verbosity_level = 1
+    if not isinstance(args[0], types.StringTypes):
+        raise ValueError("call to 'note' with no format argument -- " + str(args[0]) + " found instead")
+    if (verbosity_level <= _verbosity):
+        if len(args) > 1:
+            actual_message = unicode_check(args[0]) % tuple([unicode_check(x) for x in args[1:]])
+        else:
+            actual_message = unicode_check(args[0])
+        if len(actual_message) < 1 or actual_message[-1] != '\n':
+            actual_message = actual_message + '\n'
+        if _THREAD_COUNTER:
+            actual_message = NOTELINE_BEGINNING.sub(r'\g<linestart>' + str(_THREAD_COUNTER.get_thread_id()) + r': \g<firstchar>', actual_message)
+        if isinstance(__note_sink, logging.Logger):
+            __note_sink.log(__note_sink.getEffectiveLevel(), actual_message.strip())
+            for handler in __note_sink.handlers:
+                handler.flush()
+        elif hasattr(__note_sink, "write"):
+            __note_sink.write(actual_message.encode('ASCII', 'backslashreplace'))
+            if hasattr(__note_sink, "flush"):
+                __note_sink.flush()
+
+############################################################
+###
+###  class configurator
+###
+############################################################
+
+_DEFAULT_SECTIONS = None
+_PORT = None
+_DEFAULT_CONFIGURATOR = None
+
+def set_default_configuration_sections (sections):
+    """Set the default configuration sections, and their order.
+
+    :param sections: the sections to use
+    :type sections: sequence of section names
+    """
+
+    global _DEFAULT_SECTIONS
+    _DEFAULT_SECTIONS = sections
+
+def set_configuration_port(portno):
+    """Set the configuration port.  For section names which have a port part,
+    this is the port to use to match that part.
+
+    :param portno: the port number
+    :type portno: integer
+    """
+    global _PORT
+    _PORT = portno
+
+def get_fqdn():
+    """Get the fully-qualified domain name of the current machine.
+    This is not guaranteed to succeed; many machines have only a hazy idea of their FQDN.
+
+    :return: the fully-qualified domain name
+    :rtype: string
+    """
+    import socket
+    hostname = ""
+    if hasattr(os, 'uname'):
+        hostname = os.uname()[1]
+    if hostname.count('.') < 2:
+        # might be "foo" or "foo.local"
+        hostname = socket.getfqdn()
+    return hostname.lower()
+
+def _get_windows_config_dir():
+
+    if os.environ.has_key('APPDATA'):
+        listdir = os.path.join(os.environ['APPDATA'], 'UpLib-config')
+    elif os.environ.has_key('USERPROFILE'):
+        listdir = os.path.join(os.environ['USERPROFILE'], 'Application Data', 'UpLib-config')
+    elif os.environ.has_key('HOMEDIR') and os.environ.has_key('HOMEPATH'):
+        listdir = os.path.join(os.environ['HOMEDIR'], os.environ['HOMEPATH'], 'UpLib-config')
+    else:
+        listdir = os.path.expanduser("~")
+    return listdir
+
+def get_machine_id():
+    """
+    UpLib tries to assign a UUID to each machine
+    it runs on.  It stores this in /etc/uplib-machine-id, if possible.
+    Otherwise it uses the FQDN as the machine ID, on Windows for
+    instance.  This function returns the UUID for the current host.
+
+    :return: machine ID, an arbitrary string of use only to UpLib
+    :rtype: string
+    """
+    if sys.platform in ('darwin', 'linux2') and os.path.exists('/etc/uplib-machine-id'):
+        fp = open('/etc/uplib-machine-id', 'r')
+        machineid = fp.read().strip()
+        fp.close()
+    else:
+        machineid = get_fqdn()
+    return machineid
+
+class configurator (object):
+    """
+    This class supports reading and parsing and interrogating UpLib configuration
+    files.  These are Windows .INI files, with section names that are particular
+    to UpLib's use:  ``client``, _HOSTNAME_, _HOSTNAME_:_PORT_, etc.  See the
+    user manual for full documentation on section names and configuration options.
+    """
+
+    def __init__(self, sections=None, filename=None, config_home=None):
+        """Initialize an instance of the class."""
+        global _verbosity
+
+        if hasattr(os, 'uname'):
+            osname = os.uname()[0]
+        else:
+            osname = sys.platform
+        hostname = get_fqdn()
+        machineid = get_machine_id()
+
+        is_windows = sys.platform.lower().startswith("win")
+
+        default_uplib_config_dir = (is_windows and _get_windows_config_dir() or
+                                    os.path.join(os.path.expanduser("~"), ".uplib"))
+
+        self.__sections = sections
+        self.__site_config_file = None
+        self.__user_config_file = None
+        self.__default_sections = (_DEFAULT_SECTIONS or
+                                   (_PORT and (machineid+':'+str(_PORT),
+                                               hostname+':'+str(_PORT),
+                                               machineid, hostname, osname, "default",)) or
+                                   (machineid, hostname, osname, "default",))
+        self.__parser = ConfigParser.ConfigParser()
+        if sys.version_info < (2, 6):
+            self.__parser.add_section("default")
+            self.__parser.set("default", "uplib-path", default_uplib_config_dir)
+        else:
+            self.__parser.set(None, "uplib-path", default_uplib_config_dir)
+
+        # figure out the user config file (if any)
+
+        def check_config_file(path):
+            if path and os.path.exists(path):
+                return os.path.normpath(path)
+
+        user_config_file = (check_config_file(filename) or
+                            check_config_file(os.environ.get("UPLIBRC", "")) or
+                            check_config_file(os.path.join(default_uplib_config_dir, "user.config")) or
+                            check_config_file(os.path.join(os.path.expanduser("~"), ".uplibrc")) or
+                            check_config_file(is_windows and
+                                              ("C:" + os.path.join(os.path.expanduser("~"), ".uplibrc")[1:]))
+                            )
+
+        config_filename = None
+        old_verbosity = _verbosity
+        try:
+            _verbosity = int(os.environ.get("UPLIB_CONFIG_VERBOSITY", 0))
+
+            # read system-wide config file first
+            uplib_lib = config_home or os.environ.get("UPLIBLIB") or r"@UPLIB_LIB@"
+            if not uplib_lib:
+                raise Error("UPLIBLIB environment variable not set!")
+            elif not os.path.exists(uplib_lib):
+                raise Error("The UpLib Library directory, %s, does not exist!" % uplib_lib)
+            elif not os.path.isdir(uplib_lib):
+                raise Error("The UpLib Library directory, %s, is not a directory!" % uplib_lib)
+            if sys.version_info < (2, 6):
+                self.__parser.set("default", "uplib-lib", uplib_lib)
+            else:
+                self.__parser.set(None, "uplib-lib", uplib_lib)
+            site_config_file = os.path.join(uplib_lib, "site.config")
+            if not os.path.exists(site_config_file):
+                note(0, "Site config file %s does not exist!", site_config_file)
+            else:
+                note(4, "Using system-wide config file [%s]" % site_config_file)
+                self.__parser.read(site_config_file)
+                self.__site_config_file = site_config_file
+
+            # now read user config file
+
+            if user_config_file:
+                note(2, "Using user config file '%s'." % user_config_file)
+                try:
+                    fp = open(user_config_file, 'r')
+                    lines = fp.readlines()
+                    fp.close()
+                    for i in range(len(lines)):
+                        lines[i] = lines[i].strip()
+                    for i in range(len(lines)-1,-1,-1):
+                        if not lines[i]:
+                            del lines[i]
+                    note(5, "lines from config file '%s' are:\n------\n%s\n------", user_config_file, '\n'.join(lines))
+                    dp = StringIO.StringIO('\n'.join(lines))
+                    self.__parser.readfp(dp, config_filename)
+                    dp.close()
+                except:
+                    msg = ''.join(traceback.format_exception(*sys.exc_info()))
+                    note(0, "Exception reading config file '%s' (ignoring that file):\n%s", user_config_file, msg)
+                else:
+                    self.__user_config_file = user_config_file
+            else:
+                if filename:
+                    note("Invalid configuration filename \"%s\" specified.  No such file.", filename)
+                else:
+                    note("No user configuration file being used.")
+        finally:
+            _verbosity = old_verbosity
+        # we need to set the verbosity somewhere...
+        if _verbosity == -1:
+            verbosity = self.get_int("verbosity", 1)
+            set_verbosity(verbosity)
+
+
+    def __str__ (self):
+        return '<configurator sections=%s site=%s user=%s>' % (self.sections(), self.__site_config_file, self.__user_config_file)
+
+    def __repr__ (self):
+        return self.__str__()
+
+    def dump (self, sections=None):
+        """
+        Dump the contents of the config files read by this instance.
+
+        :param sections: the sections to dump.  If not specified, defaults to the default sections.
+        :type sections: sequence of section names
+        :return: dict of sections
+        :rtype: dict where each section is a key, and the value for that key is a sequence of name-value pairs for the options in that section
+        """
+        sections = sections or self.__sections or self.__default_sections
+        result = {}
+        result["default"] = self.__parser.defaults()
+        for section in sections:
+            if self.__parser.has_section(section):
+                result[section] = self.__parser.items(section)
+        return result
+
+    def sections(self):
+        """
+        Get the sections of this instance.
+
+        :return: the section names of this instance
+        :rtype: sequence of section names.
+        """
+        return self.__sections or self.__default_sections
+
+    def get(self, option_name, default=None, section_list=None):
+        """
+        Get the value for the option ``option_name``.
+
+        :param option_name: the name of a configuration option, e.g. "verbosity"
+        :type option_name: string
+        :param default: the default value to return if a specific value for ``option_name`` is not found.
+        :type default: string
+        :param section_list: the list of sections to search, in order.  The standard default sections \
+               are used if this is not specified.
+        :type section_list: sequence of section names
+        :return: the value for ``option_name``, if present, or the default value if specified, or ``None``.
+        :rtype: string or None
+        """
+        retval = None
+        if not section_list and self.__sections:
+            section_list = self.__sections
+        elif section_list:
+            section_list = section_list + self.__default_sections
+        else:
+            section_list = self.__default_sections
+        for section in section_list:
+            if self.__parser.has_section(section) and self.__parser.has_option(section, option_name):
+                retval = self.__parser.get(section, option_name)
+                break
+        if retval == None:
+            return default
+        else:
+            return retval
+
+    def get_int(self, option_name, default=None, section_list=()):
+        """
+        Get the value for the option ``option_name``, as an int.  May raise ValueError if the
+        string value cannot be parsed as an int.
+
+        :param option_name: the name of a configuration option, e.g. "verbosity"
+        :type option_name: string
+        :param default: the default value to return if a specific value for ``option_name`` is not found.
+        :type default: string or int
+        :param section_list: the list of sections to search, in order.  The standard default sections \
+               are used if this is not specified.
+        :type section_list: sequence of section names
+        :return: the value for ``option_name``, if present, or the default value if specified, or ``None``.
+        :rtype: int or None
+        """
+        retval = self.get(option_name, default, section_list)
+        if retval and type(retval) == type(""):
+            retval = int(retval)
+        if retval != None:
+            return retval
+        else:
+            return default
+
+    def get_bool(self, option_name, default=None, section_list=()):
+        """
+        Get the value for the option ``option_name``, as an boolean.  May raise ValueError if the
+        string value cannot be parsed as an boolean value.  Acceptable boolean string values
+        are "yes", "on", "1", or "true" for ``True``, and "no", "off", "1", or "false" for ``False``.
+
+        :param option_name: the name of a configuration option, e.g. "verbosity"
+        :type option_name: string
+        :param default: the default value to return if a specific value for ``option_name`` is not found.
+        :type default: string
+        :param section_list: the list of sections to search, in order.  The standard default sections \
+               are used if this is not specified.
+        :type section_list: sequence of section names
+        :return: the value for ``option_name``, if present, or the default value if specified, or ``None``.
+        :rtype: boolean or None
+        """
+        if default is not None:
+            v = default
+        else:
+            v = false
+        retval = self.get(option_name, default, section_list)
+        if retval and type(retval) == type(""):
+            rv = retval.lower()
+            if (rv == 'yes') or (rv == 'on') or (rv == '1') or (rv == 'true'):
+                v = true
+            elif (rv == 'no') or (rv == 'off') or (rv == '0') or (rv == 'false'):
+                v = false
+        return v
+
+    def default_configurator(sections=None, filename=None, config_home=None):
+        """
+        Returns a static instance of the configurator.  Skips re-reading the same
+        config file over again.
+
+        :return: a configurator instance
+        :rtype: a configurator instance
+        """
+        global _DEFAULT_CONFIGURATOR
+        if _DEFAULT_CONFIGURATOR is None:
+            _DEFAULT_CONFIGURATOR = configurator(sections, filename, config_home)
+        return _DEFAULT_CONFIGURATOR
+    default_configurator=staticmethod(default_configurator)
+
+    def set_default_configurator(c):
+        """
+        Sets the default configurator instance to the specified value.
+
+        :param c: the default configurator
+        :type c: configurator
+        """
+        global _DEFAULT_CONFIGURATOR
+        _DEFAULT_CONFIGURATOR = c
+    set_default_configurator=staticmethod(set_default_configurator)
+
+
+def safe_configurator (sections=None, filename=None, config_home=None):
+    try:
+        if filename and (not os.path.exists(filename)):
+            return None
+        return configurator(sections, filename, config_home)
+    except:
+        return None
+
+############################################################
+###
+###  threading
+###
+############################################################
+
+THREADING = None
+"""Kind of threading in use.  Possible values are  "python"."""
+
+HAVE_PYLUCENE = None
+"""What flavor of PyLucene is available"""
+
+if "@USE_PYLUCENE@".startswith("jcc"):
+
+    # make sure the JVM DLL is on our path, a side-effect of finding the JAVAHOME
+    jhome = find_JAVAHOME()
+
+    HAVE_PYLUCENE = "jcc"
+    THREADING = "python"
+
+    class JavaCapableThread(threading.Thread):
+        """A Python thread that uses JCC to also be a Java thread!"""
+
+        tid = 0
+
+        def run(self):
+            if uthread.JAVA_ENV:
+                uthread.JAVA_ENV.attachCurrentThread(self.getName(), self.isDaemon())
+            self.tid = long(_get_ident())
+            note(3, "starting %s%s at %s", repr(self.getName()), self.isDaemon() and " (daemon)" or "", time.ctime())
+            super(JavaCapableThread, self).run()
+            if uthread.JAVA_ENV:
+                uthread.JAVA_ENV.detachCurrentThread()
+
+        def __repr__(self):
+            return "<%s %s %x>" % (self.__class__.__name__, repr(self.getName()), self.tid)
+
+    class uthread (object):
+        """An abstraction of the threading model."""
+
+        _conf = configurator.default_configurator()
+        _maxheap = _conf.get("java-max-heap", "512m")
+        _maxstack = _conf.get("java-max-stack", "100m")
+        _vmargs = _conf.get("java-vm-args", "-Djava.awt.headless=true")
+
+        def initialize(cls):
+            """Initialize the class.  Should be called just once."""
+
+            import gc
+            #gc.set_debug(gc.DEBUG_STATS)
+
+            try:
+                import lucene
+            except ImportError:
+                note("importing lucene raises %s", ''.join(traceback.format_exception(*sys.exc_info())))
+                note("Path is %s", os.environ.get("Path"))
+                note("sys.path is %s", sys.path)
+                note("exiting...")
+                sys.exit(1)
+
+            try:
+                cls.JAVA_ENV = lucene.getVMEnv() or lucene.initVM(classpath=lucene.CLASSPATH,
+                                                                  vmargs=cls._vmargs,
+                                                                  initialheap="64m", maxheap=cls._maxheap,
+                                                                  maxstack=cls._maxstack)
+                # make sure we can call in on the main thread
+                cls.JAVA_ENV.attachCurrentThread(threading.currentThread().getName(),
+                                                 threading.currentThread().isDaemon())
+            except:
+                note("initializing lucene raises %s", ''.join(traceback.format_exception(*sys.exc_info())))
+                note("vmargs is %s, maxheap is %s, maxstack is %s", repr(cls._vmargs), cls._maxheap, cls._maxstack)
+                note("exiting...")
+                sys.exit(1)
+        initialize=classmethod(initialize)
+
+        def get_ident():
+            """Return some identifier string for the thread."""
+            t = threading.currentThread()
+            tid = long(_get_ident())
+            if t:
+                name = t.getName()
+                return "<uthread %s %x>" % (repr(name), tid)
+            else:
+                return "<uthread %x>" % tid
+        get_ident = staticmethod(get_ident)
+
+        def create_new_thread(name, fn, args):
+            """Create a new "daemon" thread, running ``fn`` on ``args``, but don't start it.
+            User will call the ``start()`` method on the returned thread to put it into action.
+
+            :param name: a name for the thread (optional)
+            :type name: string
+            :param fn: a function to run in the thread.  When this function returns, the thread exits.
+            :type fn: a Python function
+            :param args: a sequence of args to pass to ``fn``
+            :type args: a sequence of Python values.
+            """
+            t = JavaCapableThread(None, fn, name, args)
+            note(2, "creating new thread %s", t)
+            t.setDaemon(true)
+            return t
+        create_new_thread=staticmethod(create_new_thread)
+
+        def start_new_thread(fn, args, name=None):
+            """Create and start a new "daemon" thread, running ``fn`` on ``args``.
+
+            :param fn: a function to run in the thread.  When this function returns, the thread exits.
+            :type fn: a Python function
+            :param args: a sequence of args to pass to ``fn``
+            :type args: a sequence of Python values.
+            :param name: a name for the thread (optional)
+            :type name: string
+            """
+            t = JavaCapableThread(None, fn, name, args)
+            note(2, "starting new thread %s", t)
+            t.setDaemon(true)
+            t.start()
+            return t
+        start_new_thread = staticmethod(start_new_thread)
+
+        def allocate_lock():
+            """Allocate a lock.  This is mainly used internally by UpLib."""
+            return threading.RLock()
+        allocate_lock = staticmethod(allocate_lock)
+
+
+if (not HAVE_PYLUCENE):
+
+    THREADING = "python"
+
+    class uthread (object):
+
+        def initialize(cls):
+            """Initialize the class.  Should be called just once."""
+            pass
+        initialize=classmethod(initialize)
+
+        def __str__(self):
+            return self.get_ident()
+
+        def get_ident():
+            """Return some identifier string for the thread."""
+            return repr(threading.currentThread())
+        get_ident = staticmethod(get_ident)
+
+        def create_new_thread(name, fn, args):
+            """Create a new "daemon" thread, running ``fn`` on ``args``, but don't start it.
+            User will call the ``start()`` method on the returned thread to put it into action.
+
+            :param name: a name for the thread (optional)
+            :type name: string
+            :param fn: a function to run in the thread.  When this function returns, the thread exits.
+            :type fn: a Python function
+            :param args: a sequence of args to pass to ``fn``
+            :type args: a sequence of Python values.
+            """
+            t = threading.Thread(None, fn, name, args)
+            t.setDaemon(true)
+            note(2, "creating new thread %s", t)
+            return t
+        create_new_thread=staticmethod(create_new_thread)
+
+        def start_new_thread(fn, args, name=None):
+            """Create and start a new "daemon" thread, running ``fn`` on ``args``.
+
+            :param fn: a function to run in the thread.  When this function returns, the thread exits.
+            :type fn: a Python function
+            :param args: a sequence of args to pass to ``fn``
+            :type args: a sequence of Python values.
+            :param name: a name for the thread (optional)
+            :type name: string
+            """
+            t = threading.Thread(None, fn, name, args)
+            t.setDaemon(true)
+            note(2, "starting new thread %s", t)
+            t.start()
+            return t
+        start_new_thread = staticmethod(start_new_thread)
+
+        def allocate_lock():
+            """Allocate a lock.  This is mainly used internally by UpLib."""
+            return threading.RLock()
+        allocate_lock = staticmethod(allocate_lock)
+
+
+############################################################
+###
+###  class MutexLock
+###
+###  Simple debugging wrapper around thread locks
+###
+############################################################
+
+class MutexLock (object):
+    """A named lock with some debugging statements wrapped around acquire() and release()."""
+
+    def __init__(self, name):
+        """Allocate a lock and assign the name.
+
+        :param name: the name of the lock (used in debugging)
+        :type name: string
+        """
+        self.name = name
+        self.tl = uthread.allocate_lock()
+        self.holder = ''
+
+    def __str__(self):
+        return "%s%s" % (self.name, self.holder)
+
+    def __repr__(self):
+        return self.__str__()
+
+    def acquire(self):
+        """Acquire the lock."""
+        note(3, "acquiring lock:  %s...", self)
+        note(5, "  at\n%s", ''.join(traceback.format_stack()[:-1]))
+        self.tl.acquire()
+        self.holder = '*'
+        note(3, "acquired lock:  %s", self)
+
+    def release(self):
+        """Release the lock."""
+        note(3, "releasing lock:  %s", self)
+        self.holder = ''
+        self.tl.release()
+
+############################################################
+###
+###  class Job
+###
+############################################################
+
+class Job (object):
+    """
+    A class to represent a running job in the guardian angel.  You can ask
+    it if it's running, how far along it is, and get its output at various
+    stages.
+    """
+
+    JOB_TABLE = {}
+    JOB_TABLE_LOCK = MutexLock("job-table")
+
+    def run_fn_in_new_thread(fn, output, percent_done_fn, args):
+        try:
+            fn(*((output, percent_done_fn) +args))
+        except:
+            excn = sys.exc_info()
+            msg = "Exception calling %s with %s:\n%s" % (fn, args, ''.join(traceback.format_exception(*excn)))
+            note("%s", msg)
+            output.write(msg + '\n')
+    run_fn_in_new_thread=staticmethod(run_fn_in_new_thread)
+
+    def find_job (id):
+        Job.JOB_TABLE_LOCK.acquire()
+        try:
+            return Job.JOB_TABLE.get(id)
+        finally:
+            Job.JOB_TABLE_LOCK.release()
+    find_job=staticmethod(find_job)
+
+    def finish_job (id):
+        Job.JOB_TABLE_LOCK.acquire()
+        try:
+            j = Job.JOB_TABLE.get(id)
+            if j and (not j.thread.isAlive()):
+                note(3, "removing Job %s -- thread is not alive", id)
+                del Job.JOB_TABLE[id]
+                j.output.close()
+        finally:
+            Job.JOB_TABLE_LOCK.release()
+    finish_job=staticmethod(finish_job)
+
+    def __init__ (self, function, *args):
+        self.output = StringIO.StringIO()
+        self.percent = -1
+        self.id = create_new_id()
+        self.thread = uthread.create_new_thread(self.id, Job.run_fn_in_new_thread, (function, self.output, self.percent_done, args))
+        Job.JOB_TABLE_LOCK.acquire()
+        Job.JOB_TABLE[self.id] = self
+        Job.JOB_TABLE_LOCK.release()
+        note(3, "forking %s as Job %s...", function, self.id)
+        self.thread.start()
+
+    def percent_done (self, val):
+        self.percent = int(math.floor(val + 0.5))
+
+    def get_output(self):
+        return self.output.getvalue()
+
+    def get_percent_done(self):
+        return self.percent
+
+    def running (self):
+        return self.thread.isAlive()
+
+
+############################################################
+###
+###  lock_folder(PATH) and unlock_folder(PATH)
+###
+############################################################
+
+def lock_folder (pathname):
+    """Lock a document folder for exclusive access.
+
+    :param pathname: path to the folder
+    :type pathname: string pathname
+    """
+    if not os.path.exists(pathname) or not os.path.isdir(pathname):
+        raise Error("attempt to lock non-folder %s" % pathname)
+    if sys.platform.lower().startswith("win"):
+        return
+    lockfilepath = os.path.join(pathname, "LOCK")
+    pid = os.getpid()
+    note(3, "Acquiring folder lock on %s...", os.path.basename(pathname))
+    show_stack(5)
+    while 1:
+        if not os.path.exists(lockfilepath) and os.path.isdir(pathname):
+            try:
+                lockfile = os.open(lockfilepath, os.O_RDWR | os.O_CREAT | os.O_EXCL | os.O_NONBLOCK)
+            except:
+                # error attempting to open it
+                e = ''.join(traceback.format_exception(*sys.exc_info()))
+                note(2, "error attempting to create lockfile %s:\n%s", lockfilepath, e)
+                time.sleep(1)	# wait a second
+                if os.path.isdir(pathname): continue
+            # nothing in the file, so far so good
+            os.write(lockfile, str(pid))
+	    os.fsync(lockfile)
+            os.lseek(lockfile, 0, 0)
+            data = os.read(lockfile, 1000)
+            if len(data) < 1 or int(data) != pid:
+                # not ours, so go around again
+                note(2, "zero data read or wrong pid (%d/%d) on lockfile %s", int(data), pid, lockfilepath)
+		os.close(lockfile)
+                time.sleep(1)
+                continue
+            else:
+                # OK, we're good so far
+                os.close(lockfile)
+                note(3, "...acquired folder lock on %s", os.path.basename(pathname))
+                return
+
+def unlock_folder (pathname):
+    """Unlock a document folder for exclusive access.
+
+    :param pathname: path to the folder
+    :type pathname: string pathname
+    """
+    if sys.platform.lower().startswith("win"):
+        return
+    lockfilepath = os.path.join(pathname, "LOCK")
+    pid = os.getpid()
+    if os.path.exists(lockfilepath):
+        note(3, "Releasing folder lock on %s", os.path.basename(pathname))
+        lockfile = os.open(lockfilepath, os.O_RDONLY | os.O_EXCL)
+	os.lseek(lockfile, 0, 0)
+        data = os.read(lockfile, 1000)
+        if data > 0 and int(data) == pid:
+            # good, it's ours
+	    os.close(lockfile)
+            os.unlink(lockfilepath)
+        else:
+            os.close(lockfile)
+            raise Error ("attempt to unlock lockfile %s not locked by process %s" % (lockfilepath, pid))
+    else:
+        raise Error ("attempt to unlock non-existent lockfile %s" % lockfilepath)        
+            
+
+############################################################
+###
+###  function zipup (DIRECTORY [, FILENAME=None])
+###
+###  Create a zipfile containing DIRECTORY and return the
+###  filename.  Use FILENAME if specified.
+###
+###  function unzip (DIRECTORY, FILENAME)
+###
+###  Unpack FILENAME into DIRECTORY
+###
+############################################################
+
+def zipup (DIRECTORY, FILENAME=None, SORTED=false, FILEFUNC=None, EXCLUDES=None, COMPRESSION=None):
+    """
+    Create a zip file containing the directory tree at DIRECTORY.
+
+    :param DIRECTORY: the root of the directory tree to put into the zip file
+    :type DIRECTORY: string pathname
+    :param FILENAME: the name of th efile to create.  If not specified, a tempfile name is generated and used.
+    :type FILENAME: string pathname
+    :param SORTED: whether to sort the members of the zip archive by name before adding them to the archive.  Defaults to ``False``.
+    :type SORTED: boolean
+    :param FILEFUNC: if specified, this function will be applied to all filenames to generate the archive name for that file.  This is applied after the filenames are sorted, if ``SORTED`` is specified.
+    :type FILEFUNC: a Python function taking a pathname as an argument, and returning a Zip file archive member name as the result
+    :param EXCLUDES: if specified, filenames matching this regular expression will be omitted from the zip file
+    :type EXCLUDES: a Python ``re`` compiled object
+    :param COMPRESSION: what form of compression to use.  By default, no compression is used.
+    :type COMPRESSION: any of the compression constants specified in the Python ``zipfile`` module.    
+
+    :return: the pathname of the created zip file
+    :rtype: pathname string
+    """
+
+    import zipfile
+
+    def visitfunc(args, dirname, filenames):
+
+	def samefile(d1, d2):
+	    return os.path.abspath(d1) == os.path.abspath(d2)
+
+        # used for creating zipfile of multifile extension
+        zf, topname, sortfiles, filefunc, compression = args
+        if sortfiles:
+            filenames.sort()
+        removals = []
+        for filename in filenames:
+            if filename[0] == '.':
+                filenames.remove(filename)
+            elif os.path.isdir(os.path.join(dirname, filename)):
+                # don't add them explicitly
+                if filename == 'RCS' or filename == 'CVS':
+                    note(4, "zipup:  not including %s", os.path.join(dirname, filename))
+                    removals.append(filename)
+            elif EXCLUDES and EXCLUDES.match(filename):
+                # don't include these
+                note(4, "zipup: not including %s (because of EXCLUDES)", os.path.join(dirname, filename))
+            else:
+                dirs = []
+                head = dirname
+                while (not samefile(topname, head)):
+                    head, tail = os.path.split(head)
+                    dirs.insert(0, tail)
+                dirs.append(filename)
+                arcname = '/'.join(dirs)
+                filepath = os.path.join(dirname, filename)
+                if filefunc is not None:
+                    filepath = filefunc(filepath)
+                note(4, "zipup:  including %s with compression %s", arcname, compression)
+                zf.write(filepath, arcname, compression)
+        for f in removals:
+            filenames.remove(f)
+
+    fname = FILENAME or tempfile.mktemp()
+    try:
+        zf = zipfile.ZipFile(fname, 'w')
+        os.path.walk(DIRECTORY, visitfunc, (zf, DIRECTORY, SORTED, FILEFUNC, COMPRESSION))
+        zf.close()
+        return fname
+    except:
+        typ, ex, tb = sys.exc_info()
+        if os.path.exists(fname):
+            os.unlink(fname)
+        raise ex, None, tb
+
+
+def unzip (DIRECTORY, FILENAME):
+    """
+    Take the zipfile FILENAME, and expand it (unzip it) into DIRECTORY.
+
+    :param DIRECTORY: the directory to unpack the zip file into.  It will be created if it doesn't already exist.
+    :type DIRECTORY: pathname string
+    :param FILENAME: the zip file to unpack
+    :type FILENAME: any type allowed by ``zipfile.ZipFile``, a pathname string or file-like object.
+    """
+    import zipfile
+
+    zf = zipfile.ZipFile(FILENAME, 'r')
+    try:
+        names = zf.namelist()
+        if not os.path.exists(DIRECTORY):
+            os.makedirs(DIRECTORY)
+        for name in names:
+            fname = os.path.join(*([DIRECTORY,] + name.split('/')))
+            d = os.path.split(fname)[0]
+            if not os.path.exists(d):
+                os.makedirs(d)
+            fp = open(fname, 'wb')
+            fp.write(zf.read(name))
+            fp.close()
+    finally:
+        zf.close()
+
+
+############################################################
+###
+###  function read_file_handling_charset
+###
+###  Reads a contents.txt or summary.txt file and automatically
+###  handles the charset encoding, if any.  Returns contents of file
+###  as a universal string.
+###
+############################################################
+
+def read_file_handling_charset_returning_bytes (filepath):
+    """
+    Read a contents.txt file, trimming off the Content-Type and Content-Language headers, if present,
+    and returning a handle to the bytes, the charset, and the language of the file.
+
+    :param filepath: the UpLib contents.txt file to read
+    :type filepath: pathname string
+
+    :return: the content bytes, charset, and language of the file
+    :rtype: file object positioned to the start of the content, charset tag, language tag
+    """
+
+    if not os.path.exists(filepath):
+        raise IOError('file %s does not exist' % filepath)
+
+    f = open(filepath, 'rb')
+    firstline = f.readline()
+    m = CHARSET_PATTERN.match(firstline)
+    if m:
+        charset = m.group(1)
+        l = f.readline()
+        m = LANGUAGE_PATTERN.match(l)
+        if m:
+            language = m.group(1)
+        else:
+            language = "en-US"
+    else:
+        charset = "ISO-8859-1"
+        language = "en-US"
+        f.seek(0)
+    return f, charset, language
+
+def read_file_handling_charset (filepath, return_charset=false):
+    """
+    Read a contents.txt file, trimming off the Content-Type and Content-Language headers, if present,
+    and the content as a string, and optionally the charset and language of the file.
+
+    :param filepath: the UpLib contents.txt file to read
+    :type filepath: pathname string
+    :param return_charset: whether or not to return the charset.  Default is ``False``.
+    :type return_charset: boolean
+    :return: the contents of the file as a normalized Unicode string, plus optionally the charset tag and language tag
+    :rtype: Unicode string, charset tag, language tag
+    """
+    f, charset, language = read_file_handling_charset_returning_bytes(filepath)
+
+    data = f.read()
+    if data:
+        txt = unicodedata.normalize("NFC", unicode(data, charset, 'ignore'))
+    else:
+        txt = u""
+    f.close()
+    if return_charset:
+        return txt, charset, language
+    else:
+        return txt
+
+############################################################
+###
+###  show_stack
+###
+############################################################
+
+def show_stack(level=1, msg=None):
+    """Display the current stack.
+
+    :param level: logging level to display the stack at (see note())
+    :type level: int
+    :param msg: optional message to prepend to stack trace
+    :type msg: string
+    """
+    if msg:
+        note(level, msg)
+    note(level, ''.join(traceback.format_stack()))
+
+############################################################
+###
+###  function ensure_file (FILE, SOURCE, SYMLINK_P)
+###
+###  Make sure that FILE exists, copying it from SOURCE
+###  if necessary, symlinking instead if possible and
+###  SYMLINK_P is true.
+###
+############################################################
+
+def ensure_file(filepath, source, symlink_if_possible=false):
+    """
+    Make sure that ``filepath`` exists, copying it or symlinking it from ``source``
+    if it doesn't already exist.  Will attempt to copy unless ``symlink_if_possible``
+    is True, in which case it will attempt to symlink if the operating system
+    supports it.
+
+    :param filepath: the path which should exist
+    :type filepath: pathname string
+    :param source: a path for the same resource which must already exist
+    :type source: pathname string
+    :param symlink_if_possible: if ``True``, attempt to symlink ``filepath`` from ``source`` if filepath doesn't already exist
+    :type symlink_if_possible: boolean
+    """
+    if not os.path.exists(filepath):
+        if os.path.islink(filepath):
+            # can we change the permission on links?
+            #os.chmod(filepath, stat.S_IREAD | stat.S_IWRITE)
+            os.unlink(filepath)
+    elif (os.path.getmtime(source) > os.path.getmtime(filepath)):
+        if not os.path.islink(filepath):
+            os.chmod(filepath, stat.S_IREAD | stat.S_IWRITE)
+        os.unlink(filepath)
+    else:
+        #note("ensure_file:  %s is good", filepath)
+        return
+
+    if source:
+        if symlink_if_possible and hasattr(os, 'symlink'):
+            #note("ensure_file:  symlinking %s", filepath)
+            os.symlink(source, filepath)
+        else:
+            #note("ensure_file:  copying %s", filepath)
+            shutil.copyfile(source, filepath)
+    else:
+        raise Error("Required file %s not found!" % source)
+
+############################################################
+###
+###  function create_new_id ()
+###
+###  Return a new repository-unique ID
+###
+############################################################
+
+def create_new_id(t=None):
+    """
+    Create a new document ID keyed to the current time.  If ``t`` is specified,
+    key it to that time instead.
+
+    :param t: a Python timestamp
+    :type t: floating point number giving seconds past the epoch)
+    :return: document ID
+    :rtype: string
+    """
+    import random
+    if t is None:
+        t = time.time()
+    s = "%014ld" % (long(t * 1000))
+    return s[:5] + '-' + s[5:7] + '-' + s[7:11] + '-' + s[11:] + '-' + '%04d' % random.randrange(0, 10000)
+
+############################################################
+###
+###  function create_new_folder (DIRECTORY)
+###
+###  Create a new folder in DIRECTORY with a proper ID name.
+###
+############################################################
+
+def create_new_folder (directory):
+    """
+    Create a new folder in a directory, named with a document ID.
+
+    :param directory: the directory to put the new folder in.  The directory must already exist.
+    :type directory: pathname string
+    :return: the name of the new folder
+    :rtype: pathname string
+    """
+    while 1:
+        s = "%014ld" % (long(time.time() * 1000))
+        outbase = s[:5] + '-' + s[5:7] + '-' + s[7:11] + '-' + s[11:]
+        # outbase = time.strftime("%Y_%b_%d_%H_%M_%S")
+        newdir = os.path.join(directory, outbase)
+        if os.path.exists(newdir):
+            time.sleep(1)
+        else:
+            break
+    os.mkdir(newdir)
+    os.chmod(newdir, 0700)
+    return newdir
+
+############################################################
+###
+###  function id_to_time (ID)
+###
+###  Return float value of time past the UNIX epoch as
+###  encoded in the document ID.
+###
+############################################################
+
+def id_to_time(id):
+    """
+    Return the timestamp embedded in the document ID.
+
+    :param id: the doc ID
+    :type id: UpLib doc ID string
+    :return: Python timestamp
+    :rtype: floating point number giving seconds past the epoch
+    """
+    if id.find('-') < 0:
+        # handle 0.1 versions
+        return float(id)/1000.0
+    else:
+        return float(''.join(id.split("-")[:4]))/1000
+
+############################################################
+###
+###  functions header_value_decode and header_value_encode
+###
+###  Decode or encode a header value according to RFC 2047
+###
+############################################################
+
+def header_value_encode(v, charset_name):
+    """Encode an email header value according to RFC 2047.
+
+    :param v: the value to encode
+    :type v: string
+    :param charset_name: the name of the charset the value string is in.  If specified as ``None``, \
+           "US-ASCII" is used.
+    :type charset_name: string
+    :return: the encoded header value
+    :rtype: string
+    """
+    import email
+    return email.Header.Header(v, charset_name).encode()
+
+def header_value_decode(v):
+    """Decode an email header value according to RFC 2047.
+
+    :param v: the value to decode
+    :type v: string
+    :return: the decoded header value
+    :rtype: a list of (decoded_string, charset) values
+    """
+    import email
+    return email.Header.decode_header(v)
+
+############################################################
+###
+###  function update_metadata (FILENAME, DICT)
+###
+###  Update or create the metadata file with the value pairs
+###  in DICT.
+###
+############################################################
+
+_UTF_8_HEADER_TAG = u'=?UTF-8?Q?'
+_UTF_8_ENDING_TAG = u'?='
+_UTF_8_EXPR = re.compile(r'^=\?UTF-8\?([BQbq])\?(.*)\?=$')
+
+def utf_8_encode(s):
+    """
+    Take a str or Unicode string, and coerce it to a UTF-8-encoded str.
+
+    :param s: the string to convert to UTF-8
+    :type s: str
+    :return: a UTF-8-encoded str
+    :rtype: str
+    """
+
+    def quo_pri_utf8(s):
+        if isinstance(s, unicode):
+            s0 = s
+        else:
+            s0 = unicode(s, 'latin_1')
+        s1 = _UTF_8_HEADER_TAG + quopri.encodestring(s0.encode('utf_8', 'strict'), 1) + _UTF_8_ENDING_TAG
+        s2 = re.sub('=\n', '', s1)
+        s2 = re.sub(':', '=3A', s2)
+        s2 = re.sub('\n', '=0A', s2)
+        return s2
+
+    try:
+        try:
+            if isinstance(s, unicode):
+                if (u"\n" in s) or (u":" in s):
+                    return quo_pri_utf8(s)
+                else:
+                    return s.encode('us_ascii', 'strict')
+            else:
+                if ("\n" in s) or (":" in s):
+                    return quo_pri_utf8(s)
+                else:
+                    return unicode(s, 'latin_1').encode('us_ascii', 'strict')
+        except UnicodeError:
+            if isinstance(s, unicode):
+                s0 = s
+            else:
+                s0 = unicode(s, 'latin_1')
+            s1 = _UTF_8_HEADER_TAG + quopri.encodestring(s0.encode('utf_8', 'strict'), 1) + _UTF_8_ENDING_TAG
+            s2 = re.sub('=\n', '', s1)
+            return s2
+    except UnicodeError:
+        typ, value, tb = sys.exc_info()
+        note("%s", ''.join(traceback.format_exception(typ, value, tb)))
+        note("string is '%s'", s)
+        return s
+
+def write_metadata (FILE, DICT):
+    """Write the dict DICT to FILE in the form of text/rfc822-headers.
+
+    :param FILE: the FILE to write the data to
+    :type FILE: a Python file object
+    :param DICT: a set of key-value pairs.  Each value must be either a string or a list; if a list, multiple headers are written with the same key.  Keys with no values, or a Python ``False`` value, will not be written.
+    :type DICT: a Python dict
+    """
+    keys = DICT.keys()
+    keys.sort()
+    for key in keys:
+        v = DICT.get(key)
+        if v:
+            if (isinstance(v, types.StringTypes)):
+                FILE.write("%s: %s\n" % (key, utf_8_encode(v)))
+            elif (type(v) == types.ListType):
+                for subv in v:
+                    if (isinstance(subv, types.StringTypes)):
+                        FILE.write("%s: %s\n" % (key, utf_8_encode(subv)))
+
+def update_metadata (FILENAME, NEWDICT):
+    """Update the text/rfc822-headers data in FILENAME with the values
+    in NEWDICT.  If FILENAME doesn't exist, it will be created; if it does,
+    it will be overwritten.  Entries in NEWDICT with no values, or empty values,
+    will be removed from the data altogether.
+
+    :param FILENAME: file pathname or open file
+    :type FILENAME: file pathname string or open Python file object
+    :param NEWDICT: the dictionary to take update values from.  Entries in this dict which evaluate to ``False`` will be removed from the updated file.
+    :type NEWDICT: Python dict
+    :return: the complete set of headers now in FILENAME
+    :rtype: Python dict
+    """
+    if type(FILENAME) in types.StringTypes:
+        if os.path.exists(FILENAME):
+            f = open(FILENAME, "r+")
+        else:
+            f = open(FILENAME, "w+")
+        opened = true
+    else:
+        f = FILENAME
+        opened = false
+    d = read_metadata(f)
+    d.update(NEWDICT)
+    f.seek(0)
+    f.truncate()
+    write_metadata(f, d)
+    if opened:
+        f.close()
+        os.chmod(FILENAME, 0600)
+    return d
+            
+############################################################
+###
+###  function read_metadata (FILE)
+###
+###  Read FILE and return a metadata name-value dictionary.
+###  FILE may be either a file pointer or a filename.
+###
+############################################################
+
+def utf_8_decode(s, charset=None):
+    """
+    Take a UTF-8 email header value, possibly base64- or quoted-printable-encoded,
+    and return a Unicode string value.
+
+    :param s: the encoded header value
+    :type s: str or Unicode string
+    :return: a Unicode string
+    :rtype: unicode()
+    """
+    m = _UTF_8_EXPR.match(s)
+    if m:
+        if m.group(1) == 'q' or m.group(1) == 'Q':
+            decoder = quopri.decodestring
+            s = re.sub('\n ', '\n', m.group(2))
+        elif m.group(1) == 'b' or m.group(1) == 'B':
+            decoder = base64.decodestring
+            s = re.sub('\n ', '\n', m.group(2))
+        s = unicode(decoder(s), 'utf_8')
+        if charset:
+            return s.encode(charset, 'replace')
+        else:
+            return s
+    else:
+        return unicode(s, charset or 'ISO-8859-1')
+
+def read_metadata (FILE, charset=None):
+    """Read a file containing text/rfc822-headers data, and return that data.
+
+    :param FILE: the file to read
+    :type FILE: pathname string or open Python file object
+    :param charset: optional, the charset values in the file are encoded with (don't use!)
+    :type charset: charset tag
+    :return: the data in the file.  If there are multiple headers with the same key, \
+             all the values are returned as a sequence of Unicode strings; otherwise the value \
+             for any key will be a Unicode string.
+    :rtype: dict mapping string keys to values
+    """
+    def add_value (d, header, value):
+        if d.has_key(header):
+            v = d.get(header)
+            if (type(v) == types.ListType):
+                v.append(value)
+            else:
+                newlist = [ v ]
+                newlist.append(value)
+                d[header] = newlist
+        else:
+            d[header] = value
+
+    if type(FILE) in types.StringTypes:
+        fp = open(FILE, 'r')
+        opened = true
+    else:
+        fp = FILE
+        opened = false
+    d = {}
+    header = None
+    value = None
+    lineno = 0
+    while 1:
+        line = fp.readline()
+        lineno = lineno + 1
+        if not line: break
+        while line and line[-1] in ('\r', '\n'):
+            line = line[:-1]                    # remove CR-LF
+        if not line:                            # blank line; ignore
+            pass
+        elif line[0].isspace():
+            if header:                          # continuation of previous value
+                newvalue = line.lstrip()
+                if not isinstance(newvalue, unicode):
+                    newvalue = utf_8_decode(newvalue, charset)
+                value = value + ' ' + newvalue
+            elif not line.strip():              # blank line; ignore
+                pass
+        else:
+            if header:
+                add_value(d, header, value)
+                header = None
+                value = None
+            colon = line.find(':')
+            if colon < 1:
+                raise ValueError("bad metadata line <%s> in file %s, line %d -- no key" % (line, FILE, lineno))
+            header = line[:colon].strip()
+            if not isinstance(header, unicode):
+                header = utf_8_decode(header, charset)
+            value = line[colon+1:].lstrip()
+            if not isinstance(value, unicode):
+                value = utf_8_decode(value, charset)
+            if not header:
+                raise ValueError("bad metadata tag <%s> in file %s, line %d" % (header, FILE, lineno))
+    if header:
+        add_value(d, header, value)
+    if opened:
+        fp.close()
+    return d
+
+############################################################
+###
+###  read_wordboxes_file (FOLDER)
+###
+###  Returns a list of wordbox page objects, one for each page in the file FILENAME.
+###
+############################################################
+
+_UTF8_ALIASES = ('utf8', 'UTF8', 'UTF_8', 'utf_8', 'UTF-8', 'utf-8')
+
+class Bbox (object):
+
+    """A class representing a word bounding box.  Each box contains a word
+    or fragment of a word -- you can tell which by calling ends_word().
+    """
+
+    def __init__(self, version, record, text, page_index):
+        if record:
+            self._nchars = record[0]
+            if version == 2:
+                r = (record[1] >> 6) & 0x03
+                if r == 0:
+                    self._rotation = 0
+                elif r == 1:
+                    self._rotation = 90
+                elif r == 2:
+                    self._rotation = 180
+                elif r == 3:
+                    self._rotation = 270
+                else:
+                    raise ValueError("Invalid rotation for Bbox:  %d" % r)
+                self._font_type = (record[1] & 0x3F)
+            elif version == 1:
+                self._rotation = 0
+                self._font_type = record[1]
+            self._font_size = record[2]
+            self._flags = record[3]
+            self._left = record[4]
+            self._top = record[5]
+            self._right = record[6]
+            self._bottom = record[7]
+            if version == 2:
+                self._baseline = record[8]
+                self._offset = record[9]
+            elif version == 1:
+                self._baseline = self._bottom
+                self._offset = record[8]
+            self.textstr = text
+        else:
+            self._nchars = 0
+            self._font_type = 0
+            self._rotation = 0
+            self._font_size = 0
+            self._flags = 0
+            self._left = 0
+            self._top = 0
+            self._right = 0
+            self._bottom = 0
+            self._baseline = 0
+            self._offset = 0
+            self.textstr = u""
+        self.page = page_index
+
+    HYPHEN_FLAG = 0x01
+    WORDENDING_FLAG = 0x02
+    NEWLINE_FLAG = 0x04
+    BOLD_FLAG = 0x08
+    ITALIC_FLAG = 0x10
+    SYMBOL_FLAG = 0x20
+    SERIF_FLAG = 0x40
+    FIXEDWIDTH_FLAG = 0x80
+
+    def is_fixedwidth(self):
+        """
+        :return: whether the word's font is fixed-width
+        :rtype: boolean
+        """
+        return (self._flags & self.FIXEDWIDTH_FLAG) != 0
+
+    def is_italic(self):
+        """
+        :return: whether the word's font is italic.
+        :rtype: boolean
+        """
+        return (self._flags & self.ITALIC_FLAG) != 0
+
+    def is_bold(self):
+        """
+        :return: whether the word's font is bold.
+        :rtype: boolean
+        """
+        return (self._flags & self.BOLD_FLAG) != 0
+
+    def is_serif(self):
+        """
+        :return: whether the word's font has serifs.
+        :rtype: boolean
+        """
+        return (self._flags & self.SERIF_FLAG) != 0
+
+    def is_symbol(self):
+        """
+        :return: whether the word's font is symbolic.
+        :rtype: boolean
+        """
+        return (self._flags & self.SYMBOL_FLAG) != 0
+
+    def ends_word(self):
+        """
+        :return: whether this wordbox fragment ends a word.
+        :rtype: boolean
+        """
+        return (((self._flags & self.WORDENDING_FLAG) != 0) or
+                ((self._flags & self.NEWLINE_FLAG) and not (self._flags & self.HYPHEN_FLAG)))
+
+    def ends_line(self):
+        """
+        :return: whether this wordbox fragment ends a line.
+        :rtype: boolean
+        """
+        return (self._flags & self.NEWLINE_FLAG) != 0
+
+    def has_hyphen(self):
+        """
+        :return: whether this word fragment ends with a hyphen.
+        :rtype: boolean
+        """
+        return (self._flags & self.HYPHEN_FLAG) != 0
+
+    def text(self):
+        """
+        :return: the text of the word
+        :rtype: Unicode string
+        """
+        # this is the real text, as a Unicode string (not UTF-8!)
+        return self.textstr
+
+    def contents_offset(self):
+        """
+        :return: the offset of the first byte of this word from the start of the content in the contents.txt file
+        :rtype: int
+        """
+        return self._offset
+
+    def font_size(self):
+        """
+        :return: the approximate font size of the word
+        :rtype: float
+        """
+        return float(self._font_size)/2
+
+    def nchars(self):
+        # actually number of characters, not bytes
+        """
+        :return: the number of Unicode characters in the word.  This may vary due to Unicode normalization.
+        :rtype: float
+        """
+        return self._nchars
+
+    def flags(self):
+        """
+        :return: the flags byte of the wordbox
+        :rtype: float
+        """
+        return self._flags
+
+    def left(self):
+        """
+        :return: the position, in points, of the left side of the wordbox
+        :rtype: float
+        """
+        return self._left
+
+    def top(self):
+        """
+        :return: the position, in points, of the top of the wordbox
+        :rtype: float
+        """
+        return self._top
+
+    def right(self):
+        """
+        :return: the position, in points, of the right side of the wordbox
+        :rtype: float
+        """
+        return self._right
+
+    def bottom(self):
+        """
+        :return: the position, in points, of the bottom of the wordbox
+        :rtype: float
+        """
+        return self._bottom
+
+    def baseline(self):
+        """
+        :return: the position, in points, of the baseline of the wordbox.  This may be horizontal or vertical, depending on the rotation.
+        :rtype: float
+        """
+        return self._baseline
+
+    def rotation(self):
+        """
+        :return: the approximate rotation, in degrees, of the wordbox
+        :rtype: float
+        """
+        return self._rotation
+
+    def width(self):
+        """
+        :return: the width of the wordbox, in points
+        :rtype: float
+        """
+        return self.right() - self.left()
+
+    def height(self):
+        """
+        :return: the height of the wordbox, in points
+        :rtype: float
+        """
+        return self.bottom() - self.top()
+
+    def y_overlaps(self, other):
+        """
+        :param other: another word fragment
+        :type other: Bbox
+        :return: whether the wordbox overlaps the other wordbox vertically
+        :rtype: float
+        """
+        return (self.top() < other.bottom()) and (other.top() < self.bottom())
+
+    def x_overlaps(self, other):
+        """
+        :param other: another word fragment
+        :type other: Bbox
+        :return: whether the wordbox overlaps the other wordbox horizontally
+        :rtype: float
+        """
+        return (self.left() < other.right()) and (other.left() < self.right())
+
+    def percentage_overlap (self, other):
+        """
+        :param other: another word fragment
+        :type other: Bbox
+        :return: how much the the other word overlaps this one, expressed as a percentage of this word's area
+        :rtype: float
+        """
+        if self.x_overlaps(other) and self.y_overlaps(other):
+            left = max(self.left(), other.left())
+            right = min(self.right(), other.right())
+            top = max(self.top(), other.top())
+            bottom = min(self.bottom(), other.bottom())
+            return float((right - left) * (bottom - top))/float(self.width() * self.height())
+        else:
+            return 0
+
+    def upper_left(self):
+        """
+        :return: the upper left corner of the BBox, in points
+        :rtype: (float, float)
+        """
+        return (self._left, self._top)
+
+    def lower_right(self):
+        """
+        :return: the lower right corner of the BBox, in points
+        :rtype: (float, float)
+        """
+        return (self._right, self._bottom)
+
+    def __repr__(self):
+        return '<Bbox (%s,%s),(%s,%s) "%s">' % (self._left, self._top, self._right, self._bottom,
+                                                self.textstr.encode("ASCII", "replace"))
+
+def wordboxes_for_span(FOLDER, FIRST_BYTE, FIRST_BYTE_NOT):
+    """
+    Get the wordboxes from the document in FOLDER that are between the FIRST_BYTE
+    of the text content, and the FIRST_BYTE_NOT.
+
+    :param FOLDER: pathname of an UpLib document folder, or a list of Bbox elements
+    :type FOLDER: pathname string or list of Bbox instances
+    :param FIRST_BYTE: the first byte in the content of contents.txt to include
+    :type FIRST_BYTE: int
+    :param FIRST_BYTE_NOT: the first byte after the content of contents.txt to not include
+    :type FIRST_BYTE_NOT: int
+    :return: list of wordboxes
+    :rtype: list of Bbox
+    """
+    # 
+
+    span = []
+
+    if FIRST_BYTE_NOT < FIRST_BYTE:
+        # no text in span
+        return span
+
+    boxes = None
+    if type(FOLDER) in types.StringTypes:
+        for page_index, boxes in wordboxes_page_iterator(FOLDER):
+            if (not boxes):
+                continue
+            # if the last box of the page is less than the first byte, go to next page
+            if (boxes[-1].contents_offset() + len(boxes[-1].textstr)) < FIRST_BYTE:
+                continue
+            # if the first box of the page greater than the FIRST_BYTE_NOT, done, return result
+            if (boxes[0].contents_offset() >= FIRST_BYTE_NOT):
+                return span
+            break
+
+    elif (type(FOLDER) in (types.ListType, types.TupleType)) and (len(FOLDER) > 0) and (isinstance(FOLDER[0], Bbox)):
+        boxes = FOLDER
+
+    if not boxes:
+        return span
+
+    # should use a binary search here...
+    for box in boxes:
+        # if we're already after the FIRST_BYTE_NOT, return
+        first = box.contents_offset()
+        if first >= FIRST_BYTE_NOT:
+            return span
+        # check to see if we're there yet...
+        last = first + len(box.textstr)
+        if (last > FIRST_BYTE):
+            span.append(box)
+
+    return span            
+
+def wordboxes_page_iterator(FOLDER):
+    """
+    Return a Python iterator that gives the wordboxes of each page, in turn.
+    Each element of the iteration is a tuple (page_index, wordboxes), where
+    page_index gives the zero-based page index, and wordboxes are a list of
+    the wordboxes in the page.
+
+    :param FOLDER: the location of the UpLib document folder to iterate
+    :type FOLDER: pathname string
+    :return: an iterator
+    :rtype: see discussion
+    """
+    text_path = os.path.join(FOLDER, "contents.txt")
+    bbox_path = os.path.join(FOLDER, "wordbboxes")
+
+    if not (os.path.isdir(FOLDER) and
+            os.path.exists(text_path) and
+            os.path.exists(bbox_path) and
+            os.path.getsize(text_path) > 0):
+        return
+    
+    text_file = open(text_path, 'rb')
+    wordbox_file = open(bbox_path, 'rb')
+    pages = []
+
+    data = wordbox_file.read(12)
+    if data[:11] == "UpLib:wbb:1":
+        version = 1
+        boxlen = 24
+        struct_pattern = ">BBBBffffI"
+    elif data[:11] == "UpLib:wbb:2":
+        version = 2
+        boxlen = 28
+        struct_pattern = ">BBBBfffffI"
+    else:
+        raise ValueError ("wordboxes file " + bbox_path +
+                          " has invalid header '" + str(data[:11]) + "'")
+
+    firstline = text_file.readline()
+    charsetmatch = CHARSET_PATTERN.match(firstline)
+    if charsetmatch:
+        charsetname = charsetmatch.group(1)
+        text_file.readline()
+        first_byte = text_file.tell()
+    else:
+        charsetname = "latin_1"
+        readlines = false
+        first_byte = 0
+    if charsetname not in _UTF8_ALIASES:
+        raise ValueError("Charset in contents.txt must be UTF-8 for page bounding boxes to be created.  Apparently it's %s, instead." % charsetname)
+
+    text_file.seek(first_byte)
+
+    page_index = 0
+    bboxes = []
+
+    while 1:
+        bbox_data = wordbox_file.read(boxlen)
+        if len(bbox_data) < boxlen:
+            bboxd = (0, )
+        else:
+            bboxd = struct.unpack(struct_pattern, bbox_data)
+
+        if bboxd[0] == 0:        # zero characters
+            # new page, so flush old page
+            note(4, "%s page %d:  %d bboxes", FOLDER, page_index, len(bboxes))
+            yield (page_index, bboxes)
+            page_index = page_index + 1
+            bboxes = []
+        else:
+            text_file.seek(first_byte + bboxd[-1])
+            s = text_file.read(bboxd[0] * 4)
+            t = unicodedata.normalize("NFC", unicode(s, charsetname, "replace"))
+            bboxes.append(Bbox(version, bboxd, t[:bboxd[0]], page_index))
+
+        if len(bbox_data) < boxlen:
+            break
+
+    text_file.close()
+    wordbox_file.close()
+
+def read_wordboxes_file (FOLDER):
+    pages = []
+    for page_index, bboxes in wordboxes_page_iterator(FOLDER):
+        pages.append((page_index, bboxes))
+    return pages
+
+############################################################
+###
+###  read_illustrations_metadata (FOLDER)
+###
+############################################################
+
+def read_illustrations_metadata (folder, include_images=False, scale_to_points=True):
+    """
+    Generator which reads the ``illustrations-bounding-boxes``
+    metadata value from the metadata file of a folder, and yields a
+    sequence of illustration rects, each rect giving the location of,
+    and optionally a PNG rendering of, an illustration found on a page
+    of the document.
+
+    These illustrations are detected by the UpLib ``findimages`` utility program,
+    which in turn requires the Leptonica library.  They may not be present if
+    your UpLib installation didn't build ``findimages``.
+
+    :param folder: the folder to look at
+    :type folder: pathname of an UpLib document folder
+    :param include_images: whether or not to include the images of the illustrations, defaults to ``False``
+    :type include_images: boolean
+    :param scale_to_points: whether or not to scale each illustration to 72 dpi; defaults to ``True``. \
+           If specified as ``False``, illustrations will be returned in the original dpi of the \
+           document's high resolution page images, typically 300 dpi.
+    :type scale_to_points: boolean
+    :return: a list of illustrations as tuples of the form (left, top, width, height, typetag, bits, page_index), \
+             where the location and size are in points, the typetag is unused, the bits are the bits of a PNG \
+             version of the image scaled to 72 dpi if "include_images" was specified, and the page_index \
+             is the zero-based index of which page the illustration was found on.
+    :rtype: list of tuples
+    """
+    md = read_metadata(os.path.join(folder, "metadata.txt"))
+    images = md.get("illustrations-bounding-boxes")
+    if not images:
+        return
+    dpi = int(md.get("dpi") or md.get("images-dpi") or 300)
+
+    im = None
+    img = None
+    im_page = -1
+    for image in images.split(","):
+        pageno, type, left, top, width, height = image.split(":")
+        pageno = int(pageno)
+        left = int(left)
+        top = int(top)
+        width = int(width)
+        height = int(height)
+        newwidth, newheight = (width * 72) / dpi, (height * 72) / dpi
+        if ((newwidth < 1) or (newheight < 1)):
+            # too small
+            continue
+        if include_images:
+            import Image
+            filepath = os.path.join(folder, "page-images", "page%05d.png" % (pageno + 1))
+            if (im is None) or (im_page != pageno):
+                if im is not None:
+                    del im
+                if not os.path.exists(filepath):
+                    note('No image file %s for page %s' % (filepath, (pageno + 1)))
+                else:
+                    im = Image.open(filepath)
+                if im.mode in ("1", "P", "L"):
+                    im = im.convert("RGB")
+                im_page = pageno
+            img = im.crop((left, top, left + width + 1, top + height + 1))
+        # rescale to points (72 dpi)
+        if scale_to_points:
+            width, height = (width * 72) / dpi, (height * 72) / dpi
+            left, top = (left * 72) / dpi, (top * 72) / dpi
+            if img and (dpi != 72):
+                img = img.resize((newwidth, newheight), Image.ANTIALIAS)
+        # get PNG data for image rect
+        if include_images:
+            fpi = StringIO.StringIO()
+            img.save(fpi, "PNG")
+            bits = fpi.getvalue()
+            fpi.close()
+        else:
+            bits = None
+        yield (left, top, width, height, type, bits, pageno)
+    if im is not None:
+        del im
+    return
+
+############################################################
+###
+###  function find_and_load_module (MNAME [, PATH] [, ADDPATH])
+###
+###  Looking in PATH (or in "actions-path" if PATH isn't set),
+###  find a Python module named MNAME, load it, and return the
+###  module.
+###
+############################################################
+
+_LOADED_MODULES = {}
+
+def _reload_module(mname):
+    if _LOADED_MODULES.has_key(mname):
+        # check to see if it's changed since it was loaded
+        loadtime, name, pathname, description, module = _LOADED_MODULES[mname]
+        if not os.path.exists(pathname):
+            # module has disappeared
+            del _LOADED_MODULES[mname]
+            note("Module '%s' from %s no longer exists!", name, pathname)
+            return None
+        now = time.time()
+        mtime = os.path.getmtime(pathname)
+        note(4, "loadtime = %s, mtime = %s, name = %s, pathname = %s, descr = %s, module = %s",
+             loadtime, mtime, name, pathname, description, module)
+        if (mtime > loadtime):
+            # reload the module, it may have changed
+            if description[1]:
+                f = open(pathname, description[1] or 'rb')
+            else:
+                f = None
+            try:
+                try:
+                    module = imp.load_module(name, f, pathname, description)
+                except:
+                    typ, value, tb = sys.exc_info()
+                    note("%s", ''.join(traceback.format_exception(typ, value, tb)))
+                    return None
+                note(3, "re-loaded module '%s' (%s) from %s", name, description, pathname)
+                _LOADED_MODULES[mname] = (mtime, name, pathname, description, module)
+            finally:
+                if f: f.close()
+        return module
+    else:
+        return None
+
+def find_and_load_module (mname, path=None, addpath=None):
+    """
+    Find and load an UpLib extension module.  Will reload it if it's changed
+    since it was last loaded.
+
+    XXX this should probably be in the extensions module.
+
+    :param mname: the name of the module to find
+    :type mname: module name
+    :param path: a list of pathnames as a string separated by ``PATH_SEPARATOR`` characters
+    :type path: string
+    :param addpath: a list of pathnames as a string separated by ``PATH_SEPARATOR`` characters. \
+           This list will be added to the end of the other ``path`` parameter.
+    :return: the module that was loaded, or None
+    :rtype: Python module
+    """
+
+    global _LOADED_MODULES, PATH_SEPARATOR
+    
+    if mname.endswith('--deleted'):
+        note(2, "Not loading deleted module %s.", mname)
+        return None
+
+    module = _reload_module(mname)
+    if module:
+        return module
+
+    if (not path) and (not addpath):
+        return None
+    if addpath and path:
+        path = path + PATH_SEPARATOR + addpath
+
+    search_path_dirs = [x for x in path.split(PATH_SEPARATOR) if x]
+    search_path = []
+    for p in search_path_dirs:
+        newpath = os.path.expanduser(p)
+        if not os.path.isdir(newpath):
+            note("Bad directory '%s' specified for module search path; path is %s, PATH_SEPARATOR is %s, search_path_dirs is %s",
+                 p, path, PATH_SEPARATOR, search_path_dirs)
+        else:
+            search_path.append(newpath)
+    note(4, "Module search path is %s", search_path)
+    if not search_path:
+        return None
+
+    note(2, "looking for module '%s', search path is %s", mname, search_path)
+    try:
+        fil, pathname, description = imp.find_module(mname, search_path)
+    except ImportError:
+        typ, value, tb = sys.exc_info()
+        note(2, 'ImportError on attempting to find_module("%s", "%s")', mname, search_path)
+        note(2, "%s", ''.join(traceback.format_exception(typ, value, tb)))
+        return None
+    except:
+        typ, value, tb = sys.exc_info()
+        note(2, "%s", ''.join(traceback.format_exception(typ, value, tb)))
+        return None
+    now = time.time()
+    try:
+        module = imp.load_module(mname, fil, pathname, description)
+        mtime = os.path.getmtime(pathname)
+        note(4, "loaded module '%s' (%s) from %s", mname, description, pathname)
+    except:
+        typ, value, tb = sys.exc_info()
+        note(2, "%s", ''.join(traceback.format_exception(typ, value, tb)))
+        return None
+    _LOADED_MODULES[mname] = (mtime, mname, pathname, description, module)
+    return module
+
+############################################################
+###
+###  function getpass(PROMPT)
+###
+###  Prompt the user with PROMPT then read a password
+###
+############################################################
+
+def _raw_input(prompt="", fp=None):
+    # A raw_input() replacement that doesn't save the string in the
+    # GNU readline history, and prompts to stderr
+    if fp is None:
+        fp = sys.stderr
+    prompt = str(prompt)
+    if prompt:
+        fp.write(prompt)
+        fp.flush()
+    line = sys.stdin.readline()
+    if not line:
+        raise EOFError
+    if line[-1] == '\n':
+        line = line[:-1]
+    return line
+
+def _mygetpass(prompt='Password: '):
+    """Prompt for a password, with echo turned off.
+
+    Restore terminal settings at end.
+    """
+
+    fp = ((sys.platform == "win32" and sys.stdout) or sys.stderr)
+
+    try:
+        fd = sys.stdin.fileno()
+    except:
+        from getpass import getpass
+        return getpass(prompt)
+
+    old = termios.tcgetattr(fd)     # a copy to save
+    new = old[:]
+
+    new[3] = new[3] & ~termios.ECHO # 3 == 'lflags'
+    try:
+        termios.tcsetattr(fd, termios.TCSADRAIN, new)
+        passwd = _raw_input(prompt, fp=fp)
+    finally:
+        termios.tcsetattr(fd, termios.TCSADRAIN, old)
+
+    fp.write('\n')
+    return passwd
+
+# Bind the name getpass to the appropriate function
+try:
+    import termios
+except ImportError:
+    from getpass import getpass
+else:
+    getpass = _mygetpass
+
+
+############################################################
+###
+###  function split_categories_string (STR)
+###
+###  Split the comma-separated string STR into a list of words
+###
+############################################################
+
+def split_categories_string (cstring):
+    """
+    Take an UpLib categories header value and split it into a list of all
+    the category names it represents.
+
+    :param cstring: a categories header value
+    :type cstring: string
+    :return: a list of category names
+    :rtype: list of strings
+    """
+    retval = []
+    if cstring:
+        collection = map(lambda x: x.strip(), cstring.split(','))
+        for c in collection:
+            if c:
+                retval.append(reduce(lambda x, y: (y.strip() and ((x and (x + "/" + y.strip())) or y.strip())) or x.strip(),
+                                     c.split("/")))
+    return retval
+
+
+############################################################
+###
+###  function parse_date (datestring)
+###
+###  Parse an UpLib date (mm/dd/yyyy) and return a 3-tuple
+###  containing (year, month, day)
+###
+############################################################
+
+def parse_date (s):
+    """
+    Takes a date string in the UpLib form "[MM/[DD/]]YYYY", and returns
+    a 3-tuple (year, month, day).
+
+    :param s: UpLib date string
+    :type s: string
+    :return: (year, month, day) tuple
+    :rtype: (int, int, int)
+    """
+    try:
+        this_year = time.localtime().tm_year
+        this_century = this_year - (this_year % 100)
+        parts = s.split('/')
+        if len(parts) == 3:
+            month, day, year = [int(x) for x in parts]
+        elif len(parts) == 2:
+            # assume month/year
+            day = 0
+            month, year = [int(x) for x in parts]
+        elif len(parts) == 1:
+            # assume year
+            day, month = 0, 0
+            year = int(parts[0])
+        if year <= (this_year % 100):
+            year += this_century
+        elif year < 100:
+            year += (this_century - 100)
+        return (year, month, day)
+    except:
+        return None
+
+############################################################
+###
+###  function format_date (datestring)
+###
+###  Parse an UpLib date (mm/dd/yyyy) and return a formatted
+###  string version of it
+###
+############################################################
+
+MONTHABBREVS = ("Jan", "Feb", "March", "April", "May", "June",
+                "July", "Aug", "Sept", "Oct", "Nov", "Dec")
+MONTHNAMES = ("January", "February", "March", "April", "May", "June",
+              "July", "August", "September", "October", "November", "December")
+
+def format_date (s, abbrev=false):
+    """
+    Takes a standard UpLib date string and parses it, returning a formatted
+    version of the date, in the form DD MMM YYYY, e.g. "27 Mar 2010".
+
+    :param s: the standard [MM[/DD]/]YYYY Uplib date
+    :type s: string
+    :param abbrev: whether or not to use the abbreviated form of the month's name.  Defaults to ``False``.
+    :type abbrev: boolean
+    :return: the formatted date
+    :rtype: string
+    """
+    parts = parse_date(s)
+    datestring = ""
+    if not parts:
+        return ""
+    timetuple = (parts[0], (parts[1] or 1), (parts[2] or 1), 0, 0, 0, 0, 1, -1)
+    if parts[0]:
+        datestring = "%04d" % parts[0]
+        if (parts[1] > 0) and (parts[1]) <= 12:
+            monthname = MONTHABBREVS[parts[1]-1]
+            datestring = ("%s " % monthname) + datestring
+            if parts[2]:
+                datestring = ("%d " % parts[2]) + datestring
+    return datestring
+
+def next_day (parts):
+    """
+    Given a date as a tuple (as returned from ``parse_date``), get the
+    next day after it.
+
+    :param parts: (year, month, day) tuple as returned from ``parse_date``
+    :type parts: (int, int, int)
+    :return: the next day as a (year, month, day) tuple
+    :rtype: (int, int, int)
+    """
+    timetuple = (parts[0], parts[1], parts[2], 0, 0, 0, 0, 0, -1)
+    tuple2 = time.localtime(time.mktime(timetuple) + (24 * 60 * 60))
+    return (tuple2[0], tuple2[1], tuple2[2])
+
+def figure_date_string (pt2, ptnow, referent=None, seconds_ago=None):
+    """
+    Create a user-friendly date string from a Python timestamp.  This basically
+    looks at how long "pt2" happened before "now", as given by "ptnow", and
+    constructs a timestring from it.  If pt2 and ptnow are the same day, it
+    will say something like "today, 3:20 pm", and if pt2 was the day before
+    "ptnow", it would say, "yesterday, 3:20 pm", etc.  You can suppress the
+    day display entirely by passing in pt2 again as "referent", in which case
+    the day isn't displayed, just the time of day.  The "seconds_ago" param
+    is there mainly for performance, so that the system doesn't have to
+    subtract "pt2" from "ptnow" repeatedly.
+
+    :param pt2: the timestamp to construct the date for
+    :type pt2: Python timestruct from the ``time`` module
+    :param ptnow: the value of "now"
+    :type ptnow: Python timestruct from the ``time`` module
+    :param referent: foo
+    :type referent: Python timestruct from the ``time`` module
+    :param seconds_ago: number of seconds ago, optional; if not supplied, the \
+           difference in seconds between ptnow and pt2 is used
+    :type seconds_ago: float
+    :return: a nicely-formatted string giving the time of pt2
+    :rtype: string
+    """
+    # pt2, ptnow, referent are all time tuples
+    # seconds_ago is a floating-point value
+    # referent is optional -- pass None for no referent
+    # referent suppresses day display if day is same as referent
+
+    if (seconds_ago is None):
+        seconds_ago = time.mktime(ptnow) - time.mktime(pt2)
+    if (referent and (pt2.tm_yday == referent.tm_yday)):
+        d2 = ""
+    elif (ptnow.tm_yday == pt2.tm_yday):
+        d2 = "today, "
+    elif (ptnow.tm_yday == (pt2.tm_yday + 1)):
+        d2 = "yesterday, "
+    elif (seconds_ago < SECONDS_PER_WEEK):
+        d2 = time.strftime("%A, ", pt2)
+    else:
+        d2 = time.strftime("%a, %b %d, %Y, ", pt2)
+    ampm = (((pt2.tm_hour / 12) > 0) and "pm") or "am"
+    hour = (pt2.tm_hour % 12)
+    if (ampm == "pm") and (hour == 0):
+        hour = 12
+    d2 += (time.strftime("%%s:%M %%s", pt2) % (str(hour), ampm))
+    return d2
+
+############################################################
+###
+###  function check_repository_in_list
+###           add_repository_to_list
+###
+############################################################
+
+import urllib
+
+def _get_repositories_list (add=false):
+
+    machineid = get_machine_id()
+
+    if sys.platform == 'darwin':
+
+        listdir = os.path.expanduser(os.path.join("~", "Library", "Application Support", "com.parc.uplib"))
+        if not os.path.exists(listdir):
+            os.makedirs(listdir)
+            os.chmod(listdir, 0700)
+        listfile = os.path.join(listdir, machineid + "-repositories")
+
+    elif sys.platform == 'win32':
+
+        listdir = _get_windows_config_dir()
+        if not os.path.exists(listdir):
+            os.makedirs(listdir)
+            os.chmod(listdir, 0700)        
+        listfile = os.path.join(listdir, 'repositories')
+
+    else:
+
+        # pretty much has to be unix
+        listdir = os.path.expanduser(os.path.join("~", ".uplib"))
+        if not os.path.exists(listdir):
+            os.makedirs(listdir)
+            os.chmod(listdir, 0700)        
+        listfile = os.path.join(listdir, machineid + "-repositories")
+
+    dirs = []
+    if not os.path.exists(listfile):
+        if not add:
+            return [], None
+        else:
+            fp = open(listfile, 'w+')
+    else:
+        fp = open(listfile, (add and "w+") or "r")
+        fp.seek(0, 0)
+        dirs = [x.strip().split() for x in fp.readlines()]
+    if not add:
+        fp.close()
+        return dirs, None
+    else:
+        return dirs, fp
+
+def check_repository_in_list (repository_path, add=false):
+    """
+    Check to see that the specified repository is in the list of local repositories.
+    If ``add`` is specified and it's not already there, add it.
+
+    :param repository_path: root directory for the UpLib repository
+    :type repository_path: pathname string
+    :param add: whether or not to add it if it's not already there, defaults to ``False``
+    :type add: boolean
+    :return: whether or not it was already in the list
+    :rtype: boolean
+    """
+    def samefile(d1, d2):
+        if (sys.platform != "win32"):
+            return os.path.samefile(d1, d2)
+        else:
+            return os.path.realpath(d1) == os.path.realpath(d2)
+
+    repopath = os.path.normpath(repository_path.strip())
+    dirs, fp = _get_repositories_list(add)
+    for dir in dirs:
+        dirname = urllib.unquote(dir[0])
+        if os.path.exists(dirname) and samefile(repopath, dirname):
+            fp.close()
+            return true
+    if add:
+        fp.seek(0, 2)
+        fp.write(urllib.quote_plus(repopath) + "\n")
+    if fp: fp.close()
+    return false
+
+def get_known_repositories (clean=False):
+    """Return a list of the repositories known to be on this machine.
+
+    :return: a list of repository pathnames, each pathname giving the root directory location for that repository.
+    :rtype: list of pathname strings
+    """
+    dirs, fp = _get_repositories_list(clean)
+    u = {}
+    cleaned = []
+    for repo in dirs:
+        repodir = urllib.unquote(repo[0])
+        if os.path.isdir(repodir):      # still around
+            cleaned.append(os.path.abspath(repodir))
+        else:
+            note(4, "get_known_repositories:  removing %s because not present", repo)
+    if sys.platform == "win32":
+        # on windows, this also needs to be a service
+        import win32api, win32con, win32service
+        services = {}
+        mgr = win32service.OpenSCManager(None, None, 4)
+        try:
+            svcinfo = win32service.EnumServicesStatus(mgr)
+            for svc in svcinfo:
+                svch = win32service.OpenService(mgr, svc[0], win32service.SERVICE_QUERY_CONFIG)
+                try:
+                    if svc[0].startswith("UpLibGuardianAngel_"):
+                        classfile = win32api.RegQueryValue(
+                            win32con.HKEY_LOCAL_MACHINE,
+                            "System\\CurrentControlSet\\Services\\%s\\PythonClass" % (svc[0],))
+                        path = os.path.splitext(classfile)[0] + ".py"
+                        if os.path.exists(path):
+                            services[os.path.abspath(os.path.dirname(os.path.dirname(path)))] = int(svc[0][-4:])
+                        else:
+                            note(4, "get_known_repositories:  no class file for %s", svc[0])
+                finally:
+                    win32service.CloseServiceHandle(svch)
+        finally:
+            win32service.CloseServiceHandle(mgr)
+        for pathname in cleaned[:]:
+            if pathname not in services:
+                cleaned.remove(pathname)
+        for pathname in services:
+            if pathname not in cleaned:
+                cleaned.append(pathname)
+    if clean:
+        fp.seek(0, os.SEEK_SET)
+        for pathname in cleaned:
+            fp.write(urllib.quote(pathname) + "\n")
+            u[pathname] = [pathname,]
+        fp.close()
+    return [[x,] for x in cleaned]
+    
+############################################################
+###
+###  function topological_sort
+###
+############################################################
+
+class SortError(ValueError):
+    """
+    Raised by ``topological_sort`` to indicate an inconsistent partial order.
+    This is caused by cycle in the graph of orderings, which graph can be accessed
+    as the ``graph`` attribute of the error instance.
+    """
+    def __init__(self, msg, graph):
+        ValueError.__init__(self, msg)
+        self.graph = graph
+        """The graph of orderings between objects to be sorted."""
+
+def topological_sort (items, before, rootsort=None):
+
+    """Topological sort for parser list, based on implementation of
+    Tarjan algorithm in code found at
+    http://www.bitformation.com/art/python_toposort.html, 
+    written by Ofer Faigon (www.bitformation.com) and used with permission.
+
+    :param items: the items to sort
+    :type items: a list of Python values
+    :param before: a function taking two arguments, which returns ``True`` if the first item should sort "before" the second item, and ``False`` otherwise.
+    :type before: function taking two arguments and returning a boolean
+    :param rootsort: a function to take the list of "root" nodes, nodes which occur ``before`` all other nodes, and sort them into some oder.  Usually not necessary.
+    :type rootsort: a function taking a list of items, and returning a list of items.
+    :return: list of items in sorted order.  Raises ``SortError`` if the ordering is inconsistent.
+    :rtype: partially ordered list of Python values
+    """
+
+    def add_node(graph, node):
+        """Add a node to the graph if not already exists."""
+        if not graph.has_key(node):
+            graph[node] = [0] # 0 = number of arcs coming into this node.
+
+    def add_arc(graph, fromnode, tonode):
+        """Add an arc to a graph. Can create multiple arcs.
+           The end nodes must already exist."""
+        try:
+            graph[fromnode].append(tonode)
+            # Update the count of incoming arcs in tonode.
+            graph[tonode][0] = graph[tonode][0] + 1
+        except KeyError:
+            note("KeyError:  fromnode: %s, tonode: %s", fromnode, tonode)
+            raise
+
+    # step 1 - create a directed graph with an arc a->b for each input
+    # pair (a,b).
+    # The graph is represented by a dictionary. The dictionary contains
+    # a pair item:list for each node in the graph. /item/ is the value
+    # of the node. /list/'s 1st item is the count of incoming arcs, and
+    # the rest are the destinations of the outgoing arcs. For example:
+    #           {'a':[0,'b','c'], 'b':[1], 'c':[1]}
+    # represents the graph:   c <-- a --> b
+    # The graph may contain loops and multiple arcs.
+    # Note that our representation does not contain reference loops to
+    # cause GC problems even when the represented graph contains loops,
+    # because we keep the node names rather than references to the nodes.
+    graph = {}
+    for item in items:
+        add_node(graph, item)
+    for item in items:
+        for other in items:
+            if item == other:
+                continue
+            if before(item, other, items):
+                add_arc(graph, item, other)
+
+    # Step 2 - find all roots (nodes with zero incoming arcs).
+    roots = [node for (node,nodeinfo) in graph.items() if nodeinfo[0] == 0]
+    if rootsort:
+        roots = rootsort(roots)
+
+    # step 3 - repeatedly emit a root and remove it from the graph. Removing
+    # a node may convert some of the node's direct children into roots.
+    # Whenever that happens, we append the new roots to the list of
+    # current roots.
+    sorted_version = []
+    while len(roots) != 0:
+        # If len(roots) is always 1 when we get here, it means that
+        # the input describes a complete ordering and there is only
+        # one possible output.
+        # When len(roots) > 1, we can choose any root to send to the
+        # output; this freedom represents the multiple complete orderings
+        # that satisfy the input restrictions. We arbitrarily take one of
+        # the roots using pop(). Note that for the algorithm to be efficient,
+        # this operation must be done in O(1) time.
+        root = roots.pop()
+        sorted_version.append(root)
+        for child in graph[root][1:]:
+            graph[child][0] = graph[child][0] - 1
+            if graph[child][0] == 0:
+                roots.append(child)
+            if rootsort:
+                roots = rootsort(roots)
+        del graph[root]
+    if len(graph.items()) != 0:
+        # There is a loop in the input.
+        raise SortError("Bad graph", graph)
+    return sorted_version
+
+######################################################################
+# OrderedDict is licenced as follows:
+#
+# Copyright (c) 2009 Raymond Hettinger
+#
+# Permission is hereby granted, free of charge, to any person
+# obtaining a copy of this software and associated documentation files
+# (the "Software"), to deal in the Software without restriction,
+# including without limitation the rights to use, copy, modify, merge,
+# publish, distribute, sublicense, and/or sell copies of the Software,
+# and to permit persons to whom the Software is furnished to do so,
+# subject to the following conditions:
+#
+#     The above copyright notice and this permission notice shall be
+#     included in all copies or substantial portions of the Software.
+#
+#     THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+#     EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+#     OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+#     NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+#     HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+#     WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+#     FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+#     OTHER DEALINGS IN THE SOFTWARE.
+######################################################################
+
+from UserDict import DictMixin
+
+class OrderedDict(dict, DictMixin):
+
+    def __init__(self, *args, **kwds):
+        if len(args) > 1:
+            raise TypeError('expected at most 1 arguments, got %d' % len(args))
+        try:
+            self.__end
+        except AttributeError:
+            self.clear()
+        self.update(*args, **kwds)
+
+    def clear(self):
+        self.__end = end = []
+        end += [None, end, end]         # sentinel node for doubly linked list
+        self.__map = {}                 # key --> [key, prev, next]
+        dict.clear(self)
+
+    def __setitem__(self, key, value):
+        if key not in self:
+            end = self.__end
+            curr = end[1]
+            curr[2] = end[1] = self.__map[key] = [key, curr, end]
+        dict.__setitem__(self, key, value)
+
+    def __delitem__(self, key):
+        dict.__delitem__(self, key)
+        key, prev, next = self.__map.pop(key)
+        prev[2] = next
+        next[1] = prev
+
+    def __iter__(self):
+        end = self.__end
+        curr = end[2]
+        while curr is not end:
+            yield curr[0]
+            curr = curr[2]
+
+    def __reversed__(self):
+        end = self.__end
+        curr = end[1]
+        while curr is not end:
+            yield curr[0]
+            curr = curr[1]
+
+    def popitem(self, last=True):
+        if not self:
+            raise KeyError('dictionary is empty')
+        if last:
+            key = reversed(self).next()
+        else:
+            key = iter(self).next()
+        value = self.pop(key)
+        return key, value
+
+    def __reduce__(self):
+        items = [[k, self[k]] for k in self]
+        tmp = self.__map, self.__end
+        del self.__map, self.__end
+        inst_dict = vars(self).copy()
+        self.__map, self.__end = tmp
+        if inst_dict:
+            return (self.__class__, (items,), inst_dict)
+        return self.__class__, (items,)
+
+    def keys(self):
+        return list(self)
+
+    setdefault = DictMixin.setdefault
+    update = DictMixin.update
+    pop = DictMixin.pop
+    values = DictMixin.values
+    items = DictMixin.items
+    iterkeys = DictMixin.iterkeys
+    itervalues = DictMixin.itervalues
+    iteritems = DictMixin.iteritems
+
+    def __repr__(self):
+        if not self:
+            return '%s()' % (self.__class__.__name__,)
+        return '%s(%r)' % (self.__class__.__name__, self.items())
+
+    def copy(self):
+        return self.__class__(self)
+
+    @classmethod
+    def fromkeys(cls, iterable, value=None):
+        d = cls()
+        for key in iterable:
+            d[key] = value
+        return d
+
+    def __eq__(self, other):
+        if isinstance(other, OrderedDict):
+            if len(self) != len(other):
+                return False
+            for p, q in  zip(self.items(), other.items()):
+                if p != q:
+                    return False
+            return True
+        return dict.__eq__(self, other)
+
+    def __ne__(self, other):
+        return not self == other
+
+######################################################################
+# End of OrderedDict
+######################################################################
+
+class LimitedOrderedDict (OrderedDict):
+
+    def __init__(self, maxsize, *args, **keywords):
+        OrderedDict.__init__(self, *args, **keywords)
+        self.__maxsize = maxsize
+        
+    def __setitem__(self, key, value):
+        if key in self:
+            self.pop(key)
+        if len(self) >= self.__maxsize:
+            for x in self.keys()[:len(self) - (self.__maxsize - 1)]:
+                self.pop(x)
+        OrderedDict.__setitem__(self, key, value)
+

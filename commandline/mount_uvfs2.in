@@ -1,0 +1,66 @@
+#!@PYTHON@
+# -*- Python -*-
+#
+# This file is part of the "UpLib 1.7.11" release.
+# Copyright (C) 2003-2011  Palo Alto Research Center, Inc.
+# 
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+#
+# $Id: mount_uvfs2.in,v 1.6 2010/03/06 02:23:49 janssen Exp $
+
+import logging
+import os
+import sys
+
+os.environ['UPLIBLIB'] = r'@UPLIB_LIB@'
+sys.path.append(r'@UPLIB_CODE@')
+
+# import from uplib.plibUtil first to make sure sys.path is set up
+from uplib.plibUtil import note
+
+from uplib.fuse.ctypesfuse import FUSE
+from uplib.fuse.uplibfuse import UVFS, UbidocsBackingStore, fetch_url_result
+
+
+def main(argv):
+    """First daemonize, then invoke with args of mount_point, repository URL, and repository password."""
+    if len(sys.argv) == 3:
+        sys.argv.append('')  # Password is optional; we can rely on server cert.
+    if len(sys.argv) == 4:
+        sys.argv.append('UpLib Virtual File System')
+    if len(sys.argv) == 5:
+        sys.argv.append(None)   # no default volume icon
+
+    if len(sys.argv) != 6:
+        print 'Usage: invoke via mount_uvfs instead.'
+        sys.exit(1)
+
+    dir, url, password, volname, volicon = sys.argv[1:]
+
+    if not volicon:
+        if sys.platform == "darwin":
+            volicon = "/dev/null"
+    elif not os.path.exists(volicon):
+        if sys.platform == "darwin":
+            volicon = "/dev/null"
+
+    fuse = FUSE(UVFS(UbidocsBackingStore(url)), mountpoint=dir,
+                fsname='UVFS', foreground=True,
+                volname=volname, volicon=volicon,
+                default_permissions=True)
+
+
+if __name__ == '__main__':
+    sys.exit(main(sys.argv))

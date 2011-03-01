@@ -1,0 +1,103 @@
+'\" t
+.\" $Id: uplib-portal.1,v 1.4 2006/08/10 00:20:53 janssen Exp $
+.\"
+.\" This file is part of the "UpLib 1.7.11" release.
+.\" Copyright (C) 2003-2011  Palo Alto Research Center, Inc.
+.\" 
+.\" This program is free software; you can redistribute it and/or modify
+.\" it under the terms of the GNU General Public License as published by
+.\" the Free Software Foundation; either version 2 of the License, or
+.\" (at your option) any later version.
+.\" 
+.\" This program is distributed in the hope that it will be useful,
+.\" but WITHOUT ANY WARRANTY; without even the implied warranty of
+.\" MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.\" GNU General Public License for more details.
+.\" 
+.\" You should have received a copy of the GNU General Public License along
+.\" with this program; if not, write to the Free Software Foundation, Inc.,
+.\" 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+.\" 
+.\" uplib-portal.1
+.TH UPLIB-PORTAL 1 "UpLib 1.2 - http://www.parc.com/UpLib/"
+.SH NAME
+uplib-portal \- Run a document addition/retrieval portal on the desktop
+.SH SYNOPSIS
+\fBuplib-portal\fR
+[--animated]
+[--emacskeys]
+[--location=\fIX-position\fRx\fIY-position\fR]
+[--noemacskeys]
+[--noswirl]
+[--size=\fIwidth\fRx\fIheight\fR]
+[--titlebar]
+.SH DESCRIPTION
+.B uplib-portal
+will start a Java program which displays an icon which acts as a portal to one or more underlying UpLib repositories.
+It can be used to add documents to a repository, or fetch them from a repository.  It functions as a shell over
+the more fundamental \fBuplib-add-document\fR and \fBuplib-get-document\fR programs, hiding them from the user.
+.SH OPTIONS
+This program does not read configuration options from the default UpLib configuration file.  It does understand several
+command line options, as follows:
+.TP
+\fB--emacskeys\fR
+On non-Windows system, the text fields of the portal will use Emacs keybindings.  This switch can be specified
+to also get them on Windows.
+.TP
+\fB--noemacskeys\fR
+On non-Windows system, the text fields of the portal will use Emacs keybindings.  This switch can be used
+to get the default Java bindings instead.
+.TP
+\fB--size=\fIwidth\fRx\fIheight\fR
+Specifies the size of the portal icon as \fIwidth\fR by \fIheight\fR.  The default size is 64x64.
+.TP
+\fB--location=\fIX-position\fRx\fIy-position\fR
+Specifies the initial location of the portal icon.  The default location is 0,0.
+.TP
+\fB--titlebar\fR
+Specifies that the icon should have a titlebar, just like a regular program window.  The default is to not use a titlebar.
+In Java Swing terms, this is the difference between using top-level JWindow or (with --titlebar) a top-level JFrame.
+.TP
+\fB--animated\fR
+If this option is specified, the icon will move around (in a very small circle) on the desktop while something is going on (a document submission underway, or a search underway).
+.TP
+\fB--noswirl\fR
+If this option is specified, the normal swirl animation is not performed when something is going on (a document submission or a search).
+.SH EXAMPLES
+It's usually a good idea to save the output from the program in a log file, as follows
+.sp
+\fC% uplib-portal >& /tmp/uplib-portal.log &
+.br
+%
+.br
+\fR
+.SH "ENVIRONMENT VARIABLES"
+As a Java program, \fCuplib-portal\fR doesn't use any environment variables.
+.SH "CONFIGURATION PROPERTIES"
+\fCuplib-portal\fR uses a number of Java properties,
+which are normally configured into the jar file,
+but which can be set in the invocation, if desired.  They are:
+.TP
+\fBcom.parc.uplib.AddDocumentProgram\fR
+The full path to the \fCuplib-add-document\fR program on this machine.
+.TP
+\fBcom.parc.uplib.Version\fR
+The current UpLib version.
+.TP
+\fBcom.parc.uplib.GetDocumentProgram\fR
+The full path to the \fCuplib-get-document\fR program on this machine.
+.P
+Since \fCuplib-portal\fR simply invokes \fCuplib-get-document\fR and \fCuplib-add-document\fR, the configuration options for those two programs are also relevant.  See their man pages for more information.
+.SH "FILES"
+\fCuplib-portal\fR will store its size and location on the screen, and the URL of the
+selected repository (if any) in a persistent file, and read those values from
+that file on startup.  On MacOS X systems, this file is
+\fC~/Library/Preferences/com.parc.uplib.UpLibPortal\fR.  On non-Mac systems,
+this file is \fC~/.uplib-portal-rc\fR.  In either case, the value of "~" is determined
+by the value of the Java property "user.home".
+.SH "SEE ALSO"
+\fChttp://parcweb.parc.xerox.com/project/uplib/\fR, uplib-get-document, uplib-add-document
+.SH "BUGS"
+Report bugs to \fCuplib@parc.com\fR.
+.SH "AUTHORS"
+Bill Janssen, <janssen@parc.com>

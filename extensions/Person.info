@@ -1,0 +1,6 @@
+after: on
+author: Bill Janssen
+before: off
+description: Contains the Person class.
+uplib-min-version: 1.7.6
+version: 1.7.6

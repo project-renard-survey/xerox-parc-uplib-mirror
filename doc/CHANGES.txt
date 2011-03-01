@@ -1,0 +1,1123 @@
+.. -*- Mode: rst -*-
+
+.. This file is part of the "UpLib 1.7.11" release.
+.. Copyright (C) 2003-2011  Palo Alto Research Center, Inc.
+.. 
+.. This program is free software; you can redistribute it and/or modify
+.. it under the terms of the GNU General Public License as published by
+.. the Free Software Foundation; either version 2 of the License, or
+.. (at your option) any later version.
+.. 
+.. This program is distributed in the hope that it will be useful,
+.. but WITHOUT ANY WARRANTY; without even the implied warranty of
+.. MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.. GNU General Public License for more details.
+.. 
+.. You should have received a copy of the GNU General Public License along
+.. with this program; if not, write to the Free Software Foundation, Inc.,
+.. 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+
+.. A list of changes to UpLib
+
+   It's written in something called "reStructuredText", which makes it seem a bit
+   odd, if you're looking at the plain text.
+
+   $Id: CHANGES.txt,v 1.139 2011/02/21 01:54:47 janssen Exp $
+
+============================
+Changes to the UpLib Release
+============================
+
+Since release 1.7.10 (10/11/09)
+===============================
+
+      Added support for using the Tornado Web server instead of Medusa.  This
+      looks like the direction to go in the future.  You can enable this
+      during configuration with "--enable-tornado".  You need a recent
+      checkout of Tornado (see http://www.tornadoweb.org/), 1.2 or better,
+      to make this work.
+
+      Added a "--rip" option to ``uplib-add-document``, which can be used only
+      in conjunction with "--upload".  Using this option will cause a temporary
+      repository to be created, the rippers for the repository to be run, and
+      the temporary repository to be deleted.  See man page for details.
+
+      Allow the "--repository" argument to ``uplib-add-document`` and ``uplib-get-document``
+      to be a local directory.  In that case, the code won't attempt to go through the
+      network to access the repository, but will create an instance of ``uplib.repository.Repository``,
+      and use it directly.  This means that they can be used in scripts like CGI scripts,
+      without having to have a repository guardian constantly running.
+
+      Got the Windows MSI installer code to work.  Still a stripped-down
+      installation -- no PDF converter, no uninstaller.
+
+      Added the standard extension ``FilterWebPage``, which adds a ripper, which
+      if given a Web page, tries to figure out what the 'main' content of the page
+      is, and writes the text of that content as UTF-8 to a file in the document folder
+      called ``webpagecontents.txt``      
+
+      Added static method ``add_header(HeaderField)`` to the ``HeaderField``
+      class to add metadata fields that the indexing software will "know about",
+      and automatically index.
+
+      Added ability for extensions to have multilevel URL paths, via two
+      new functions in ``uplib.extensions``:  ``mark_as_hierarchical_extension``
+      and ``is_hierarchical_extension``.  This supports, for instance,
+      GWT applications.
+
+      Fixed background colors in Readup application and Janitor pop-ups
+      on Windows.
+
+      Fixed some bugs with the generic ripper methods.
+
+      Bullet-proofed the initial re-indexing step, in case the stored
+      documents had bad metadata fields.
+
+      Javadoc documentation for some of the classes of the Java client
+      API are now part of the distribution and installed automatically.
+
+Since release 1.7.9 (12/10/09)
+==============================
+
+      A number of changes to support very large repositories.  The
+      most-recently-used history function now only saves a certain
+      number of documents in its history (configurable with
+      ``mru-history-maxsize``, but by default 10,000); Collection
+      instances now hold only weak pointers to Document instances;
+      statistics on number of docs and page count shown in the basic
+      Web UI, which are expensive to calculate, can be suppressed; the
+      method ``list_docs()`` on ``Repository`` has been augmented with
+      a generator version, ``generate_docs()``, which allows
+      incremental garbage collection of instantiated Documents.
+      ``list_docs()`` is still present, as it's useful for smaller
+      collections.
+
+      Lucene indexing now supports multiple languages.  The
+      configuration field ``default-language`` allows the user to set
+      the default language for a repository; if the ``guess_language``
+      Python module is available, UpLib will attempt to guess the
+      correct language for each document and use an appropriate
+      language-specific analyzer for tokenization, stemming, and stop
+      words.  Searches are still performed in the default language.
+
+      The configuration parameter for using the Lucene Snowball
+      stemmers with UpLib has changed.  Now, using the config option
+      ``use-snowball-stemmers`` will enable use of the appropriate
+      Snowball stemmer for either the default language, or the
+      appropriate language for that document (if the Snowball set
+      includes that language).  Note that explicit use of Snowball
+      stemmers is now deprecated by the Lucene developers.
+
+      Lucene indexing now supports extension hooks.  Extensions can
+      register indexing callbacks that will be invoked when a document
+      is being indexed, to add additional Lucene fields to the index.
+
+      Lucene indexing will now support use of PyLucene 3.x.
+
+      New "standard extension" NltkTagger adds a ripper that, if the
+      nltk package is installed on your machine, adds
+      sentence-breaking and part-of-speech tags for the text content
+      of documents.
+
+      Added support for Microsoft RTF format.
+
+      Added an ePub extension to allow you to retrieve documents in
+      the IDPF ePub format.
+
+      Rippers can now indicated whether they should be re-run after
+      the document metadata changes.  This is fine-grained; they
+      can re-run only if certain metadata fields change.  You can also
+      specify a ripper to be re-run after certain other rippers run.
+
+      Removed build mechanisms that required a Lucene jar file with
+      PyLucene.
+
+      Updated code that launches browser from Java applications.
+
+      Updated Linux installers to handle more cases.
+
+      Most of the work has been done to provide an MSI installer
+      for Windows.  Still need to track down an issue involving non-standard
+      installation of the PyWin32 extensions.
+
+      Testing framework that now runs basic tests of functionality
+      has been upgraded to start adding new tests of client-side
+      Java library.  See "tests" subdirectory.
+
+      Fixed bug in UpLib guardian angel that prevented password
+      authorization from working!  Added test case for this.
+
+      Fixed bug in Janitor that prevented "Make Repository" from
+      working properly.
+
+      Fixed bugs in uplib-make-repository that failed to start angel
+      after creating a repository on Linux.  Restored default
+      behavior of ``uplib-check-angel`` (same as ``--start``).
+      ``uplib-check-angel`` also fixed to properly detect presence
+      of Unix process given the PID.
+
+      Fixed race condition in use of Medusa rotating-file-logger which
+      would sometimes cause the main thread (and subsidiary threads)
+      to suddenly exit.
+
+Since release 1.7.8 (10/10/09)
+==============================
+
+      The Lucene `SnowballAnalyzer` can now be used to add stemming to
+      the indexing and search, for some languages (those with Snowball
+      parsers included in PyLucene).  This is enabled by setting the
+      configuration property `use-snowball-stemmer-with-this-language`
+      to the name of the language, e.g. "English".
+
+      More of the Lucene functionality is now brought out through
+      the `uplib.indexing.LuceneContext` class.  In particular, the
+      method `term_frequencies` lets one examine the frequences in
+      the repository of a set of terms; the method `idf_factors`
+      gives the Lucene idf factors for a set of terms (a measure of
+      rarity); and the `search` method now takes a keyword argument
+      `explain`, which when specified as `True` will cause an explanation
+      thunk (a zero-parameter function) to be returned as the third
+      element of each hit -- this thunk, when called, returns the
+      string explanation generated by Lucene of why that hit is scored
+      the way it is.
+
+      Added extension with ripper to automatically extract embedded
+      metadata in Washington Post articles, similar to existing New
+      York Times extension.
+
+      Fixed some bugs with use of subclasses of the Collection class.
+
+      A number of quoting issues with the Web-based metadata editor
+      were fixed.  In particular, titles with quotation marks in them
+      should now survive the round trip.
+
+      The "wordbboxes" format has been revised to a version 2; this
+      version includes baseline information for the words, along with
+      coarse-grained (every 90 degrees) rotation information.  A
+      couple of bugs in the xpdf patch, and in the figureimages
+      program, have been fixed.  All of this provides for more
+      accurate page layout analysis.
+
+Since release 1.7.7 (8/25/09)
+=============================
+
+      Updated for use with Python 2.6 and tested on Mac OS X 10.6.
+
+      Fixed a bug in the video parser to allow use with WMV files.
+      Previously, the "Music" parser grabbed those before "Video".
+      Now, the "Video" parser sorts before "Music", and you can also
+      force the use of "Video" directly with the `--format=` option to
+      `uplib-add-document`.  In addition, the video parser now gathers
+      by default 5 frames from the video; this may be adjusted with
+      a user option, `number-of-video-sample-frames`.
+
+      Now indexes email recipients, as "email-recipients" (the email
+      addresses), and "email-recipient-names" (the names, if any).
+      And "email-recipient-names" is now on the default list of headers
+      to search for on a query.
+
+      The new command-line program `uplib-topdf` can be used to start
+      the ToPDF server on UNIX systems -- note that on a Mac, there's
+      an application, `/Application/Utilities/UpLibToPDF`, to do this,
+      and the Mac installer will install that application as a user
+      agent by default.
+
+      Epydoc-generated API documentation now installed automatically.
+
+Since release 1.7.6 (3/25/09)
+=============================
+
+      New code for caching Web sites.  Properly caches recursive CSS
+      pages.
+
+      New utility, `uplib-cache-url`, to invoke the URL caching code
+      directly outside of UpLib.
+
+      The query parser syntax is slightly expanded to handle more
+      expressions of date ranges.  The keywords "TODAY" and
+      "YESTERDAY" existed previously, so you could look for things
+      you'd added yesterday with the query, "uplibdate:yesterday".
+      "NOW", "PASTWEEK", "PASTMONTH", and "PASTYEAR" have been added,
+      so that you can look for things added in the last seven days
+      with "uplibdate:pastweek", or use NOW as a range value:
+      "date:[1/1/2009 TO NOW]" will find all docs published from
+      1/1/2009 to the present.
+
+      Guardian Angels on OS X are now run as system launchd daemons,
+      which means that `uplib-make-repository` now requires an admin
+      password on OS X, to create the plist and load it into launchd's
+      list of daemons.  This is done to ensure that the bootstrap
+      context for the Angel does not expire when the user logs out.
+      The launchd system will always keep the daemon running, even
+      when it's "stopped"; now, "stopped" means that the angel is
+      running, but it's doing nothing, just waiting to be restarted.
+
+      The interface for the standard Web function "doc_versions" has
+      been re-worked, so that you can use it to invoke collection
+      functions on all versions of a document.
+
+      Support for using "wkpdf" (on OS X) or "wkhtmltopdf" (on Linux)
+      for rendering Web pages added.  This is basically the same
+      rendering engine Safari and Google Chromium use for printing Web
+      pages.
+
+      Added new server, ToPDF, which supports running the
+      wkpdf/wkhtmltopdf and OpenOffice format converters in the user's
+      GUI environment, which is required under OS X (and possibly X11
+      with certain security configurations).  (On OS X, this runs as
+      a LaunchAgent in both the Aqua and LoginWindow contexts.  See
+      Mac_ToPDF_ for more information on this configuration.)
+
+      Support for JPEG 2000 added via jasper.
+
+
+Since release 1.7.5 (6/18/08)
+=============================
+
+      Support for video incorporation using AVbin and pyglet is added.
+
+      The music parser for MP3 files wasn't being loaded, so it couldn't
+      be used for importing MP3s.  Now loaded automatically.  Still don't
+      support MP3 files without ID3 tagging in them.
+
+      Email now handles "text/plain; format=flowed" properly.  Various
+      bug-fixes in IMAP protocol handler.  Support for Microsoft TNEF
+      attachments added.
+
+      Annotations updated to deal with span anchors, rect anchors, and
+      paragraph anchors.
+
+      Made OpenOffice conversion of Web pages and Office docs more robust.
+
+      Support for client-side keys is now present, in both the Java and
+      Python clients.  The UpLib guardian angel can be set to to only
+      accept connections if the client presents a validated key.
+
+      ReportLab use upgraded to 2.x.
+
+      The ReadUp document reading app can now be launched via JNLP.
+      This is a new standard function,
+      /action/basic/doc_readup?doc_id=DOCID
+
+      Added parser support for text/calendar.  Currently, only VEVENT
+      instances are processed.
+
+      Some older debugging comments are made less frequent.
+
+      Support for search abbreviations fixed.
+
+
+Since release 1.7.4 (5/27/08)
+=============================
+
+      New doc-function "Categorize" added.  This, if using JCC
+      PyLucene, will suggest tags based on past tagging history, and
+      give you a tag cloud of all tags used in the repository so far.
+
+      Various fixes to indexing, particularly annotation indexing,
+      which was omitting some text.  Also restored page search, which
+      had been broken on 1.7.4 due to a bug.
+
+
+Since release 1.6 (10/1/07)
+===========================
+
+      The previously experimental IMAP server is now a standard
+      extension, and will be installed into site-extensions.  There
+      are a number of configuration options to use with it; see the
+      USAGE_ document for details; look for configuration options that
+      start with "imap-".  |wcj|
+
+      The indexing code has been re-written to use the JCC version of
+      PyLucene.  A configure option now allows the user to select
+      either Java Lucene, GCJ PyLucene + Java Lucene for indexing, or
+      JCC PyLucene for both indexing and search (recommended).  Using
+      JCC PyLucene makes indexing much faster for medium to large
+      repositories.  If JCC PyLucene is used, annotations on documents
+      are indexed and searchable with the fieldname "notes".  |wcj|
+
+      If the Python being used has the SSL module installed, it's used
+      instead of stunnel.  |wcj|
+
+      Documents can now be retrieved in HTML format, as a single-file
+      HTML using the "data:" URL form to embed images.  This is a
+      doc-function available as ``/action/basic/doc_html?doc_id=...``.  |wcj|
+
+      Another doc-function, ``/action/basic/doc_versions``, can be used
+      to find other versions of a given document that are also in the
+      repository.  If specified with "rettype=plain", it will return
+      results as a series of "text/plain" lines, each line containing
+      the score as a floating point number, the doc-id, and the title
+      of the document.  |wcj|
+
+      The ability to upload documents from a computer which doesn't
+      have UpLib installed on it has been added as a standard
+      extension called ``UploadDocument``; visit the URL
+      ``/action/UploadDocument/help`` in any repository which has this
+      extension installed to see more details.  This includes a
+      bookmarklet which can be put in a browser's booksmarks bar to
+      send the current Web page to the repository.  |wcj|
+
+      It's now possible to select a region in ReadUp by sweeping out a
+      region with the mouse while the Shift key is depressed.  If a
+      region is selected, tools appropriate for that region appear on
+      the sidebar; the ZoomIn support has been changed to work with
+      this.  The SelectionState class in ReadUp has been improved to
+      handle either a text span or a rectangle as a selection.  |wcj|
+
+      The linking support in ReadUp has been improved so that selected
+      spans can be used as source anchors as well as target anchors.
+      This means that you can "drag" a selection from one document
+      onto a selection on another document, and have the two selected
+      regions be linked.  In addition, targets, for either source or
+      destination, can now be arbitrary rectangles on the document
+      page (use Shift-drag to select a rectangle).  This is often
+      handy to link to or from illustrations, or with photos.  |wcj|
+
+      Windows build support re-written to use ``configure`` and
+      ``make`` and MSYS.  As part of this, the task of replacing
+      various strings in various files with their configure-determined
+      values is moved out of ``configure.in`` and into ``configure-files.py``.
+      This is done so that the Windows installer can perform this
+      replacement on a target machine without having ``configure`` or ``make``
+      available.  See ``replacements.in`` for a list of the variables
+      that are replaced. |wcj|
+
+      The extensions manager has been re-written to use the SSL module.
+      Users must now officially certify the certificate from a server to
+      download extensions from it.  Support for client-side authentication
+      to the server has been provided.  |wcj|
+
+      Python code has been moved to a package called "uplib".  Code
+      having to do with Web manipulation has been moved from ``plibUtil``
+      and ``addDocument`` to a new module, ``webutils``.  |wcj|
+
+      The codebase has been approved for release under the GPL2.  |wcj|
+
+Since release 1.4.3 (11/23/05)
+==============================
+
+      A new application, the UpLib Janitor, has been added.  It puts
+      up a window with a list of all repositories owned by the person
+      running it hosted on the machine on which it is running.  It
+      provides controls for making new repositories, as well as
+      starting, stopping, and maintaining the existing repositories.
+      |wcj|
+
+      A new "zoom-in" button has been added to ReadUp (and to both the
+      Web document viewer and the standalone "ReadUp" or "ShowDoc"
+      viewers).  This allows the user to zoom in on a section of a
+      document page.  The mousewheel can be used to adjust the zoom
+      scale.  The zoomed-in view can be panned over the entire page.
+      |wcj|
+
+      PyLucene can now be optionally used for searches instead of Java
+      Lucene.  This can result in search speed increases of 100x.
+      Java Lucene is still used for indexing.  PyLucene will be used
+      automatically if you have it installed in the Python that
+      you are using for UpLib.  |wcj|
+
+      OpenOffice can now be configured to perform Office-to-PDF
+      translation on non-Windows platforms, or on Windows platforms
+      without Microsoft Office.  In addition, OpenOffice can be used
+      to create page images from Web pages.  |wcj|
+
+      Drag-and-drop links created by dragging a selection or page from
+      one UpLib document to another are now preserved in the
+      repository.  Clicking on such a link will cause the linked
+      document to be displayed in a new window, opened to the
+      indicated page, with the span text appropriately highlighted.
+      The descriptions for the links, shown in the tooltips, have been
+      improved.  |wcj|
+
+      Links in PDF or HTML documents are now exported to UpLib, and
+      presented in the ReadUp widget as hot spots.  |wcj|
+
+      E-mail is now supported by the document parsing code.  Each
+      message must be RFC 822 formatted, and in a separate file.
+      Attachments are broken out and saved as separate documents, with
+      links to them in the email messages.  Threading is supported by
+      the new document function, "/action/basic/email_thread".  To
+      use email support, the Python "email" package must be installed,
+      at level 4.x or better.  Python 2.5 is the first release for
+      which the email support is, by default, at 4.x.  For earlier
+      releases, the package must be installed separately.  |wcj|
+
+      An experimental IMAP server for UpLib-stored email, in the shape
+      of an UpLib extension, is available in the "misc" subdirectory.
+      |wcj|
+
+      MP3 support is now provided.  It requires the Mutagen tagging
+      library be installed in your Python.  Cover art stored in the
+      MP3 file will be used for the document icon; music without cover
+      art will be presented with generic music icons.  |wcj|
+
+      The ability to add user-specified functions in a manner similar
+      to *doc-functions*, but for collections of documents, is now
+      available as the configuration option *collection-functions*.  |wcj|
+
+      A new utility program, uplib-certificate, has been added.  It
+      lets you manage the repository certificates and Java keystores.
+      It has a man page.  |wcj|
+
+      Paragraph and, if the open-source package ``leptonica`` has been
+      installed, illustration analysis, of each added document is now
+      standard.  A fingerprint of every paragraph is added to the
+      metadata for the document, and a new standard folder file,
+      ``paragraphs.txt``, included in the document folder.  Bounding
+      boxes for detected illustrations are now stored in the
+      document's metadata file.  |wcj|
+
+      You can now stop the Portal from popping up the metadata
+      submission window by setting the ~/.uplibrc property
+      "portal-show-submission-popup" to "false".
+
+      In the browser interface, a new standard document function,
+      Original, has been added.  It will retrieve the original version
+      of the document and display it.  If the original consisted of
+      multiple files, these will be "displayed" as a zip file.  |wcj|
+
+      If the document original is a PDF file which contains no text,
+      the PDF file will now be properly OCR'ed (a bug fix), and if the
+      user asks for a PDF version of the document, a new PDF file will
+      be generated and returned which contains the OCR'ed text.  |wcj|
+
+      Scanned documents containing pages with different sizes will now
+      be handled.  Pages are scaled or padded to a consistent size.
+      |wcj|
+
+      New Java base classes for various utility functions are now
+      provided for developers.  In particular, a new client-side class
+      that presents a model of the repository, along with its
+      documents, categories, authors, and collections, is now
+      available as `com.parc.uplib.readup.uplibbinding.Repository`.
+      |wcj|
+
+      When displaying a collection in the Web browser view, all the
+      documents in the collection will now be displayed by default,
+      instead of the top 50 displayed in version 1.4.  |wcj|
+
+      For long-running server operations, a new class called Job is
+      provided, which logs its results to a status string.  The
+      externalAPI module has been extended with a function to fetch
+      the status for a particular Job, and basicPlugins contains an
+      example of how to use Javascript to fetch this periodically and
+      update a status display in an AJAX page.  |wcj|
+
+      The repository object can now register shutdown hooks, which are
+      called when the repository is shutting down.  See
+      repository.add_shutdown_hook().  The hook is a function with no
+      arguments.  |wcj|
+
+      Mac users will now automatically get a "Save PDF to UpLib"
+      option in their PDF pulldown menu when printing from any
+      application.  |wcj|
+
+      The Lucene 2.0 jar file is now included with the distribution
+      and does not have to be installed separately.  Developers can
+      still explicitly configure a particular Lucene jar file for the
+      purpose of testing.
+
+      A few Java 5 issues have been addressed to make UpLib compile
+      cleanly with Java 5.  |wcj|
+
+      Portal now stays where user puts it, even with multi-display
+      setups, so long as screen is not "resized".  |wcj|
+
+Since release 1.4.2 (2/21/05)
+=============================
+
+      Search within documents is now supported in the Web interface.
+      All document pages are now individually indexed.  When
+      displaying results of a repository-wide search, individual pages
+      which match the query after removing any document-wide metadata
+      elements of the query are displayed in the Abstracts results
+      view, and a secondary query box is available to search more
+      fully within the document.  |wcj|
+
+      All documents are now indexed into the special category
+      "_(any)_", which allows subtractive searches.  For instance,
+      you can now run a query for "-categories:photo -uplib", which
+      searches for all documents which are NOT in the photo category,
+      and which do NOT contain the word "uplib".  |wcj|
+
+      UpLib's TextBridge-based OCR service now knows how to extract
+      wordboxes from documents which don't have a natural PDF form, or
+      which don't have OCRed text in them.  This means that wordboxes
+      are now present for all documents that contain text.  The speed
+      of our PARC OCR service has been increased substantially.  |wcj|
+
+      If the user doesn't specify a "title" with the Portal or with
+      uplib-add-document, the system attempts to extract a title
+      from PDF and HTML documents, and will use the original filename
+      as a title if that fails.  |wcj|
+
+      If the user asks for a PDF version of a document which only
+      exists as scanned text, the system now generates a PDF with
+      invisible text in the right places, reading from the
+      bounding-boxes file wordbboxes.  Invisible text is *not* added
+      to PDF originals which lack it, though.  |wcj|
+
+      Default handling of document resolution has been changed to a
+      model suggested by Jeff Breidenbach.  If no DPI is explicitly
+      specified, most document resolutions will default to 300 DPI, as
+      with the previous release.  However, for image files, the
+      metadata in the image is examined for any specific resolution
+      information.  If found, it is used instead of the default, which
+      is now 75 DPI for image documents, to more closely match the
+      intended resolution of images pulled off web pages.  This should
+      help the user never have to use the DPI buttons on the Portal
+      submission page.  |wcj|
+
+      HTML support now fully caches originals pulled from a Web site,
+      including images, CSS, and Javascript associated with that page.
+      URLs in links in the page are made absolute, so that they will
+      continue to work from the cached copy.  If the HTML cannot be
+      parsed by the somewhat rigid parser in the system, the original
+      bits of the page are used instead, just as with the previous
+      release.  |wcj|
+
+      Selected text from a ReadUp window can now be dragged and
+      dropped onto other applications.  The entire page can be dragged
+      by dragging the page number in the upper right of the ReadUp
+      toolbar.  Drag-and-drop will also work with the Java applet in
+      the Web-based interface to UpLib, if you have configured the
+      Java policy file as described in the USAGE_ document, in the
+      section__ called "Allowing the Java Web browser applet to cut and
+      paste to the system clipboard".  |wcj|
+
+__ USAGE_java_policy_
+
+      The user config option "web-proxies" allows the user to
+      define proxies for various Web sites.  This is useful, for
+      instance, when attempting to pull PDF documents from the ACM
+      Digital Library from PARC, which requires the use of the PARC
+      Web proxy for access.
+
+      The user config option "auto-crop-big-thumbnails" has been
+      added.  This defaults to "true"; if set to "false", the borders
+      of the page image thumbnails will not be cropped.  |wcj|
+
+      The user config option "allow-extensions-to-add-buttons" has
+      been added.  This defaults to "true"; if set to "false", any
+      buttons or document functions added by an extension are ignored.
+      This is to encourage extension writers to add an easy-to-use
+      interface, which still allowing power users to control their own
+      menus and toolbars. |wcj|
+
+      New response function, ``fork_request()``, now enables a
+      long-running server extension function to execute in another
+      thread without blocking requests from other clients.  This is
+      experimental and not well tested.  |wcj|
+
+      Adding of program source files is now supported, for the
+      languages Java, Python, C, C++, Perl, Javascript, Emacs-Lisp,
+      the Bourne Shell, and FORTRAN.  The files are formatted with
+      ``enscript``, and the document icon is labelled with the
+      filename.  |wcj|
+
+      MacOS X users can now use a program to automatically restart
+      their repositories when they log in.  The application, called
+      ``StartUpLibRepositories``, can be found in
+      ``/Applications/Utilities`` after running the installer.  It
+      should be added to an account's "Startup Items".  It will run
+      when the user logs in, checking that all repositories owned by
+      that user on that machine are running, and then exit.  |wcj|
+
+      Windows users can now use (and automatically will use) the
+      built-in OCR from MS Office if they have Office installed on
+      their machines.  Thanks to Lance Good for making this happen,
+      and to Bongwon Suh and Brian Pendleton for figuring out how to
+      call it in the first place.  |wcj|
+
+      The ability to automatically split multi-document scan jobs by
+      recognizing a special separator sheet has been added.  A PDF
+      version of the separator sheet can be found in the SHARE
+      directory after installation, or on the UpLib web page at
+      http://project/uplib/.  |wcj|
+
+      Addition of "note cards" is now supported.  Small text files
+      (paragraph or two) that end with either ".3x5" or ".4x6" or
+      ".card" (3x5 by default) will be turned into small 3x5 or 4x6
+      cards with the text "typed" on them.  If a title is specified,
+      it will be typed on the card in bold lettering above the text.
+      |wcj|
+
+      The Mac ".textClipping" file type can now be imported with
+      ``uplib-add-document``.  It is rendered as a 3x5 card.  |wcj|
+
+      Document format parser classes can now define BEFORE and AFTER
+      lists of classes they should be before or after, in the list of
+      parsers called when trying to figure out what parser to use for
+      a file.  |wcj|
+
+      Normally, documents that have extreme aspect ratios, so that the
+      icon width or height would be less than 1 pixel, cannot be
+      added.  By setting the boolean config option
+      "keep-very-small-thumbnails" to "true", the offending size
+      will be set to 1 pixel, and the documents will be successfully
+      added.  |wcj|
+
+      Smaller alternate document icons are now shown in the sidebar
+      when reading a document in the Web reader, to allow the user
+      more choices.  |wcj|
+
+      Python 2.3 is now required.  |wcj|
+
+      Error output from the Windows server will now end up in the log
+      file for that service.  |wcj|
+
+Since release 1.4.1 (1/14/05)
+=============================
+
+      Thanks to ISTL's PDA group, PARC "document drycleaning" is now
+      available for scanned page images from the Portal (the
+      "Dryclean" checkbox) or via ``uplib-add-document`` with the
+      "--dryclean" option.  Thanks to Jeff Breidenbach for putting
+      this together.  |wcj|
+
+      Graphic presentation of ReadUp toolbar has been redone to
+      provide a more consistent visual user experience.  A _snapback_
+      button has been added to provide an easy way to return from a
+      bookmark jump.  |wcj|
+
+      Implemented support for using browser cookies when fetching a
+      page from a remote Web site via HTTP.  Only support for Firefox
+      and Safari cookie files, so far.  |wcj|
+
+      If a dropped file upload on the Portal fails, the Portal now
+      remembers the file name, and Shift-Click on the Portal icon will
+      allow another attempt at uploading that file.  |wcj|
+
+      Pop-up menus for document actions now work on the textual
+      display mode.  |wcj|
+
+      Clicking on the document-count/page-count values in the top
+      toolbar will now provide a more graphical usage display.  |wcj|
+
+      Change listing display formats, and make them work better when
+      switching between them.  |wcj|
+
+      Add support for Apple ".webloc" format for saved Web locations
+      to ``uplib-add-document``.  |wcj|
+
+      Small change to cookie handling to allow non-encrypted access
+      from laptop browser to password-protected repo running on that
+      same laptop.  |wcj|
+
+      If you use the Windows installer, you no longer have to manually
+      grant "logon as a service" to yourself.  Thanks to Lance Good
+      for working this out.  |wcj|
+
+      Unicode strings in the contents.txt of a document are now
+      properly presented in metadata editor pane of web browser.
+      Fetching the ``contents.txt`` file via the Web interface now
+      sends the correct charset for the bytes it returns.  |wcj|
+
+      Better file names generated when fetching a file version of a
+      document from the repository.  |wcj|
+
+      Metadata page now shows a regular document icon with menu and
+      tooltips, rather than the old icon.  |wcj|
+
+      The Mac installer no longer requires X11 be installed.  |wcj|
+
+Since release 1.4 (12/14/04)
+============================
+
+      In 1.4, JPEG images without EXIF data could not be added.  This
+      bug has been fixed.
+
+      ``uplib-make-repository`` now creates absolute paths from the
+      directory specified.  In addition, the example of
+      ``uplib-make-repository`` in the user manual was out-of-date; now
+      updated.
+
+      Various minor changes to make installation on a Mac easier.
+
+Since release 1.3 (5/26/04)
+===========================
+
+      The Java docviewer is now called *ReadUp*, and has been
+      substantially improved.  Text in most documents can now be
+      selected, and a seach capability has been added, modelled after
+      Emacs isearch.  A selected text region can be used to find other
+      similar documents in the UpLib repository.  Two unconventional
+      reading modes have been added to ReadUp, RSVP and ADH.  Per-page
+      note sheets can now be added to a document.  The note sheets
+      support keyboard text entry, URLs, and pasted-in images, as well
+      as the pen or mouse scribbles available in 1.3.  Three colored
+      bookmark ribbons are available on a per-document basis.  Memory
+      usage in ReadUp has been improved.  Pie menus are now attached
+      to the right mouse button; they can be used to access most
+      ReadUp functionality.  Animated page-turns have been added.
+      ReadUp is now the default way to show documents in a browser
+      window; set "use-java-docviewer" to "false" in your .uplibrc
+      file to continue with the default behavior from earlier
+      releases.  |wcj|
+
+      For many document formats, the UpLib system now knows where on
+      the page the text is, and what each word is.  The ``pdftotext``
+      application has been modified to extract the word bounding boxes
+      for words in a PDF document.  These boxes, and their Unicode
+      characters, are processed to create both the ``contents.txt``
+      file, and a new file, ``wordboxes``, which contains all the word
+      bounding boxes for a document.  The ``wordboxes`` file is
+      further processed on a page-by-page basis to create per-page
+      wordbox files, in the units of the large page thumbnails, for
+      use by clients.  In ``contents.txt``, ligatures are expanded,
+      and separated diacritical marks are now recombined with their
+      primary characters, in the NFKC form of normalized Unicode.  To
+      enable text extraction, a modified version of ``pdftotext`` must
+      be built from source.  See the REQUIREMENTS_ file for more
+      details on this.  |wcj|
+
+      Support for Microsoft Office "Word" and "Powerpoint" formats
+      have been added via a PARC conversion service which produces PDF
+      equivalents of documents in these formats.  Thanks to Lance Good
+      for putting this together.  These conversions will not work
+      without access to PARC's internal network.  |wcj|
+
+      The ISTL Perceptual Document Analysis Area has contributed a
+      deskew system for scanned documents.  Thanks to Jeff Breidenbach
+      for making this work.  Again, this will only work with access to
+      PARC's internal network.  |wcj|
+
+      Two new temporally-oriented views of document collections have
+      been added to the Web interface (in addition to the existing
+      "Thumbnails", "Titles", and "Abstracts" views).  The first,
+      "PubDates", displays the documents sorted by publication year,
+      most recent year first, and inside the year, sorted by
+      publication date, earliest to latest.  The second "AddDates", is
+      the same, but the date used is the date the document was added
+      to the repository.  In each of these views, if there are more
+      than 25 documents per year, or more than 6 documents in a single
+      month, month markers are displayed between successive document
+      runs.  |wcj|
+
+      In the Web thumbnail interface, pop-up menus now work with
+      Firefox on all platforms, as well as with Camino and Safari on
+      the Mac platform.  Thanks to Lance Good for spotting the call
+      which makes this possible.  |wcj|
+
+      The "Titles" listing format has been improved.  It now displays
+      the authors, date, and document ID of each document, in addition
+      to the title.  The authors and date are links to additional
+      searches (other papers by that author, other documents with that
+      date).  The ID is a link to the metadata editor for that
+      document.  |wcj|
+
+      Better HTML support has been added.  HTML pages on the web can
+      be added to a repository by specifying the "http:" URL of the
+      page to ``uplib-add-document``.  URLs of HTML and other format
+      web pages can, on platforms which support it, be dragged from a
+      browser's URL bar to be dropped on the UpLib Portal.  |wcj|
+
+      A user manual is now available from the Web view of a
+      repository, through the help page, in both HTML and PDF forms.
+      |wcj|
+
+      The query facility in UpLib now by default performs an "AND" of
+      the terms specified, instead of an "OR".  This makes query
+      parsing more like Google's.  **Lucene 1.4.1 is now required.**
+      You can change this back to "OR", if you wish, by setting the
+      user option "search-default-operator".  |wcj|
+
+      The UpLib Portal has been improved.  It now remembers where it
+      had been placed on a desktop, and which repository the user was
+      using.  It now supports Emacs keybindings in its text fields.
+      These are enabled by default on non-Windows platforms.  It now
+      raises an error window to the user if the underlying submit or
+      fetch command fails for some reason.  See the man page for
+      details.  |wcj|
+
+      When building on a MacOS X platform, the Portal application will
+      automatically be built and installed in ``/Applications/Utilities/``.
+      In addition, a stand-alone reader application, called ReadUp,
+      which allows accessing documents as "bare" ReadUp windows, will
+      be installed.  An alternate installation directory can be specified
+      in the configure step using ``--with-macosappdir=``\ *DIR*.  |wcj|
+
+      New extensions downloaded from the Extensions Library start out
+      as inactive, and must be explicitly activated to have any
+      effect.  In addition, activating or deactivating any extension
+      with initializers will cause the guardian angel to be restarted.
+      |wcj|
+
+      A "Login" button is now located on the Web browser repository
+      view bottom toolbar if the repository has a password and the
+      user has not logged in to the repository (presumably because the
+      repository is using the AnyOneCanRead extension, or something
+      similar).  Pressing this button takes you to the login screen,
+      which allows the browser to acquire a cookie for the repository.
+      This is particularly important if you are using the ReadUp
+      document viewer; you will not be able to store activity or
+      annotations without being logged in.  |wcj|
+
+      The plain-text documentation has been changed to use the
+      reStructuredText_ markup format, which allows HTML and PDF
+      versions to be built from readable plain-text sources.  The man
+      pages remain in ``man`` format.  |wcj|
+
+      The default thumbnail strategy is "log-area", instead of
+      "constant-area".  You can change this by setting the value of
+      "constant-area" in your `configuration file`__.   |wcj|
+
+__ configuration-file_
+
+      The default page image format is now PNG, instead of TIFF.  You
+      can set the configuration parameter "use-png-page-images" to
+      "false" to change this, if you wish (not recommended).  |wcj|
+
+      Minor tweaks to formatting web view toolbar makes it a bit
+      shorter, and centers the help icon more predictably.  |wcj|
+
+Since release 1.2 (11/3/03)
+===========================
+
+      A new document reader has been added.  The new reader supports a
+      variety of document interaction techniques such as page
+      "riffling" with the mousewheel, hotspots, and "scribble"
+      annotations on the document page images, as well as logging user
+      activity back to the repository.  Documents can also be
+      pulled-off, or "detached", from the browser page with this
+      reader.  By default, the old document reader system is used in
+      this release.  However, the new reader can be used in a Java
+      Plug-in browser applet, by setting the configuration value
+      "use-java-docviewer" to true before starting the guardian angel.
+      It will become the default in the next release.  The new reader
+      is implemented as a standard Java Swing JComponent, and can thus
+      be re-used in other Swing-based user interfaces.  |wcj|
+
+      uplib-add-document has been re-written.  It no longer uses
+      /bin/csh, and it uses a set of document format parser classes to
+      determine the document's format and then analyze it.  New parser
+      classes can be added by users; see the "--parser-files" argument
+      to uplib-add-document, and the user configuration setting
+      "additional-document-parsers".  See the EXTENDING document for
+      an example.  There's also an abstract parser class FakePDFDoc,
+      which makes it easy to write parsers which use PDF as an
+      intermediate format.  See the parser class TextDoc in
+      addDocument.py for an example.  The HTML support has been
+      removed, as it broke too many system invariants (see the bugs
+      database for more details).  However, the Mozilla "Web Page
+      Complete" format is supported.  More image formats are
+      understood, including Windows bmp, netpbm .ppm .pgm .pbm and
+      .pnm, Excapsulated Postscript, and Sun raster format.
+      Postscript is also now supported.  uplib-add-document takes a
+      new switch, --list-formats, which displays all the known
+      formats.  You can now give a directory as an argument, and (if
+      the directory doesn't contain an UpLib folder) it will now be
+      walked, and any eligible document found in the tree will be
+      processed.  |wcj|
+
+      The folder format has been changed to allow either a single-file
+      multi-page "document.tiff" set of page images, or a directory
+      called "page-images" containing a number of PNG page images,
+      each named "page%50d.png".  Which uplib-add-document produces is
+      controlled by the user config option "use-png-page-images".  By
+      default, this is false.  In the next release, it will default to
+      true.  |wcj|
+
+      A new method for specifying document-specific actions for the
+      upper-left corner of the document reader has been added.  See
+      the user configuration item "doc-functions" (in USAGE_) for
+      details.  Note that there is a similar mechanism
+      ("user-buttons") defined for repository-wide actions, to put
+      button on the UpLib "toolbar".  In addition, the standard way of
+      describing the document controls area in release 1.2, the file
+      named by "default-html-controls-template-file", has been
+      deprecated; the controls are now generated from the default
+      document functions along with any user-specified ones.  |wcj|
+
+      uplib-get-document (and the UpLib portal) have been changed
+      to have the format "images" instead of the format "tiff".  Asking
+      for this format will return a zip file containing a set of PNG
+      page images, even if the master format used in the repository
+      is TIFF.  |wcj|
+
+      uplib-get-document (and the UpLib portal) also has a new format,
+      "uplib".  Asking for a document in this format will retrieve the
+      full UpLib folder and unpack it in a temporary directory, then
+      invoke the action function on this directory.  |wcj|
+
+      PDF generation from scanned or image pages has been improved;
+      it's now done with the ReportLab toolkit, and text associated
+      with the document is now placed into the PDF, on the appropriate
+      page, in a format which is retrievable again by tools such as
+      pdftotext.  |wcj|
+
+      A new thumbnail-strategy, "log-area", is now available.  It
+      attempts to preserve relative sizes of documents, which the
+      previous thumbnail strategies did not.  It can be enabled with
+      the "thumbnail-strategy" configuration setting.  |wcj|
+
+      Page image decomposition and folder preparation done by
+      uplib-add-document is now properly done in the directory
+      specified by the config option "assembly-line", if it's
+      specified.  Otherwise a system-supplied temp directory is used,
+      as before.  |wcj|
+
+      The default section search path for configuration lookup has
+      changed.  In 1.2, it was:
+
+        1. "server"
+        2. <hostname> (which varied, depending on the output from the 'hostname' command)
+        3. <osname> (whatever 'uname -s' returns
+        4. "default"
+
+      In this release, the order is:
+
+        1. <hostname>:<port>
+        2. <hostname>
+        3. <osname>
+        4. "server"
+        5. "default"
+
+      where the <hostname> is the fully-qualified domain name,
+      i.e. ``foo.division.company.com``, instead of just ``foo``.  This
+      allows setting specific configuration options for specific
+      repositories, even if you are running multiple repositories on
+      the same host.  |wcj|
+
+      The server and clients can be installed on Windows, as well as
+      Mac OS X and Unix systems.  |wcj|
+
+      Documents with no assigned categories are now marked with the
+      special category name "_(none)_", which can be searched for.
+      The Web interface, under the "Categories" pull-down, has the
+      item "(Uncategorized)", which will list all documents with no
+      assigned categories.  |wcj|
+
+      By default, no DNS server is used.  This prevents various
+      problems with disconnected operation.  It can still be
+      overridden with the configuration-time switch
+      --with-dns-nameserver=HOST, but there's no advantage to so
+      doing.  |wcj|
+
+      Searches on specific dates or on date ranges can now be made
+      with the mm/dd/yy syntax instead of yyyymmmdd syntax.  For
+      example, "date:[1/1/2003 TO 12/31/2003]", would find all
+      documents with dates in 2003.  |wcj|
+
+      The UpLib Portal now remembers where it was put on the desktop;
+      when re-started, it will come up in that location.  |wcj|
+
+      The upload transfer format now defaults to "zipped-folder";
+      "tarred-folder" may still be used by setting the user config
+      parameter "upload-transfer-format".  |wcj|
+
+      Thread locking has been changed to provide named locks, and
+      logging of thread locking has been added to the debug log (at
+      verbosity level 3).  |wcj|
+
+      Lucene 1.3 is now required.  |wcj|
+
+      We try harder to find the fully-qualified domain name of the
+      machine, to use in reading the configuration file.  |wcj|
+
+Since release 1.1 (7/22/03)
+===========================
+
+      Optionally specify scoretext model file location at
+      ./configure time via --with-scoretextmodel=SCORETEXTMODELPATH -- kp
+
+      Instead of always suggesting port 8080, uplib-make-repository
+      now suggests next available port number not less than 8080 -- kp
+
+      Works with stunnel 4 as well as 3.  -- kp
+
+      Action modules can now add new buttons to the top-level toolbar
+      via basicPlugins.add_user_button().  Note that special-case code
+      for showing the "Upload" button has been removed; the upload
+      module will have to add a button using the new mechanism.  |wcj|
+
+      A new program, uplib-portal, provides a desktop icon that can be
+      used for entering and retrieving documents from an UpLib.  |wcj|
+
+      New extensions system replaces/supplements actions-path
+      mechanism for supplying extension modules.  "actions-path" is
+      now only used for setting the initial value of the
+      extensions-path of a repository.  See USAGE_ and EXTENDING
+      documents for more details.  |wcj|
+
+      Drop-down menu for quick access to categories and collections.
+      Drop-down menu for selecting listing format. |wcj|
+
+      'Info' icon on top toolbar now provides access to on-line help
+      pages.  |wcj|
+
+      Optional transfer format "zipped-folder" may be selected to
+      upload documents from uplib-add-document to the repository.
+      This will become the standard format in release 2 of UpLib.  See
+      the new config parameter "upload-transfer-format".  |wcj|
+
+      It's now possible to change the default size of the pageview
+      large page images, so that by slightly reducing the default
+      width of the image, you can get two of them on one screen.  See
+      the new config parameters "page-image-max-height-pixels" and
+      "page-image-max-width-pixels".  |wcj|
+
+      Better interface to saved collections; sorted by name, and just
+      the query string displayed.  |wcj|
+
+      Type-in box now gets focus on load with search box and with
+      login page.  |wcj|
+
+      If the "htmldoc" program is available, uplib-add-document will
+      use it to upload HTML files, and even URLs.  |wcj|
+
+Since release 1.0 (6/17/03)
+===========================
+
+      'uplib-add-document' changed to handle GIF, JPEG, and PNG files,
+      as well as TIFF and PDF and 'native' format folders.  |wcj|
+
+      Metadata sharing changed to upload document icon and name as well
+      as metadata for the document.  |wcj|
+
+      On Angel startup, the "pending" directory is now scanned, and
+      integration of pending documents in a discernible state is
+      re-started.  |wcj|
+
+      Added new search-and-display tool "uplib-get-document" to find a
+      document from the command-line and fetch a version of it, in
+      either PDF, icon, HTML, text, metadata, or TIFF formats.  See
+      USAGE_ for more information.  |wcj|
+
+      Text obtained from "pdftotext" is now tested with "scoretext"
+      against an English language model if available; if it fails the
+      test, OCR is used instead.  |wcj|
+
+      configure will now check to see if Lucene library is defined on
+      the user's CLASSPATH environment variable if no "--with-lucene"
+      option is specified.  |wcj|
+
+      If the "enscript" program is available, uplib-add-document will
+      upload text files by enscripting them and converting them to
+      folders.  It will also use the 'file' command to figure out if a
+      file is text or not; if the 'file' command returns a description
+      string ending in " text", it's classified as a text file.  |wcj|
+
+      Fixed quoting bug evident when using single-quotes in search
+      queries.  |wcj|
+
+      Search results are now more manipulable, and can be displayed in
+      different formats.  Categorization can now be done just on the
+      results of a search, instead of on the whole repository.  |wcj|
+
+      A new index field, "uplibdate", has been added to allow searches
+      over when the document was added to the UpLib, as reflected in
+      the document ID (which is a coding of the time it was added).
+      Ranges can be searched over.  |wcj|
+
+      Man pages for uplib-make-repository, uplib-add-document, and
+      uplib-get-document are now installed.  |wcj|
+
+.. |wcj| replace:: -- *wcj*
+.. _REQUIREMENTS: REQUIREMENTS.html
+.. _USAGE: USAGE.html
+.. _reStructuredText: http://docutils.sourceforge.net/rst.html
+.. _configuration-file: USAGE.html#configuration
+.. _USAGE_java_policy: USAGE.html#allowing-the-java-web-browser-applet-to-cut-and-paste-to-the-system-clipboard
+.. _Mac_ToPDF: USAGE.html#the-topdf-conversion-server-on-os-x

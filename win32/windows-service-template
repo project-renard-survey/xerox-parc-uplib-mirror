@@ -1,0 +1,165 @@
+# -*- Mode: python -*-
+#
+# USAGERIGHTS uplib
+#
+#
+# This implements a Windows service wrapper for the UpLib guardian
+# angel.  It's only used on Win32 machines.
+
+# Standard python imports
+import asyncore, sys, os, string, traceback, shutil
+
+# make sure our code library is on the load path
+if not r'UPLIB_CODE' in sys.path:
+    sys.path.insert(0, r'UPLIB_CODE')
+
+# make sure the environ has UPLIBLIB; this is for the benefit of plibUtil.configurator()
+if not os.environ.has_key('UPLIBLIB'):
+    os.environ['UPLIBLIB'] = r'UPLIB_LIB'
+
+# This is to locate zlib on windows in the DLLs directory before it locates it in c:\windows\system32
+sys.path.insert(0, os.path.join(sys.prefix, "DLLs"))
+
+# add the bin path for more DLLs
+os.environ['Path'] = os.pathsep.join([r'UPLIB_BIN'] + os.environ.get("Path").split(os.pathsep))
+
+# get some UpLib stuff -- this has the side-effect of initializing Python and Java VM threading
+from uplib.plibUtil import true, false, note, update_metadata, getpass, set_verbosity, subproc, get_fqdn, get_known_repositories
+
+# Windows Service imports
+import win32serviceutil
+import win32service
+import win32event
+
+# Here's the Windows service part of the code
+class UpLibGuardianAngel_STUNNEL_PORT(win32serviceutil.ServiceFramework):
+    _svc_name_ = "UpLibGuardianAngel_STUNNEL_PORT"
+    _svc_display_name_ = "UpLib Guardian Angel (port STUNNEL_PORT)"
+
+    _angel_port = ANGEL_PORT
+
+    # This is seconds
+    http_timeout = 10
+
+    # This timeout is milliseconds
+    stop_timeout = 10
+
+    def __init__ (self, args):
+        win32serviceutil.ServiceFramework.__init__(self, args)
+        # Create an event which wewill use to wait on
+        # The "service stop" request will set this event.
+        self.hWaitStop = win32event.CreateEvent(None, 0, 0, None)
+        self.stunnel_handle = None
+
+    def SvcStop (self):
+        import servicemanager
+
+        # Before we do anything, tell the SCM we are starting the stop process
+        self.ReportServiceStatus(win32service.SERVICE_STOP_PENDING)
+
+        if self.stunnel_handle:
+                import win32process
+                win32process.TerminateProcess(self.stunnel_handle, 0)
+
+        # Log that we stopped        
+        servicemanager.LogMsg(servicemanager.EVENTLOG_INFORMATION_TYPE,
+                              servicemanager.PYS_SERVICE_STOPPED,
+                              (self._svc_name_, ""))        
+        
+        # And set my event.
+        win32event.SetEvent(self.hWaitStop)
+
+    def SvcDoRun(self):
+        import servicemanager
+
+        from uplib.plibUtil import subproc, false, true, note, configurator
+        import uplib.service
+
+        # Log that we started
+        servicemanager.LogMsg(servicemanager.EVENTLOG_INFORMATION_TYPE,
+                              servicemanager.PYS_SERVICE_STARTING,
+                              (self._svc_name_, ""))
+                              
+        certfilepath = os.path.join(r'PUBLISHING_ROOT', "overhead", get_fqdn() + ".pem")
+        if not os.path.exists(certfilepath):
+            certfilepath = os.path.join(r'PUBLISHING_ROOT', "overhead", "stunnel.pem")
+            if not os.path.exists(certfilepath):
+                # create the stunnel certificate
+                shutil.copyfile(os.path.join(r'UPLIB_LIB', "stunnel.pem"), certfilepath)
+                os.chmod(certfilepath, 0600)
+
+        use_stunnel = configurator().get_bool("use-stunnel")
+
+        if use_stunnel:
+            # re-write the config file
+            conffilepath = os.path.join(r'PUBLISHING_ROOT', "overhead", "stunnel.conf")
+            fp = open(conffilepath, "w")
+            fp.write("cert = %s\n" % certfilepath +
+                     "output = %s\n" % os.path.join(r'PUBLISHING_ROOT', "overhead", "stunnel.log") +
+                     # "ciphers = kEDH\n" +
+                     # "options = SINGLE_DH_USE\n" +
+                     "\n" +
+                     "[uplib]\n" +
+                     "accept = %s\n" % 'STUNNEL_PORT' +
+                     "connect = %s\n" % self._angel_port )
+            fp.close()
+            os.chmod(conffilepath, 0600)                              
+
+            if ("STUNNEL_VERSION" == "4"):
+                    stunnel_cmd = [ r'STUNNEL_COMMAND', os.path.join(r'PUBLISHING_ROOT', 'overhead', 'stunnel.conf') ]
+            else:
+                    stunnel_cmd = [r'STUNNEL_COMMAND', '-d', 'STUNNEL_PORT', '-r', str(self._angel_port), '-p', os.path.join(r'UPLIB_LIB', 'stunnel.pem'), '-o', os.path.join(r'PUBLISHING_ROOT', 'overhead', 'stunnel.log')]
+
+            servicemanager.LogMsg(servicemanager.EVENTLOG_INFORMATION_TYPE,
+                                  servicemanager.PYS_SERVICE_STARTING,
+                                  (self._svc_name_, ": stunnel cmd is '%s'" % stunnel_cmd))
+
+            self.stunnel_handle = os.spawnv(os.P_NOWAIT, stunnel_cmd[0], ['"' + stunnel_cmd[0] + '"', ] + stunnel_cmd[1:])
+            if self.stunnel_handle < 1:
+                    servicemanager.LogMsg(servicemanager.EVENTLOG_ERROR_TYPE,
+                                          0xFF, ("%s start method can't start stunnel; pid is %s" % (self._svc_name_, self.stunnel_handle),))
+                    return
+
+            servicemanager.LogMsg(servicemanager.EVENTLOG_INFORMATION_TYPE,
+                                  servicemanager.PYS_SERVICE_STARTING,
+                                  (self._svc_name_, ": started stunnel (handle %s)..." % self.stunnel_handle))
+
+        else:
+            # don't use stunnel
+            self.stunnel_handle = None
+            self._angel_port = STUNNEL_PORT
+            fp = open(os.path.join(r'PUBLISHING_ROOT', 'overhead', 'angel.port'), "w")
+            fp.write("%s\n" % self._angel_port)
+            fp.close()
+
+        fp = open(os.path.join(r'PUBLISHING_ROOT', 'overhead', 'angelout.log'), 'w', 0)
+        sys.stderr = fp
+        sys.stdout = fp
+
+        try:
+                repo = uplib.service.start_angel(r'PUBLISHING_ROOT', self._angel_port)
+        except:
+                t, v, b = sys.exc_info()
+                servicemanager.LogMsg(servicemanager.EVENTLOG_ERROR_TYPE,
+                                      0xFF, ("start_angel raised exception: %s" % (string.join(traceback.format_exception(t, v, b))), ))
+                return
+                
+        servicemanager.LogMsg(servicemanager.EVENTLOG_INFORMATION_TYPE,
+                              servicemanager.PYS_SERVICE_STARTED,
+                              (self._svc_name_, ""))
+                
+        fp = open(os.path.join(r'PUBLISHING_ROOT', 'overhead', 'angel.pid'), 'w')
+        fp.write(str(os.getpid()))
+        fp.close()
+
+        map = asyncore.socket_map
+        while map:
+            retCode = win32event.WaitForSingleObject(self.hWaitStop, self.stop_timeout)
+            if retCode == win32event.WAIT_OBJECT_0:
+                break
+            asyncore.poll(self.http_timeout, map)
+
+        repo.shutdown(0)
+
+if __name__=="__main__":
+    win32serviceutil.HandleCommandLine(UpLibGuardianAngel_STUNNEL_PORT)

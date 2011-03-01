@@ -1,0 +1,18 @@
+ENSCRIPT=C:\\Program Files\\GnuWin32\\bin\\enscript.exe
+FILE=
+GHOSTSCRIPTHOME=C:\\Program Files\\gs\\gs8.51
+HTMLDOC=C:\\Program Files\\htmldoc-1.8.26\\htmldoc
+LUCENEJAR=C:\\Program Files\\Lucene\\lucene-core-2.0.0.jar
+PDFTOTEXT=C:\\Program Files\\xpdf-3.00-win32\\pdftotext.exe
+PYTHON=C:\\Program Files\\Python23\\python.exe
+TIFFHOME=C:\\Program Files\\GnuWin32
+UPLIB_HOME=C:\\Program Files\\UpLib
+STUNNEL=C:\\Program Files\\stunnel\\stunnel-4.05.exe
+STUNNEL_VERSION=4
+#MSTOPDFURL should look like: http://yourmachinename.parc.xerox.com:10880/pdf
+MSTOPDFURL=
+#MSOCRURL should look like: http://yourmachinename.parc.xerox.com:10880/ocr
+MSOCRURL=
+OPENSSL=
+DD=
+

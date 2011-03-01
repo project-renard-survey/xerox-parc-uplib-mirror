@@ -1,0 +1,265 @@
+*** htmldoc/file.c	Sat Oct 23 12:57:15 2004
+--- htmldoc/file.c	Sat Apr 23 14:41:54 2005
+***************
+*** 37,42 ****
+--- 37,43 ----
+   *   file_method()      - Return the method for a filename or URL.
+   *   file_nolocal()     - Disable access to local files.
+   *   file_proxy()       - Set the proxy host for all HTTP requests.
++  *   file_referer()     - Set the referer URL for the HTTP request
+   *   file_target()      - Return the target of a link.
+   *   file_temp()        - Create and open a temporary file.
+   */
+***************
+*** 103,109 ****
+  cache_t	*web_cache = NULL;		/* Cache array */
+  int	no_local = 0;			/* Non-zero to disable local files */
+  char	cookies[1024] = "";		/* HTTP cookies, if any */
+! 
+  
+  /*
+   * 'file_basename()' - Return the base filename without directory or target.
+--- 104,110 ----
+  cache_t	*web_cache = NULL;		/* Cache array */
+  int	no_local = 0;			/* Non-zero to disable local files */
+  char	cookies[1024] = "";		/* HTTP cookies, if any */
+! char    referer[1024] = "";             /* Referer, if any */
+  
+  /*
+   * 'file_basename()' - Return the base filename without directory or target.
+***************
+*** 245,250 ****
+--- 246,265 ----
+  
+  
+  /*
++  * 'file_referer()' - Set the HTTP referer for remote accesses.
++  */
++ 
++ void
++ file_referer (const char *s)		/* I - Referer string or NULL */
++ {
++   if (s)
++     strlcpy(referer, s, sizeof(referer));
++   else
++     referer[0] = '\0';
++ }
++ 
++ 
++ /*
+   * 'file_directory()' - Return the directory without filename or target.
+   */
+  
+***************
+*** 488,493 ****
+--- 503,509 ----
+        }
+  
+        httpSetCookie(http, cookies);
++       httpSetReferer(http, referer);
+  
+        if (!httpGet(http, connpath))
+        {
+
+*** htmldoc/file.h	Sun May  9 08:04:38 2004
+--- htmldoc/file.h	Sat Apr 23 15:20:55 2005
+***************
+*** 51,56 ****
+--- 51,57 ----
+  extern const char	*file_method(const char *s);
+  extern void		file_nolocal();
+  extern void		file_proxy(const char *url);
++ extern void		file_referer(const char *s);
+  extern const char	*file_target(const char *s);
+  extern FILE		*file_temp(char *name, int len);
+  
+
+*** htmldoc/htmldoc.cxx	Wed Oct  6 12:45:40 2004
+--- htmldoc/htmldoc.cxx	Sat Apr 23 14:44:42 2005
+***************
+*** 349,354 ****
+--- 349,362 ----
+        else
+          usage(argv[i - 1]);
+      }
++     else if (compare_strings(argv[i], "--referer", 5) == 0)
++     {
++       i ++;
++       if (i < argc)
++         file_referer(argv[i]);
++       else
++         usage(argv[i - 1]);
++     }
+      else if (compare_strings(argv[i], "--datadir", 4) == 0)
+      {
+        i ++;
+***************
+*** 2140,2145 ****
+--- 2148,2155 ----
+      }
+      else if (strcmp(temp, "--cookies") == 0)
+        file_cookies(temp2);
++     else if (strcmp(temp, "--referer") == 0)
++       file_referer(temp2);
+    }
+  }
+  
+
+*** htmldoc/http.c	Fri May  7 15:04:57 2004
+--- htmldoc/http.c	Sat Apr 23 14:48:11 2005
+***************
+*** 30,35 ****
+--- 30,36 ----
+   *   httpCheck()          - Check to see if there is a pending response from
+   *                          the server.
+   *   httpClearCookie()    - Clear the cookie value(s).
++  *   httpClearReferer()   - Clear the referer value(s).
+   *   httpClose()          - Close an HTTP connection...
+   *   httpConnect()        - Connect to a HTTP server.
+   *   httpConnectEncrypt() - Connect to a HTTP server using encryption.
+***************
+*** 47,52 ****
+--- 48,54 ----
+   *   httpFlush()          - Flush data from a HTTP connection.
+   *   httpRead()           - Read data from a HTTP connection.
+   *   httpSetCookie()      - Set the cookie value(s)...
++  *   httpSetReferer()     - Set the referer value(s)...
+   *   httpWait()           - Wait for data available on a connection.
+   *   httpWrite()          - Write data to a HTTP connection.
+   *   httpGets()           - Get a line of text from a HTTP connection.
+***************
+*** 284,289 ****
+--- 286,309 ----
+  
+  
+  /*
++  * 'httpClearReferer()' - Clear the referer value(s).
++  */
++ 
++ void
++ httpClearReferer(http_t *http)			/* I - Connection */
++ {
++   if (!http)
++     return;
++ 
++   if (http->referer)
++   {
++     free(http->referer);
++     http->referer = NULL;
++   }
++ }
++ 
++ 
++ /*
+   * 'httpClose()' - Close an HTTP connection...
+   */
+  
+***************
+*** 299,304 ****
+--- 319,327 ----
+    if (http->cookie)
+      free(http->cookie);
+  
++   if (http->referer)
++     free(http->referer);
++ 
+  #ifdef HAVE_SSL
+    if (http->tls)
+      http_shutdown_ssl(http);
+***************
+*** 1086,1091 ****
+--- 1109,1135 ----
+  
+  
+  /*
++  * 'httpSetReferer()' - Set the referer value(s)...
++  */
++ 
++ void
++ httpSetReferer(http_t     *http,		/* I - Connection */
++               const char *referer)	/* I - Referer string */
++ {
++   if (!http)
++     return;
++ 
++   if (http->referer)
++     free(http->referer);
++ 
++   if (referer && (strlen(referer) > 0))
++     http->referer = strdup(referer);
++   else
++     http->referer = NULL;
++ }
++ 
++ 
++ /*
+   * 'httpWait()' - Wait for data available on a connection.
+   */
+  
+***************
+*** 1641,1646 ****
+--- 1685,1698 ----
+  
+          httpSetCookie(http, value);
+        }
++       else if (!strcasecmp(line, "referer"))
++       {
++        /*
++         * "Referer: value"
++ 	*/
++ 
++         httpSetReferer(http, value);
++       }
+        else if ((field = http_field(line)) == HTTP_FIELD_UNKNOWN)
+        {
+          DEBUG_printf(("httpUpdate: unknown field %s seen!\n", line));
+***************
+*** 1956,1961 ****
+--- 2008,2029 ----
+  	http->status = HTTP_ERROR;
+  	return (-1);
+        }
++   }
++   if (http->cookie != NULL)
++     {
++         if (httpPrintf(http, "Cookie: $Version=0; %s\r\n", http->cookie) < 1)
++           {
++               http->status = HTTP_ERROR;
++               return (-1);
++           }
++     }
++   if (http->referer != NULL)
++     {
++         if (httpPrintf(http, "Referer: %s\r\n", http->referer) < 1)
++           {
++               http->status = HTTP_ERROR;
++               return (-1);
++           }
+      }
+  
+    if (httpPrintf(http, "\r\n") < 1)
+
+*** htmldoc/http.h	Wed May  5 11:58:40 2004
+--- htmldoc/http.h	Sat Apr 23 13:54:31 2005
+***************
+*** 285,290 ****
+--- 285,291 ----
+    fd_set		*input_set;	/* select() set for httpWait() */
+    http_status_t		expect;		/* Expect: header */
+    char			*cookie;	/* Cookie value(s) */
++   char                  *referer;       /* Possible referer */
+    /**** New in CUPS 1.1.20 ****/
+    char			authstring[HTTP_MAX_VALUE],
+  					/* Current Authentication value */
+***************
+*** 354,359 ****
+--- 355,363 ----
+  extern void		httpSetCookie(http_t *http, const char *cookie);
+  extern int		httpWait(http_t *http, int msec);
+  
++ extern void		httpClearReferer(http_t *http);
++ #define httpGetReferer(http) ((http)->referer)
++ extern void		httpSetReferer(http_t *http, const char *referer);
+  
+  /*
+   * C++ magic...

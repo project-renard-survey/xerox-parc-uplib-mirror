@@ -1,0 +1,102 @@
+%product UpLib
+%copyright Copyright 2003-2010 Palo Alto Research Center, Inc.
+%vendor Palo Alto Research Center, Inc.
+%readme README
+%license GPLv2
+%description Universal Personal Digital Library system
+%version ${version}
+
+$builddir=/tmp/build-uplib-${version}
+$tmpprereqs=/tmp/uplib-prereqs-${version}
+$userid=root
+$groupid=sys
+
+%format rpm
+%requires openssl 0.9.7a
+%requires python-devel 2.6
+%requires java-1.6.0-openjdk-devel
+%requires ant
+%requires subversion
+%requires gcc-c++
+%requires stunnel
+%requires tcsh
+%requires libzip-devel
+%provides uplib ${version}
+
+%format deb
+%requires sun-java6-jdk
+%requires zlib1g-dev
+%requires libc6-dev
+%requires g++
+%requires gcc
+%requires tcsh
+%requires python 2.6
+%requires python-dev 2.6
+%requires patch
+%requires stunnel
+%requires libssl-dev
+%requires libbluetooth-dev
+%requires subversion
+%requires ant
+%requires xvfb
+%provides uplib
+
+%format all
+%requires enscript
+
+%preinstall <<EOF
+rm -rf ${tmpprerreqs}
+rm -rf ${builddir}
+EOF
+
+d 777 ${userid} ${groupid} ${tmpprereqs} -
+f 444 ${userid} ${groupid} ${tmpprereqs}/python-dateutil-1.4.1.tar.gz ${prereqsdir}/python-dateutil-1.4.1.tar.gz
+f 444 ${userid} ${groupid} ${tmpprereqs}/jpegsrc.v6b.tar.gz ${prereqsdir}/jpegsrc.v6b.tar.gz
+f 444 ${userid} ${groupid} ${tmpprereqs}/dictclient_1.0.1.tgz ${prereqsdir}/dictclient_1.0.1.tgz
+f 444 ${userid} ${groupid} ${tmpprereqs}/epydoc-3.0.1.tar.gz ${prereqsdir}/epydoc-3.0.1.tar.gz
+f 444 ${userid} ${groupid} ${tmpprereqs}/feedparser-4.1.tgz ${prereqsdir}/feedparser-4.1.tgz
+f 444 ${userid} ${groupid} ${tmpprereqs}/guess-language-0.2.tar.gz ${prereqsdir}/guess-language-0.2.tar.gz
+f 444 ${userid} ${groupid} ${tmpprereqs}/hachoir-core-1.2.1.tar.gz ${prereqsdir}/hachoir-core-1.2.1.tar.gz
+f 444 ${userid} ${groupid} ${tmpprereqs}/hachoir-metadata-1.2.1.tar.gz ${prereqsdir}/hachoir-metadata-1.2.1.tar.gz
+f 444 ${userid} ${groupid} ${tmpprereqs}/hachoir-parser-1.2.1.tar.gz ${prereqsdir}/hachoir-parser-1.2.1.tar.gz
+f 444 ${userid} ${groupid} ${tmpprereqs}/jodconverter-core-3.0-beta-3-dist.zip ${prereqsdir}/jodconverter-core-3.0-beta-3-dist.zip
+f 444 ${userid} ${groupid} ${tmpprereqs}/modified-ytnef.tgz ${prereqsdir}/modified-ytnef.tgz
+f 444 ${userid} ${groupid} ${tmpprereqs}/libytnef-1.5.tgz ${prereqsdir}/libytnef-1.5.tgz
+f 444 ${userid} ${groupid} ${tmpprereqs}/pyglet-1.1.2.tar.gz ${prereqsdir}/pyglet-1.1.2.tar.gz
+f 444 ${userid} ${groupid} ${tmpprereqs}/simple-4.1.13.zip ${prereqsdir}/simple-4.1.13.zip
+f 444 ${userid} ${groupid} ${tmpprereqs}/vobject-0.8.1c.tar.gz ${prereqsdir}/vobject-0.8.1c.tar.gz
+f 444 ${userid} ${groupid} ${tmpprereqs}/BeautifulSoup-3.0.8.tar.gz ${prereqsdir}/BeautifulSoup-3.0.8.tar.gz
+f 444 ${userid} ${groupid} ${tmpprereqs}/ReportLab-2.4.tar.gz ${prereqsdir}/ReportLab-2.4.tar.gz
+f 444 ${userid} ${groupid} ${tmpprereqs}/Imaging-1.1.7.tgz ${prereqsdir}/Imaging-1.1.7.tgz
+f 444 ${userid} ${groupid} ${tmpprereqs}/stunnel-4.25.tar.gz ${prereqsdir}/stunnel-4.25.tar.gz
+f 444 ${userid} ${groupid} ${tmpprereqs}/medusa-0.5.4.tar.gz ${prereqsdir}/medusa-0.5.4.tar.gz
+f 444 ${userid} ${groupid} ${tmpprereqs}/freetype-2.3.9.tar.bz2 ${prereqsdir}/freetype-2.3.9.tar.bz2
+f 444 ${userid} ${groupid} ${tmpprereqs}/htmldoc-1.8.27-source.tar.bz2 ${prereqsdir}/htmldoc-1.8.27-source.tar.bz2
+f 444 ${userid} ${groupid} ${tmpprereqs}/mutagen-1.10.1.tar.gz ${prereqsdir}/mutagen-1.10.1.tar.gz
+f 444 ${userid} ${groupid} ${tmpprereqs}/ghostscript-8.64.tar.bz2 ${prereqsdir}/ghostscript-8.64.tar.bz2
+f 444 ${userid} ${groupid} ${tmpprereqs}/leptonlib-1.62.tar.gz ${prereqsdir}/leptonlib-1.62.tar.gz
+f 444 ${userid} ${groupid} ${tmpprereqs}/jbig2dec-0.10.tar.bz2 ${prereqsdir}/jbig2dec-0.10.tar.bz2
+f 444 ${userid} ${groupid} ${tmpprereqs}/checkocr-0.3.tar.gz ${prereqsdir}/checkocr-0.3.tar.gz
+f 444 ${userid} ${groupid} ${tmpprereqs}/t1lib-5.1.2.tar.gz ${prereqsdir}/t1lib-5.1.2.tar.gz
+f 444 ${userid} ${groupid} ${tmpprereqs}/langmodel_brown_5_05 ${prereqsdir}/langmodel_brown_5_05
+f 444 ${userid} ${groupid} ${tmpprereqs}/tiff-3.7.0.tar.gz ${prereqsdir}/tiff-3.7.0.tar.gz
+f 444 ${userid} ${groupid} ${tmpprereqs}/email-4.0.1.tgz ${prereqsdir}/email-4.0.1.tgz
+f 444 ${userid} ${groupid} ${tmpprereqs}/libpng-1.2.40.tar.gz ${prereqsdir}/libpng-1.2.40.tar.gz
+f 444 ${userid} ${groupid} ${tmpprereqs}/ghostscript-fonts-std-8.11.tar.gz ${prereqsdir}/ghostscript-fonts-std-8.11.tar.gz
+f 444 ${userid} ${groupid} ${tmpprereqs}/xpdf-3.02-pl4.tar.gz ${prereqsdir}/xpdf-3.02-pl4.tar.gz
+f 444 ${userid} ${groupid} ${tmpprereqs}/Distutils-1.0.2.tar.gz ${prereqsdir}/Distutils-1.0.2.tar.gz
+f 444 ${userid} ${groupid} ${tmpprereqs}/setuptools-0.6c9.tar.gz ${prereqsdir}/setuptools-0.6c9.tar.gz
+f 444 ${userid} ${groupid} ${tmpprereqs}/ssl-1.15.tar.gz ${prereqsdir}/ssl-1.15.tar.gz
+f 444 ${userid} ${groupid} ${tmpprereqs}/lucene-2.3.1.tar.gz ${prereqsdir}/lucene-2.3.1.tar.gz
+f 444 ${userid} ${groupid} ${tmpprereqs}/pylucene-3.0.2-1-src.tar.gz ${prereqsdir}/pylucene-3.0.2-1-src.tar.gz
+f 444 ${userid} ${groupid} ${tmpprereqs}/uplib-${version}.tar.gz ${uplibtar}
+f 555 ${userid} ${groupid} ${tmpprereqs}/build-linux-installation.csh build-linux-installation.csh 
+
+%postinstall <<EOF
+rm -rf ${builddir}
+rm -rf /opt/uplib-${version}
+/bin/tcsh ${tmpprereqs}/build-linux-installation.csh /opt/uplib-${version} ${tmpprereqs}/uplib-${version}.tar.gz ${tmpprereqs} YES
+#rm -rf ${builddir}
+#rm -rf ${tmpprereqs}
+EOF
+

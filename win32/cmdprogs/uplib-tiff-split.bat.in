@@ -1,0 +1,4 @@
+@echo off
+"@TIFFCP@" -f msb2lsb -p contig -c none %2 %3
+"@TIFFSPLIT@" %3 %6
+del /q /f $3

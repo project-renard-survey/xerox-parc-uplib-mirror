@@ -1,0 +1,1761 @@
+.. -*- Mode: rst -*-
+
+.. This file is part of the "UpLib 1.7.11" release.
+.. Copyright (C) 2003-2011  Palo Alto Research Center, Inc.
+.. 
+.. This program is free software; you can redistribute it and/or modify
+.. it under the terms of the GNU General Public License as published by
+.. the Free Software Foundation; either version 2 of the License, or
+.. (at your option) any later version.
+.. 
+.. This program is distributed in the hope that it will be useful,
+.. but WITHOUT ANY WARRANTY; without even the implied warranty of
+.. MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.. GNU General Public License for more details.
+.. 
+.. You should have received a copy of the GNU General Public License along
+.. with this program; if not, write to the Free Software Foundation, Inc.,
+.. 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+
+.. This document is written in reStructuredText, which is why it looks
+   a bit wierd to you.  See http://docutils.sourceforge.net/.
+
+===========
+Using UpLib
+===========
+
+.. Bill Janssen
+
+.. $Id: USAGE.txt,v 1.114 2010/09/28 17:22:00 janssen Exp $
+
+Usage
+=====
+
+Creating a repository
+---------------------
+
+A repository can be created manually, by reading the ARCHITECTURE
+document and following the instructions there, but there are dozens of
+details to get right.  It makes more sense to use the included script
+called ``uplib-make-repository``.  If you just run this command in a
+shell, it will prompt you for a few parameters, create a new directory
+for the repository, put the right subdirectories in it, start a
+guardian angel for the repository, then add a line to your crontab
+which will periodically check the guardian angel to make sure it's
+still working, and restart it if necessary.
+
+Here's an example::
+
+  % uplib-make-repository
+
+  All the documents in an UpLib repository are kept in one place,
+  and you get to say where that place should be.  This should be the name
+  of a directory or folder that either doesn't exist yet, or is empty.
+
+  Where would you like these files to go?  ~/my-uplib-repo
+
+  You can, and should, assign a password or phrase for your repository.
+  This should be at least 6 characters long (8 or more is better), and
+  should contain both alphabetic characters and numerals.  You can change
+  it later if you don't like it, but please enter one now.
+
+  Pass-phrase for new repository:   
+  Please re-type that pass-phrase:  
+
+  Starting the UpLib "guardian angel" (this takes about 30 seconds)...
+  Done.
+
+  Your UpLib repository should now be running.  To see it, go to the URL
+
+      https://myhost.company.com:8080/
+
+  with your favorite Web browser (we recommend Mozilla Firefox).
+  You will see a login window.  Enter your pass-phrase, and you should see
+  the (empty) repository.  In the center of the top area, there's a little
+  help icon that you can click on to get more help.
+  %
+
+Note that the passphrase isn't echoed.  Also note that the directory
+specified must be the full path; you can't just type in a relative
+pathname (though you can use ``~`` to specify your home directory).
+
+You can check that the repository is working by pointing a Web browser
+at ``https://myhost.company.com:8080/`` (if that's the name of your
+host), and entering the pass-phrase when requested.  You should see a
+page titled "Repository 'My Documents'", and it should say "No
+documents in repository.".
+
+This system uses ``stunnel`` beneath the covers, and a security
+certificate that's somewhat generic.  Different versions of stunnel
+may demand different security settings on the ``stunnel.pem`` file you
+install; if you have problems with connecting to your UpLib, try
+tightening the protections on stunnel.pem (in the lib subdirectory of
+wherever you installed UpLib) and see if that helps.
+
+In general, the UpLib guardian angel just runs in the background all
+the time.  If you reboot your machine, the check in your cron file
+will restart it within 10 minutes of the machine's being re-booted.
+However, this 10-minute window can be perplexing if you've forgotten
+about it.  To prevent this from happening, you can run a check of the
+guardian angel when you log in, which will start the angel if it's not
+currently running.  You do this by adding the following line to either
+your .login file (if you use tcsh or csh as your shell), or to your
+.profile file (if you use sh) or your .bash_profile file (if you use
+bash)::
+
+  <BINPATH>/uplib-check-angel <ROOT>
+
+where <BINPATH> is the location of the uplib-check-angel program
+(usually /usr/local/bin), and <ROOT> is the directory you used for the
+repository.  So, for the above example, you'd use::
+
+  /usr/local/bin/uplib-check-angel ~/my-uplib
+
+This will just check to see if the angel is up and running, and if it
+isn't, will restart it. [1]_
+
+.. [1] When I create a repository on a Mac, I often skip the cron
+   check, and simply add a line to my crontab to restart the repository
+   whenever I reboot.  Since the Mac uses the "Vixie cron", you can do
+   this with the pseudo-time ``@reboot``.  Here's how it works.  Assuming
+   that you want your UpLib repository to be in ``~/my-uplib``, when you
+   create the repository, use the option ``--no-croncheck``, like this::
+
+     uplib-make-repository --no-croncheck ~/my-uplib
+
+   Add a line to your crontab (see the
+   ``crontab`` man page to see how to do this) that reads::
+
+     @reboot /usr/local/bin/uplib-check-angel --restart ~/my-uplib
+
+   (assuming that UpLib was installed in ``/usr/local/bin``).
+
+
+Adding a document to the repository
+-----------------------------------
+
+uplib-add-document
+``````````````````
+
+The script ``uplib-add-document`` is a convenient way to add a document
+to the repository.  It can be used in several ways.  The simplest is
+to invoke it directly on a TIFF or PDF file, which will then be
+converted into the format used in the repository, and uploaded to the
+repository.  It understands PDF, TIFF, GIF, PNG, or directories
+already in the UpLib format.  If you have built the Python Imaging
+Library with JPEG support, it will also handle JPEG.  If you have
+``enscript`` on your system, it will also be able to upload plain text
+files.
+
+This usage has the form:
+
+     ``uplib-add-document`` *[options]* *FILENAME*
+
+Some of the options are:
+
+    --repository=URL
+      upload to the repository specified in *URL*, which should have the form ``https://``\ *HOST*\ :\ *PORT*\ ``/``
+    --title=TITLE-STRING                          specify the document's title
+    --categories=COMMA-SEPARATED-CATEGORY-LIST    specify the document's categories
+    --keywords=COMMA-SEPARATED-KEYWORD-LIST       specify the document's keywords
+    --authors=AUTHORS-LIST-AND-SEPARATED          specify the document's authors
+    --comment=COMMENT                             provide a comment about the document
+    --date=DATE
+      specify the document's date, in the form *MM/DD/YYYY*.
+    --notext                                      the document doesn't contain any text
+    --nopassword                                  the repository doesn't have a password on it
+    --nocolor                                     there is no color in the document to preserve
+    --keepblankpages                              keep page even if it's blank
+    --dpi=N                                       specify the DPI of a image file (default is 300)
+    --list-formats                                show the formats that can be parsed
+    --format=PARSERNAME                           override the default format determination
+
+The ``--repository`` option tells the uploader where to send the
+document; you can also set the ``default-repository`` value in your
+``~/.uplibrc`` file.  The ``--title``, ``--authors``, ``--keywords``, ``--date``,
+and ``--comment`` options all add a metadata field value to the
+document, which is picked up by the full-text indexing of the document
+in the repository.  Other metadata field values can be added or edited
+after the document is in the repository.  The ``--notext`` option says
+that the document doesn't contain any text, so don't bother trying to
+extract it.  The ``--nopassword`` option says that the repository
+doesn't have a password, so don't prompt for one.  The ``--nocolor``
+option tells the converter to render the document as monochrome, which
+allows for more efficient storage of the document image.  The
+``--tiff-dpi`` option is useful when uploading an image that has a more
+standard display DPI of 75 or 100; this prevents the image from being
+scaled down too far in the page display mode.  By default, the
+processing will remove blank pages from the document; the
+``--keepblankpages`` switch tells it to preserve them.
+
+There are a couple of specialized options, as well.  All files found in
+these directories will be converted, uploaded, and deleted.
+``--noupload`` is used to disable the uploading of the converted files;
+it's used for debugging.  Another debugging option is
+```--verbosity=``\ *LEVEL*, which is used to override the default verbosity
+setting for display of debugging messages.  Most users won't have any
+use for these options.  See the man page for ``uplib-add-document`` for
+a full list.
+
+
+Adding Web pages and Web documents to a repository
+``````````````````````````````````````````````````
+
+It's possible to add a Web page, or a PDF file or image on some Web
+site, to your repository by calling ``uplib-add-document`` with the
+URL of the page or document or image.  You can also just drag the link
+from your Web browser to the UpLib portal to save it.  These documents
+will be saved in their original form (HTML, JPEG, etc.), which can be
+retrieved via the "Original" button in the UpLib browser, but they
+will also be converted to page form, so that they can be read in the
+standard UpLib document reader.
+
+There are a couple of tricks that make this feature more helpful.
+You can tell UpLib to use your Web browser's cookies file by telling it where
+the cookies file is, and what kind of cookies file it is.  Currently, UpLib
+understands two cookie file formats:  the format used by version 1 of Apple's
+Safari browser, and the format used by the Firefox web browser.  You tell
+UpLib where the cookies file is by setting a property in your ``~/.uplibrc``
+file called ``web-cookies-file``.  Here's an example for Safari::
+
+  web-cookies-file: safari-1:~/Library/Cookies/Cookies.plist
+
+And for Firefox (on a Mac)::
+
+  web-cookies-file: firefox-1:~/Library/Application Support/Firefox/Profiles/qree79wt.default/cookies.txt
+
+The string ``qree79wt.default`` in this example will be different for
+your cookies file, as Firefox generates that string randomly when it
+installs itself.
+
+Another thing you might want to do is to direct UpLib to pull the URL
+through a proxy server.  You can do this by setting the
+``web-proxies`` property in your ``~/.uplibrc`` file.  For example, if
+you want all URLs pulled from the site ``www.library.com`` to go
+through a proxy server at ``wwwproxy.libraryclient.org:8000``, you
+would set ``web-proxies`` to include that::
+
+  web-proxies: www.library.com=http://wwwproxy.libraryclient.org:8000
+
+You can put as many proxy statements as you wish into the
+``web-proxies`` property; they should be comma-separated.
+
+There are two choices in converters from Web page format to UpLib,
+HTMLDOC and OpenOffice.  OpenOffice is preferred; HTMLDOC is
+out-of-date, and doesn't handle UTF-8.  In addition, OpenOffice can
+convert Microsoft Office documents to the UpLib format, as well as Web
+pages.  If you are using OpenOffice to convert Web pages to UpLib, or
+using it to convert Microsoft Office documents to UpLib, you must run
+the OpenOffice application and complete the registration form before
+you use it with UpLib.
+
+
+The UpLib Portal
+````````````````
+
+The UpLib Portal is an access point to multiple repositories that allows
+you to use UpLib in a drag-and-drop, point-and-click fashion.
+
+.. figure:: images/portal-icon-on-desktop.png
+   :alt: the portal icon on a desktop
+   :align: center
+
+   The portal icon on a desktop.
+
+When the Portal is running, it will display a small (by default 64x64)
+active icon on your desktop.  You can drop a document onto this icon
+to enter it into a repository.  A small popup panel will appear to
+allow you enter any metadata you wish to add, and provide a password
+for the repository.  When you click "Submit", the document will be
+submitted to the repository (using ``uplib-add-document`` under the
+covers).
+
+.. figure:: images/portal-submission-window.png
+   :alt: the portal submission window
+   :scale: 50
+   :align: center
+
+   The portal submission window.
+
+.. figure:: images/portal-search-pane.png
+   :alt: the portal search window
+   :scale: 50
+   :align: center
+
+   The portal search window.
+
+
+If you left-click on the icon, a different panel will appear, allowing
+you to find a document in the repository.  Just enter the query (and a
+password for the repository if necessary), and results of the search
+will be displayed on your desktop.
+
+
+Starting the Portal on Linux
+````````````````````````````
+
+On Linux systems, you can
+start it with the following command::
+
+   uplib-portal &
+
+You may want to re-direct the standard output and standard error to a
+log file::
+
+   uplib-portal >& /tmp/uplib-portal.log &
+
+On MacOS X and Windows systems, there are other ways of starting it.
+
+
+Using the documents in the repository
+-------------------------------------
+
+The UpLib Web Interface
+```````````````````````
+
+The supplied interface to the repository is a simple point-and-click
+system implemented in HTML, which any Web-standards compliant browser
+should display properly.  Mozilla is a good choice.  The default entry
+point is simply ``https://HOST:PORT/``, where HOST is the host machine
+on which your guardian angel runs, and PORT is the port you specified
+for the repository.  By default, the view at this location is of the
+thumbnails of the repository; you can get an "abstracts" view by using
+``https://HOST:PORT/?format=Abstracts``, or a titles-only view with
+``https://HOST:PORT/?format=Titles``.  You should bookmark one of these
+as an entry point into the repository.
+
+Much of the user interface should be self-explanatory.  There's a
+small help icon (an "i" with a circle around it) at the top of the
+page, which will take you to a help page, with help on searching,
+collections, extensions, and an online version of this manual.
+There's also a frequently-asked-questions page behind that icon.
+
+There are a few things to explain, though.  The rest of this section attempts to
+remember them all :-).
+
+Searching
+`````````
+
+The web form exports a search box.  You can type a query into that,
+and get back a list of documents which match that query, sorted with
+the best matches first.  You can also control the display of a result
+set using the pull-down menu on the top at the right, the one that
+normally says, "Icon MRU".
+
+In searching, the query applies to both the contents of the document and
+a subset of the metadata of the document.  By default, only a small
+set of metadata values are searched, determined by the configuration
+item, "search-properties".  As of UpLib 1.7.3, the fields included in
+the default search were "title", "authors", "comment", "abstract",
+"keyword", "album", and "notes".  However, the values of the properties "title",
+"authors", "source", "date", "comment", "abstract", "citation",
+"categories", and "keywords" are all indexed (along with many others);
+this set is determined by the value of the configuration item,
+"indexing-properties".  By using term-specific queries, you can search
+over all the indexed fields, rather than just the default subset.  For
+example, if you wanted to find all papers about ebooks from PARC, you
+might use the query::
+
+   ebooks AND +source:parc
+
+You can search over
+ranges where it makes sense.  For instance, to search for all papers
+in the range 1/1/1970 - 1/1/1990, you would use the query::
+
+   date:[1/1/1970 TO 1/1/1990]
+
+Note that "TO" must be capitalized.
+
+Similarly, an automatically added field, "uplibdate", keeps track of
+the date the document was added to the repository, and can be searched
+over with the same range syntax.  For more information on forming
+queries, see the Lucene Query Parser documentation at
+http://lucene.apache.org/java/docs/queryparsersyntax.html.  We've
+extended that syntax a bit to support "m/d/y" searching as described
+above; you can also use "today" or "yesterday" as search dates (alas,
+not "tomorrow").
+
+Note that at the bottom of search results, there's a form which allows
+you to save the query as a persistent Collection.  The "Collections"
+menu at the top of the UpLib display will show you a list of all your
+Collections.  Selecting a collection will re-run the query and show
+you the results.  You can also show all the collections, and edit
+their names and queries, by selecting the "special" collection named
+"(Edit Collections)".  You can get out of the CollectionsEditor again
+by re-selecting the "(All Documents)" collection, or the "(any)"
+category, either of which will take you back to the top level.
+
+You can search for documents in a particular language by searching on
+the metadata parameter "text-language".  The values of "text-language"
+are the language tags defined in RFC 4646.  So, for instance, to
+search for all documents in Dutch, you'd use the query::
+
+   text-language:nl
+
+because "nl" is the language tag for Dutch. A list of these tags is
+available at http://www.iana.org/assignments/language-subtag-registry.
+
+By default, words in a query are tokenized and stemmed according to
+the rules of the default language of your UpLib installation, which is
+determined at build time by the configure script.  You can override
+this with a pseudo-field called "_query_language".  For instance,
+suppose the default language for your installation was English, but
+you'd like to run a query over a repository using Dutch rules for
+stemming and tokenization.  You could search for the Dutch words
+"honderd jaar", for instance, with a query like::
+
+   _query_language:nl honderd jaar
+
+Again, the language tags in RFC 4646 are used as values of "_query_language".
+
+Categories
+``````````
+
+It's often useful to sort documents into categories, such as "bill",
+"receipt", "book", "technical paper", "taxes", and so on.  The
+"categories" metavalue supports this in UpLib.  Categories are simply
+tags, or text strings, associated with a document.  You can associate any number
+of categories with any document.  You can either do this by editing
+the metadata of a document, or by using the Categorizer built into
+UpLib.  There's a menu on the top toolbar of UpLib called
+"Categories".  You can see the documents in any category by selecting
+it, or get to the Categorizer by selecting "(Categorize)".  When you
+enter the Categorizer, you'll see a comma-separated list of all the
+categories in your system.  You can edit this to only work with the
+categories you want to deal with at the moment.  When you press the
+"Go" button, you will see a list of all your documents (or, if you're
+working with the results of a search, or a collection, just the
+documents in the search results, or in the collection), with a
+checkbox below it for each category.  Just check or uncheck the
+appropriate checkboxes for each document, then (at the bottom of the
+page) press "Submit".  The categories for the documents will be
+appropriately adjusted.  You can also attach categories to a document
+with uplib-add-document.
+
+A special category called "_(all)_" is added to the index for every
+document.  It can be used to select all documents as the base for an
+exclusion search.  For instance, you could search for all documents
+*not* in the category "paper" with
+
+  "categories:_(all)_ -categories:paper"
+
+which selects all documents, and subtracts those in the "paper"
+category.  If a document has no user-specified categories, the special
+category "_(none)_" is added to the index, which can be similarly used
+in searches.
+
+Reading
+```````
+
+When you visit a multi-page document, you will see a number of
+thumbnails for the first few pages, plus a large display of the first
+page of the document.  You can advance to the next page by pressing
+the small right-pointing arrow in the upper right corner, or simply by
+clicking on the right side of the page.  You can go back a page by
+clicking on the left side of the page.  You can jump to any page by
+clicking on the small page thumbnail for that page.  You can retrieve
+the TIFF, PDF, or Text version of the document by pressing one of
+those three buttons in the upper-left corner.  Pressing the "Metadata"
+button will take you to a metadata editor for the document.  Pressing
+the delete buttion will cause the document to be moved to the
+"deleted" folder of the repository.  There is no automatic way to
+empty the "deleted" folder; you have to visit it with a file browser
+of some sort and manually delete anything in it.
+
+It's possible to add new "action" URLs to the guardian angel; see the
+EXTENDING_ document for details on how this is done.
+
+UpLib supports viewing of documents locally in your browser through
+the use of a Java Plug-In Applet.  This is the document viewer by
+default in UpLib 1.4 and later.  In earlier versions of UpLib, to use
+this, you should have the Java Plug-In, version 1.4.1 or better,
+installed on your client machine.  Then set the value of
+"use-java-docviewer" to "true" in your .uplibrc file, and restart your
+UpLib guardian angel.  After that, when you click on a document in the
+repository overview, it will come up in the DocViewer applet.  If you
+don't want to use the Java docviewer in versions of UpLib where it is
+the default, you can configure "use-java-docviewer" to "false" to
+avoid it.
+
+
+Using UpLib from the command-line:  uplib-get-document
+``````````````````````````````````````````````````````
+
+The program ``uplib-get-document`` will search for a document in the
+library, then invoke an action on a rendition of the document.  By
+default, the program will retrieve a PDF rendition of the document, and copy it
+to standard output.
+However, other formats and actions can be specified in your `configuration`_
+file, or specified on the command line.  The syntax is::
+
+  uplib-get-document [options] QUERY
+
+where the "options" are:
+
+  --repository=URL
+    search this repository for the document, where *URL* has the form ``https://``\ *HOST*\ :\ *PORT*\ ``/``
+  --action=COMMAND, -a COMMAND
+    invoke this command on the retrieved version
+  --showall, -s
+    show all hits, rather than just those that are above minscore
+  --minscore=VALUE
+    adjust minscore to this value (0.0 to 1.0)
+  --nopassword
+    the repository doesn't have a password
+  --format=FORMAT, -f FORMAT
+    the format to return the document in (available formats are *uplib* (an UpLib folder, zipped), *pdf*, *images* (all the page images, zipped), *html*, *icon* (the document icon for the document), *text*, *doc-id*, and *metadata*.
+  --dpi=NUMBER
+    the dpi of an image
+  --verbosity=LEVEL
+    use LEVEL (0 to 6) as the debugging verbosity
+
+So, for instance, if you want to find a document about thumbnails, and
+display it using xpdf, you might say::
+
+  uplib-get-document --action=xpdf thumbnails
+
+If there is more than one document with a search score above minscore
+(by default, 0.5), the set of documents will be displayed, and you can
+select the one you want by entering a number::
+
+  % uplib-get-document thumbnails
+  1)  Using Thumbnails to Browse the Web  (0.7822)
+  2)  Thumbnails keep growing after death  (0.6945)
+  3)  Thumbnails I have known  (0.5712)
+  Which to open?  3
+  %
+
+You can also force this display with the "--showall" option.
+
+If there is no document above minscore, the program will report that
+no document matches.  You may want to adjust the minscore parameter;
+you can do this on the command-line with ``--minscore=``\ *SCORE*, or in
+your ``~/.uplibrc`` file.
+
+By default, ``uplib-get-document`` will return a PDF version of the
+document, but you can also use ``--format=``\ *FORMAT* to retrieve
+other versions of the documents.  Currently, supported formats are
+'pdf', 'uplib' (an UpLib folder), 'images' (a zip file containing all
+the page images as PNG files), 'text', 'icon' (the document icon as a
+PNG file), 'html' (which opens a browser page on the repository at the
+document), 'doc-id' (just the doc-id string in the repository), and
+'metadata'.  Note that you will typically also want to use
+``--action`` in conjunction with ``--format``; it's not much use to
+invoke xpdf on a text file.  You can also set default actions for each
+format in your ~/.uplibrc file; use the `configuration`_ option
+``get-document-open-action-FORMAT`` to specify the action.  For
+example, if you want to use "xpdf" to open documents in PDF format,
+but use the "display" tool from ImageMagick to display PNG icons, you
+would use the two lines::
+
+   get-document-open-action-pdf: xpdf
+   get-document-open-action-icon: display
+
+Accessing documents from the UpLib Portal
+`````````````````````````````````````````
+
+The portal can be used to retrieve documents, as well as add them.  If
+you left-click on the portal, a window comes up with a query panel.
+By entering an UpLib query in the panel, you can retrieve the document
+which best matches the query.  If you click the "Show All" checkbox,
+you wil get all documents matching the query above a minimum score,
+which you can adjust with the slider labelled "Min score".
+
+By default, the result documents will be shown in browser windows,
+using your preferred Web presentation method.  However, by checking
+one of the format checkboxes, you can also retrieve the document as
+PDF, text, metadata, a zip file containing hi-res page images, just
+the document icon, or as an UpLib format document folder.  In
+addition, you can enter an action to be taken on the retrieved file,
+just as with ``uplib-get-document``.  Usually, however, the default
+action will be what you want.
+
+----------------------------------------------------------------------
+
+Configuration
+=============
+
+The ``.uplibrc`` configuration file
+-----------------------------------
+
+UpLib uses configuration files to determine many options, such as what
+kind of document icons to create.  Each configuration file consists of
+one or more named sections, and each section contains zero or more
+name-value pairs.  A section name is specified as::
+
+  [name]
+
+where name is either "default", "server" (to set things which should apply
+to all UpLib repositories), a `hostname` (to set things which should apply
+to all UpLib operations, client or server, run on that machine), a `hostname`:`port` pair
+(to set things which should apply to a server running on `hostname`:`port`, or to
+clients on any machines, uploading to that server), or a `hostname`:`pathname` pair
+(to set server-side things which should apply to the repository at `pathname` on `hostname`).
+If multiple values are specified in different sections, the most specific value is
+selected.
+
+A name-value pair has the syntax::
+
+  name : value
+
+Note that a configuration file without any section names will be
+ignored!  A standard configuration file is created when UpLib is
+installed, as ``$UPLIB_HOME/lib/<uplib-version>/site.config``.  You
+can look in this file to find the default values for many
+configuration options.
+
+A user can create a personal configuration file which can override the system
+defaults.  It will be read when creating a new repository, running
+an UpLib command-line tool, or when starting the UpLib Portal.  This
+file can be in either ``$HOME/.uplib/user.config`` (that is, a file called
+``user.config`` in a directory called ``.uplib`` in your home directory),
+or ``$HOME/.uplibrc`` (that is, a file called ``.uplibrc`` in your
+home directory).  On Unix operating systems (that is, OS X or Linux or similar
+variants), the configuration file is searched for in the following way:
+
+  * If the environment variable ``UPLIBRC`` is defined to be a filename, and that file exists, it uses that.
+
+  * If the file ``$HOME/.uplib/user.config`` exists, it uses that.
+
+  * If the pathname ``~\.uplibrc`` can be "expanded", so that it no longer begins with a tilde character, and that file exists, it uses that.
+
+On Windows, users are often "roaming users"; that is, the local machine validates
+their account over the network and saves account information to a local folder that
+isn't what the system thinks of as their "home" folder.  Note that for many Windows users at PARC, your home
+directory is ``T:\`` -- that is, it's on your T: drive, but the place where your computer stores information
+about your account is something like ``C:\Documents and Settings\username\``.
+If you set up a repository using a roaming account, your configuration file can live either in your true "home"
+folder, or in the Windows folder that's local to the machine.  It's better to make
+it local, so that the repository "guardian angel" can find it when the machine is
+starting up, possibly before the network drive has been mounted (or when you're using
+a laptop in disconnected mode).  On Windows, the system looks for the user configuration
+file in the following places, in this order:
+
+  * If the environment variable ``UPLIBRC`` is defined to be a filename, and that file exists, it uses that.
+
+  * If the environment variable ``APPDATA`` is defined, and the file ``%APPDATA%\UpLib-config\user.config`` exists, it uses that.
+
+  * If the environment variable ``USERPROFILE`` is defined, and the file ``%USERPROFILE%\Application Data\UpLib-config\user.config`` exists, it uses that.
+
+  * If the environment variables ``HOMEDIR`` and ``HOMEPATH`` are defined, and the file ``%HOMEDIR%%HOMEPATH%\UpLib-config\user.config`` exists, it uses that.
+
+  * If the pathname ``~\.uplibrc`` can be "expanded", so that it no longer begins with a tilde character, and that file exists, it uses that.
+
+  * If the pathname ``~\.uplibrc`` *cannot* be "expanded", and the file ``C:\.uplibrc`` exists, it uses that.
+
+A typical user configuration file might look like this (but without the two spaces at the
+front of every line :-)::
+
+  [default]
+
+  default-repository: https://machine.company.com:8080/
+  actions-path: ~/.uplib/actions
+  thumbnail-strategy: constant-area
+
+Or the two options "actions-path" and "thumbnail-strategy" might be
+split off into a "server" section, as in::
+
+  [default]
+
+  default-repository: https://machine.company.com:8080/
+
+  [server]
+
+  actions-path: ~/.uplib/actions
+  thumbnail-strategy: constant-area
+
+The UpLib code in an angel looks for the following sections in this
+order: HOSTNAME:PORT, HOSTNAME, OSNAME, "server", "default".  The UpLib code in a
+client application looks for these sections: HOSTNAME, OSNAME,
+"default".  The HOSTNAME is whatever is returned by the command::
+
+  % python -c "import os ; print os.uname()[1]"
+
+and the OSNAME is whatever is returned by::
+
+  % python -c "import os ; print os.uname()[0]"
+
+Client code, such as ``uplib-add-document`` or ``uplib-get-document``,
+will look at sections in the order: HOSTNAME, OSNAME, "default".
+
+User configuration options override options in the site.config file.
+
+
+Configuration options
+---------------------
+
+This is a list of available configuration parameters.
+
+actions-path
+  a colon-separated list of directories to look for action modules in
+  (see the EXTENDING_ document).  In 1.2, this is used only for
+  initializing the extensions-path of a repository when the repository
+  is first created; thereafter, the actions-path value is ignored.
+
+additional-document-parsers
+    This is a colon-separated list of filenames which contain additional
+    classes which understand how to form the standard UpLib projections
+    of page-images and text for various document formats.  Each class
+    should be a subtype of ``addDocument.DocumentParser``.  See EXTENDING_
+    for more details.
+
+categorize-excluded-categories
+  This is a comma-separated list of regular expressions matching categories
+  which should not be shown in the categorize display.  For example, to
+  exclude the "email" category and all of its children, the value of this
+  should be set to "email.*".
+
+allow-extensions-to-add-buttons
+  Boolean which controls whether or not extensions can add 'user
+  buttons' and 'document functions' to the repository.  True by
+  default.  Set to false if you wish to ignore extension-added buttons
+  and functions.  This is usually only useful if you define your own
+  user buttons and document functions in your configuration file.
+
+annotations-initially-on
+  A boolean value that controls whether the annotation inkpots are
+  initially shown when visiting a document for the first time in the
+  document viewer.  Default is false.
+
+annotations-initial-inkpot
+  A string-valued setting that controls which annotation inkpot is
+  initially selected when annotations are turned on.  Available values
+  are "no-ink", "red-ink", "blue-ink", "pink-hiliter", "green-hiliter",
+  and "blue-hiliter".  Default value is "no-ink".
+  
+basic-need-doc-count
+  Boolean, defaults to ``true``.  The Web-based basic UI by default will keep track of the number of documents
+  in the repository.  This can be an expensive calculation, as it requires
+  reading the directories that the documents are kept in.  Turn this off to
+  disable calculation of this count.
+
+basic-need-page-count
+  Boolean, defaults to ``false``.  The Web-based basic UI can show the total
+  number of pages in the repository.  This is expensive to calculate, as it
+  requires grovelling over the disk space of each document.
+
+codetimer-on
+  A boolean value.  If set to "true", the uplib-add-document command will
+  time the individual parts of the document upload process (copying the original,
+  getting the page images, optimizing the page images, getting a text version,
+  creating a summary, writing metadata, and submitting to the repository)
+  and print out the results to angel.log or the typescript so you can see
+  where the time is going.  The statistics are only printed out if verbosity
+  is set to 3 or higher.
+
+default-repository
+    the value is the URL of the repository to use for uplib-add-document
+    if none is explicitly specified.
+
+extra-hostnames
+  If the machine running the repository is known by multiple names, all
+  of them should be included in the certificate for the repository.  You can
+  do this by creating a configuration section with the "primary" name of
+  the machine, and in that section defining this configuration value to
+  be a comma-separated list of the other names for the machine.
+
+image-size-limit
+  Integer specifying a limit on the number of bytes an image will be allowed
+  to take up when being incorporated.  This defaults to (3000 * 3000 * 4),
+  which will hold a 3K by 3K color photo.  Note that paletted color, greyscale,
+  and monochrome images take only one byte per pixel.  Full-color US Letter or A4 pages
+  at the standard UpLib resolution of 300 ppi should also fit under this limit.
+
+scoretext-threshold
+  the (integer) value to use as a cutoff for assessing document text.
+  Text that scores higher than the threshold will be discarded as
+  junk.
+
+thumbnail-strategy
+  value should be one of either "constant-rectangle", which confines
+  document icons to a 166x207 pixel rectangle, "constant-square",
+  which confines document icons to a 207x207 pixel square, or
+  "constant-area", which confines document icons to an area of about
+  129000 square pixels.  All of these preserve the aspect ratio of the
+  document's first page.  Default is "constant-area".
+
+auto-crop-big-thumbnails
+  A boolean flag, true by default, which controls whether extra space
+  around the edge of the page images should be trimmed when generating
+  the large page thumbnails, to increase effective DPI.
+
+assembly-line
+  by default, uplib-add-document will create a temporary directory in
+  /tmp when preparing a file to be uploaded to a repository.  You can
+  set this variable to the value of a different location to have it
+  create these directories in that location.
+
+numbering-font-file
+  value should be the full path of a PIL font file, used to number
+  page icons.  A default font (Xerox Cream 12pt bold) is used if no
+  numbering font file is specified.
+
+page-image-max-scaling-factor
+  value should be a floating-point number giving the maximum scaling
+  to use when creating large page icons.  By default, this is 0.33;
+  larger values will cause small page images to be blown up more.
+
+page-image-max-height-pixels
+  The maximum height of the large anti-aliased PNG image used in the
+  page view.  This plus "page-image-max-width-pixels" form a bounding
+  rectangle the image is fitted within.  The default size is 880
+  pixels.
+
+page-image-max-width-pixels
+  The maximum width of the large anti-aliased PNG image used in the
+  page view.  This plus "page-image-max-height-pixels" form a bounding
+  rectangle the image is fitted within.  The default size is 680
+  pixels; users displaying more than one page per screen might want to
+  make it a bit smaller.
+
+summary-length
+  value should be an integer specifying how many characters long the
+  document summary should be.  Default is 250.
+
+preserve-blank-pages
+  value should be either "true" or "false".  If true, blank pages in a
+  PDF file are preserved in the TIFF file.  Default is false.
+
+default-listing-format
+  value should be either "Thumbnails", "Titles", "Abstracts",
+  "PubDates", or "AddDates".  Specifies the default display of
+  documents.  Default value is "Thumbnails".
+
+default-listing-count
+  value should be an integer or the keyword "all".  Controls how many
+  documents are shown in the default listing.
+
+overview-refresh-period
+  value should be an integer, specifying how many seconds should
+  elapse between refreshing a Web browser display of the repository
+  contents.  The value 0 may be specified to disable automatic
+  refreshes.  Default value is 300.
+
+pageturn-animation-milliseconds
+  Value is an integer specifying how many milliseconds to use when
+  animating a page turn in the UpLib Reader.  Default is 350.  Using a value of zero 
+  suppresses any animation.  Values longer than 700 tend to irritate
+  people.
+
+max-simultaneous-incorporation-threads
+  Value is an integer specifying how many ripper threads should be run at one time to
+  incorporate new documents sent to the repository guardian angel.  In some cases,
+  the shear volume of new documents to incorporate can overwhelm the server, so
+  this is set to a precautionary default of 4.  A value of zero means "no limit",
+  the default before UpLib 1.7.7; when this is used, an arbitrary number of incorporation
+  threads may be run simultaneously.
+
+user-initialization-modules
+  a colon-separated list of modules to load at angel startup.  The
+  modules are found in the same order as actions, and they are
+  searched for on the search path defined by the configuration option
+  "actions-path".  Each module may define one or both of two
+  functions, called "before_repository_instantiation" and
+  "after_repository_instantiation".  If present,
+  "before_repository_instantiation" is called before the repository
+  object is instantiated; it is passed a hashtable of metadata about
+  the repository as an argument, which may be modified if so desired;
+  it's used to override any data about the repository that's kept in
+  the repository's stable storage.  If present,
+  "after_repository_instantiation" is called with the repository
+  object as an argument.  Note that there are also both
+  repository-specific and installation-specific collections of action
+  modules (by default empty); if any of these have
+  before_repository_instantiation or after_repository_instantiation
+  methods, they are invoked after the modules explicitly specified by
+  the user here.  Note that you use the module name here, not the file
+  name (e.g. "foo", not "foo.py").  "after_repository_instantiation"
+  is often used to add rippers to the repository, while "before_repository_instantiation"
+  is less-used, but useful to make sure an extension is loaded before
+  the repository instance is created.
+
+indexing-properties
+  a colon-separated list of metadata properties to
+  index the document with.  The text contents will always be indexed
+  as the property "contents", and the document ID will always be
+  stored (but not indexed) as the property "id".  A property name may
+  be suffixed with an asterisk (*) to signify that it should not be
+  tokenized.  It may be suffixed with an at-sign (@) to signify that
+  it is a date and should be transformed from the default date format
+  ("mm/dd/yy") to the "yyyyMMdd" format that allows range searching
+  with Lucene.  In addition, you can indicate that the value should be
+  split according to some syntactic pattern by specifying a regular
+  expression at the end of the property name, prefixed with a dollar
+  sign ($).  To find the default value for this parameter, look in the
+  site.config file.  It will be something like::
+
+    contents:title:categories$,*:date@:apparent-mime-type*:
+    authors$\s+and\s+:comment:abstract:email-message-id*:
+    email-guid*:email-subject:email-from-name:email-from-address*:
+    email-attachment-to*:email-references$,*:email-reply-to$,*:
+    keywords$,*
+
+  (All on one line, of course.)
+
+search-properties
+  a colon-separated list of metadata properties to search over in the
+  absence of explicit property information in the query.
+  See **indexing-properties** for a more complete description of the syntax
+  of this property.
+  The default value for this property is::
+
+    contents:title:authors$\s+and\s+:comment:abstract:keywords$,*
+
+search-default-operator
+  This is a string value, either "AND" or "OR", which controls how
+  individual search terms in a query are combined.  In versions prior
+  to 1.4, this defaulted to "OR".  However, the Google default is
+  "AND", so in version 1.4 and above, the default is "AND".  You can
+  change it back to "OR" with this switch.
+
+search-results-format
+  This is the display format used for search results.  The default
+  format is "Abstracts", but any of the other listing formats given
+  under "default-listing-format" may be used.
+
+search-score-threshold
+  This is a floating-point number between 0.0 and 100.0 which
+  specifies the cutoff score for search results.  Documents scoring
+  under this threshold will not be displayed in the search results
+  listing.  The default score is 0.0.
+
+search-abbreviations
+  This is a semicolon-separated list of "KEY=VALUE"
+  pairs, where KEY is a short name for the longer string VALUE.  This
+  establishes a set of abbreviations that the underlying UpLib search
+  engine will use in parsing queries.  In a query, an abbreviation is
+  used by prefixing a token with a dollar sign ("$").  For instance,
+  a user might define the abbreviation::
+
+    email=apparent-mime-type:message/rfc822
+
+  so that in search, he can just say "$email", in order to insert that
+  search qualifier into his query.  Abbreviations can also be used for
+  just the "field" term of a query, as in::
+
+    from=email-from-name
+
+  which would then allow "$from:smith" as a query.  Abbreviations
+  cannot be used as the value of a search term; for instance, the
+  query "header:$from" would not be expanded.
+
+default-language:
+  A string, specifying the two-letter RFC 4646 default language tag to
+  use for indexing and search.  The default is determined at build
+  time by the configure script.
+
+use-snowball-stemmers:
+  Boolean; if set to true, will cause the Lucene SnowballAnalyzer
+  to be used, with the appropriate language.  If English is
+  the language, will also add the normal set of English
+  stop words from `StopAnalyzer.ENGLISH_STOP_WORDS`.  Only effective
+  if PyLucene is being used.  The list of supported languages, as of
+  PyLucene 2.4.1, was "Italian", "French", "Hungarian", "Russian",
+  "Finnish", "Portuguese", "Danish", "Turkish", "Dutch", "Swedish",
+  "German", "English", "Romanian", "Norwegian", and "Spanish".
+  Note that in version 3.x of Lucene, the Snowball filters are now
+  part of the language filters; explicit use of the snowball stemmers
+  is deprecated in that Lucene release.
+
+keep-very-small-thumbnails
+  Boolean valued option which says whether to
+  keep documents with severe aspect ratios, which normally can't be
+  added because they result in icons with a width or height of zero
+  pixels.  By setting this option to true, the zero-width dimension will be
+  promoted to 1 pixel, and the documents will be added.
+
+default-html-controls-template-file
+  the name of a file containing an HTML template for the controls
+  panel which appears in the upper left corner of the document display
+  panel.  This template should contain two % characters wherever a
+  single % character is desired, and the string "%(doc-id)s" wherever
+  the document ID string is required.  It is processed into the
+  controls panel when a document is submitted to the repository, and
+  at various other times when the system feels it should be
+  re-processed.  The default template is available in the installation
+  as UPLIB_HOME/share/default-controls-template.
+
+html-controls-panel-height
+  The height in pixels of the controls panel section of a document
+  page display.  By default, 130 pixels.
+
+html-thumbnails-column-width
+  The width in pixels of the column which contains the controls panel
+  and page thumbnails in a document page display.  By default, 130
+  pixels.
+
+assume-no-password
+  boolean option which affects the operation of uplib-add-document.
+  If assume-no-password is true, the program will not prompt for a
+  password.
+
+server-no-chunking
+  boolean option which instructs the UpLib angel not to use HTTP 1.1
+  reply chunking.  This may help with buggy browsers which don't
+  implement chunking properly.
+
+metadata-sharing-url
+  URL of a web service which implements the UpLib metadata sharing API
+
+metadata-sharing-preferred-submitters
+  A colon-separated list of submitters of shared metadata information
+  which you prefer over other submitters.  UpLib will use submissions
+  by these submitters if present.
+
+metadata-sharing-categories
+  If specified, is a colon-separated list of categories that should be
+  shared.  Any document that isn't in one of these categories won't be
+  shared.
+
+metadata-sharing-properties
+  If specified, a colon-separated list of metadata properties to
+  share.  Only properties on this list will be uploaded to the server
+  if you share the metadata for a document.  The default value includes
+  the properties ``title``, ``authors``, ``date``, ``abstract``, ``tiff-dpi``, ``tiff-width``, ``tiff-height``, ``source``, ``dpi``, ``urls``, ``keywords``, ``citation``, ``images-dpi``, ``first-page-number``, ``page-numbers``, ``original-url``, ``page-count``, ``text-charset``, ``text-language``, ``images-width``, ``images-size``, and ``images-height``.
+
+metadata-sharing-username
+  If set, any metadata that you share to others will be tagged with
+  this username, which can be any string you want.  This username is
+  what metadata-sharing-preferred-submitters will look for.  By
+  default, the sharing name is "anonymous".
+
+extensions-library-url
+  The URL for a web service which implements the UpLib extensions
+  sharing API.  
+
+client-side-cache-location
+  This should be the name of a local directory to be used by Java
+  clients for client-side caching of page images, page text, and
+  annotations.  If security on the client machine is a concern, this
+  should not be used.  If not specified, no client-side caching will
+  be performed.
+
+web-cookies-file
+  If this option is set, then when fetching a Web page from a remote
+  server, uplib-add-document and the UpLib portal can use the same
+  cookies you use with a Web browser to access the site.  This is
+  useful for restricted or log-in sites.  The value of this
+  configuration option should be of the form *browser-type*\ :\ *cookies-file*,
+  where *browser-type* is either "firefox-1" (if you
+  are using Firefox cookies) or "safari-1" (if you are using Safari
+  cookies), and *cookies-file* is the name of the file containing the
+  cookies.  You'll have to figure out where this file is; on the Mac,
+  Safari stores its cookies in ``~/Library/Cookies/Cookies.plist``.
+
+get-document-min-score
+  Used by "uplib-get-document" to set the score cutoff for inclusion
+  of documents in the result set.  Between 0.0 and 1.0.  By default,
+  0.5.
+
+get-document-open-action
+  Defines the action to be called on a document by
+  "uplib-get-document".  The action gets called with the PDF version
+  of the document as a filename argument.  The default action is "cat"
+  (copy PDF file to standard output).  You can also define
+  format-specific open actions by using the variant
+  "get-document-open-action-FORMAT", where format is one of the
+  formats supported by uplib-get-document.
+
+get-document-show-all
+  Boolean value for "uplib-get-document".  If true, will cause all
+  matches to be displayed.  If false, will just pick the top one and
+  invoke action on it.  By default, false.
+
+assume-text-no-color
+  Assume that text documents will not have color.  This is generally
+  a safe assumption.  The default is false.
+
+dns-nameserver
+  A string dotted-decimal representation of your DNS nameserver.
+
+upload-transfer-format
+  Which of the supported transfer formats to convert the document
+  folder into before upload to the repository.  Version 1.* uses
+  "tarred-folder" by default; this requires the use of an external
+  'tar' program.  Version 2.* will use "zipped-folder", by default.
+  "zipped-folder" is available as an option as of version 1.2.
+
+use-java-docviewer
+  Use the Java Plug-in applet to view documents, rather than the
+  original one-page-per-view simple HTML viewer.  Boolean.  Default
+  value is "false".
+
+use-menus-on-browser-thumbnails
+  Boolean, defaults to true.  If set to false, will make document thumbnails in the Web browser view just links
+  to the underlying document display, instead of having pop-up menu on them.
+
+use-png-page-images
+  A boolean flag, by default false, which indicates whether to use
+  a directory containing PNG page images, one file per page, instead
+  of the original multipage-TIFF format.  This will probably change
+  to default to true in a future release.
+
+doc-functions
+  This allows you to customize the standard list of
+  document functions, which appear as a pop-up menu in the repository
+  overview, and as a small control area in the upper left of a
+  document view.  The format is a semicolon-separated list of items, where each item
+  is a comma-separated list of two to four parts.  The first part is
+  the label for the function, and the second part is a URL to
+  re-direct to, with the string "%s" where you want the document id of
+  the document to go.  The optional third part is an HTML "target",
+  only used if the function appears as a link.  The optional fourth
+  part is a Python string which evaluates to a function which is
+  invoked with one argument, the document; if the function evaluates
+  to False, the document function doesn't apply to that document.
+  For example::
+
+    doc-functions: Forward, /action/forward/doc?doc_id=%s, _blank
+
+  would add one function, "Forward", that would invoke specified URL
+  in a new window.  
+  
+collection-functions
+  This allows you to customize the standard list of
+  collection functions, which appear as buttons at the bottom
+  of the view of a set of documents which are part of a collection.
+  The format is a semicolon-separated list of items, where each item
+  is a comma-separated list of two to four parts.  The first part is
+  the label for the function, and the second part is a URL to
+  re-direct to.  The optional third part is an HTML "target",
+  only used if the function appears as a link.  The optional fourth
+  part is a Python string which evaluates to a function which is
+  invoked with one argument, the document; if the function evaluates
+  to False, the document function doesn't apply to that document.
+  For example::
+
+    collection-functions: Forward, /action/forward/coll, _blank
+
+  would add one function, "Forward", that would invoke specified URL
+  in a new window with the parameter "coll" set to the ID of the
+  collection of documents to forward, and with a set of "doc_id"
+  parameters, one for each document in the collection that should
+  be forwarded.  Generally, collection functions should use the
+  "doc_id" parameters, rather than the collection ID.
+  
+user-buttons
+  This allows you to add buttons to the "toolbar" in UpLib, just as an
+  extension would with a call to "add_user_button".  The format is a
+  semicolon-separated list of items, where each item
+  is a comma-separated list of two to four parts.  The first part is
+  the label for the function, and the second part is a URL to
+  re-direct to, with the string "%s" where you want the document id of
+  the document to go.  The optional third part is an HTML "target",
+  only used if the function appears as a link.  The optional fourth
+  part is a Python string which evaluates to a function which is
+  invoked with one argument, the document; if the function evaluates
+  to False, the document function doesn't apply to that document.
+  For example::
+
+    user-buttons: Stats,/action/jutils/stats,_blank
+
+  would add one function, "Stats", that would invoke specified URL
+  in a new window.
+
+java-default-certificate-hostname
+  When using a Java client with UpLib, the Java system libraries
+  normally require that the hostname specified in the URL match that
+  provided by the server-side SSL certificate.  This means that if the
+  certificate has the hostname ``foo.company.com``, for example, the
+  URL must be ``https://foo.company.com:...``.  Often, you'd like to
+  be able use the shorter URL ``https://foo...``, which will work on
+  some machines, but the Java library code will object that the
+  hostnames don't match.  You can still use the shorter hostname, or
+  alternate hostnames which connect to the same host, by setting this
+  configuration option to the full hostname, the hostname given in the
+  server-side certificate.  Note that you will still have to register
+  the certificate with your client Java keystore (see below section on
+  `The default Java keystore`_).  Note that you can set this to
+  different values for different UpLib repositories in the same
+  ``.uplibrc`` file.
+
+java-default-trust-store
+  Java clients can look at the value of this to determine what java
+  trust store to use when connecting to an UpLib server.  Used by
+  ``ReadUp``.  See the section on `The default Java keystore`_.
+
+web-proxies
+  This should be set to a comma-separated list of
+  ``HOST=PROXY`` pairs, where ``HOST`` is the name of the host for
+  which a proxy should be used when contacting it, and ``PROXY`` is
+  the URL of the proxy server to use when obtaining content from this
+  host.  For example::
+
+    web-proxies: portal.acm.org=http://wwwproxy0.parc.xerox.com
+
+  will cause any requests for documents from ``portal.acm.org`` (the
+  ACM Digital Library portal) to be proxied through the proxy server
+  at ``http://wwwproxy0.parc.xerox.com``.
+
+allow-insecure-login-cookies 
+  When a user logs in to a password-protected repository, the server
+  sends back a secure cookie which the browser won't cache and will
+  send back only over secure connections.  However, when using UpLib
+  on a laptop, it is often useful to omit the SSL channel, which is
+  unnecessary for a local-to-local connection.  However, most browsers
+  won't send a cookie over the unsecured channel, even though it is
+  local-to-local.  To avoid this problem, you can set
+  "allow-insecure-login-cookies" to "true" to tell the server to send
+  insecure login cookies.  Clients from outside the local machine must
+  use the SSL-encrypted channel to access the server in any case.  The
+  only possible security hole is that browsers may cache insecure
+  cookies on a file somewhere on an untrusted system.  Note that if
+  you are using the Python SSL module, there is no unsecured channel,
+  so this option will have no effect.
+
+portal-show-submission-popup
+  Set this to "false" to keep the UpLib Portal from displaying a
+  metadata editing window when you drop a new document on it.  It will
+  still display the pop-up if you shift-click on it to select a
+  document to add.
+
+no-caching
+  Set this to "false" to have the server omit sending of "no-store" tags on
+  document content, which keep compliant caches and browsers from
+  ever putting that content in client-side secondary storage.  Defaults
+  to "true".  This does not affect generic UpLib content, such as
+  standard images and jar and Javascript files, which are typically
+  sent without cache control.
+
+use-pylucene
+  By default, if you have either the ``jcc`` version
+  of PyLucene installed in your Python, UpLib will use it for search,
+  and indexing.
+  You can set this to "false" to inhibit such use.
+
+use-related-for-context-document-set
+  When you are looking at a
+  document in the Web reader, a number of other documents are shown as
+  thumbnails in the left-hand sidebar.  By default, these are the N
+  most recently used and/or added.  You can set this option to
+  ``true`` to use an experimental system which calculates this set
+  from a number of factors, incorporating recent usage, co-authorship,
+  and textual similarity.  You must be using PyLucene 2.0 or better
+  for this option to have access to textual similarity analysis.
+
+startup-timeout
+  If you are loading extension initializers that take a long time to
+  start up, you may take longer to start the repository angel than the
+  start-up scripts and other checkers allow for.  In this case, you'll
+  get a spurious message that the initialization or start failed, when
+  it really just took longer than expected.  You can change the default
+  setting for this timeout, which is 5 seconds, to any value by specifying
+  an integer value for this option.
+
+shutdown-timeout
+  When shutting down the guardian angel, the angel has to do a number
+  of clean-up actions that may take some time.  For example, if you
+  have lots of QueryCollections defined, it has to enumerate them all
+  to write an index file, before exiting.  If you have shutdown hooks
+  defined in any of your extensions, this may cause even more delay.
+  The default time to wait for shutdown is 15 seconds; if you need more
+  time than that, you can set it to any integer value with this option.
+
+imap-server-auto-start
+  Boolean.  Defaults to False.  If true, and the
+  IMAPServer extension is installed, will start up an IMAP server
+  which will export the documents of your repository.  If the
+  repository is password-protected, the password will be required for
+  a mail client to connect to the server.  IMAP searches are performed
+  by the UpLib Lucene infrastructure.  For each document, a
+  pseudo-message will be generated, with the publication date of the
+  document as the "Date", the title as the "Subject", and the authors
+  as the "From".  The message contains a thumbnail, the summary and
+  metadata, and links to allow retrieval of the document from the
+  guardian angel via HTTP in its original format, HTML, or PDF.
+  The capabilities of this server are in general IMAP4rev1, STARTTLS (if the Python has the SSL module installed),
+  LITERAL+, SASL-IR, AUTH=PLAIN, AUTH=ANONYMOUS (if configured to allow anonymous access, or if the repository has no
+  password), NAMESPACE, UIDPLUS, and IDLE.  The "mail folders" are the categories and collections
+  of the repository.
+
+imap-server-ssl-port
+  An integer, the port on which the IMAP server
+  should listen for SSL-encrypted connections.  Defaults to 8993.
+  This is only effective if the Python SSL module is not available;
+  it's ignored if the Python SSL module is present.  It's a bad idea
+  to run an IMAP server this way, so don't depend on it.
+
+imap-server-localhost-port
+  An integer, the port on which the IMAP server will listen for
+  connections, defaults to 8143.  If the Python SSL module is installed,
+  this server will support STARTTLS on that port, and will disable
+  logins till STARTTLS has been completed.
+
+imap-expunge-deletes-documents
+  Boolean, defaults to False.  If True, an IMAP "EXPUNGE" of a message will delete the corresponding document
+  from the repository.  If False, will simply remove the document from the "mail folder".
+
+imap-server-checkpoint-interval
+  An integer, defaults to 600, the number of seconds between checkpointing the
+  mail server state to the repository.  This process may involve re-indexing documents,
+  and so may be heavyweight.
+
+imap-server-allow-anonymous-readers
+  Boolean, defaults to False.  Repositories with no password will allow anonymous mail clients,
+  and repositories with passwords can set this variable to True to allow anonymous READ-ONLY access
+  to the repository from a mail client.
+
+imap-server-use-for-email
+  Boolean, defaults to False.  If True, will
+  look for a top-level category called "email", and will present
+  top-level mail folders for the second-level children of "email".  In
+  addition, the INBOX folder will be populated with all
+  "message/rfc822" documents in the repository which are not in an
+  "email" category.  This allows the use of UpLib as a mail server.
+  Documents in these mail folders must be "message/rfc822" files, and
+  will present in the mail client as regular email messages.
+
+allowed-client-certificates-file
+  Pathname.  If specified for the
+  guardian angel, it will only allow connections from clients
+  presenting one of the certificates in the specified file.  The
+  certificates in the file must be in the OpenSSL PEM format, and
+  concatenated.
+
+client-certificate-file
+  Pathname, read by ``uplib-add-document``, ``uplib-check-angel``, and
+  ``uplib-get-document``.  If present, should contain a PEM-encoded certificate
+  and private key, which will be used as the client certificate for opening
+  a connection to the repository guardian angel.
+
+java-client-certificate-file
+  Pathname, read by ``ReadUp``, the UpLib Janitor, and other Java clients.
+  Should contain a PEM-encoded certificate and private key, which will be used
+  as the client certificate for opening a connection to the repository guardian
+  angel.
+
+topdf-port
+  The port a ToPDF server should use, an integer, by default 10880.
+
+use-topdf-service-for-msoffice-to-pdf
+  Boolean.  Set this to `true` to use the UpLib ToPDF server for Office to PDF conversion.
+
+use-topdf-service-for-web-page-to-pdf
+  Boolean.  Set this to `true` to use the UpLib ToPDF server for Web page to PDF conversion.
+
+number-of-video-sample-frames
+  Integer.  Use this to set the number of frames sampled from video clips to use as page images.  Default is 5.
+
+immediately-calculate-repository-statistics
+  Boolean, defaults to True.  When true, will cause the repository to start counting pages and calculating
+  repository statistics immediately after startup.  This eliminates some delays in responding to user input,
+  but it also holds certain locks that can make it difficult to shut the repository down immediately after
+  starting it.
+
+wordbboxes-version-to-use
+  Integer specifying which wordbboxes format version to use.  Defaults to 2 with UpLib 1.7.9, which
+  is where the version 2 appears, and to 1 in previous versions.  Recommend leaving it at the default,
+  unless you expect to push documents from a repository running newer versions of UpLib to repositories
+  running older versions.
+
+topdf-port
+  Integer specifying which port the ToPDF service is running on, if any.  This defaults to 10880.
+
+topdf-host
+  String giving the IP address of the host the ToPDF service is running on, if any.  Defaults
+  to "127.0.0.1", the local machine.
+
+use-topdf-service-for-web-page-to-pdf
+  Boolean specifying whether to use the ToPDF service for converting Web pages to PDF.  Default
+  depends on system configuration.  Requires that one of either `wkhtmltopdf` or `wkpdf` is installed
+  on your system.
+
+use-topdf-service-for-msoffice-to-pdf
+  Boolean specifying whether to the ToPDF service's JODConverter and OpenOffice for converting
+  Microsoft Office documents to PDF.  Default depends on system configuration.  Note that OpenOffice 3.x
+  must be installed on your system for this to work.
+
+push-documents-to-topdf-service
+  Boolean specifying whether to push documents, particularly Web pages, to ToPDF service as a zip
+  file.  If `false`, it will attempt to read them directly from the file system.  Defaults to
+  `false` if the ToPDF host is "127.0.0.1", `true` otherwise.
+  
+
+Adding extensions to your repository
+------------------------------------
+
+UpLib is designed to be extended in piecewise fashion through Python
+modules called, naturally enough, "extensions".  If you want to write
+your own extensions, please see the file called EXTENDING_.
+
+On the other hand, it's possible to set up a communal extension
+sharing system, using the extensions library server script, ``NewExtensionsServer.py``.
+Such a system is set up at PARC.  You can look at available
+extensions that others have contributed, and download them to your
+repository for use there.
+
+To get there, go to the overview page of your repository in a Web
+browser.  Scroll to the bottom of the page, where you will see a
+button labelled "Manage Extensions".  Clicking on that button will
+take you to the UpLib Extensions Manager, which allows you to manage
+your extensions, and the extensions-path.  In the upper right-hand
+corner of that display, you will see a button labelled "Find New
+Extensions to Install".  Clicking on *that* button will take you to
+the library.  And from there you can review and install extensions
+from the library.
+
+
+Security and certificates
+-------------------------
+
+UpLib uses SSL to encrypt traffic between the UpLib repository and
+clients of the repository like the UpLib Portal, or ReadUp, or the
+ReadUp applet in a Web browser.  Certificate "management" refers to
+the process of making sure that both sides of the connection know
+about the certificate and are ready to trust it.
+
+When using an UpLib service from a Java client, you first need to tell Java to trust
+the UpLib SSL certificate used by the server, by adding the certificate
+of the remote service to your Java `keystore`.
+
+The default Java keystore
+`````````````````````````
+
+By default, the Java platform will look for a keystore file called ``.keystore``
+in the user's home directory, as specified by the Java property ``user.home``.
+
+If you don't keep your keys in the default keystore, then when running
+Java UpLib clients, make sure the "javax.net.ssl.trustStore" property is set to the
+keystore file you do use::
+
+   java -Djavax.net.ssl.trustStore=/tilde/janssen/my-odd-keystore test ...
+
+For UpLib Java clients, you can also set the
+``java-default-trust-store`` configuration option in your
+``~/.uplibrc`` file, as detailed above.  This will be consulted before
+the value of the system property ``javax.net.ssl.keyStore``.
+
+See
+http://java.sun.com/j2se/1.4.2/docs/guide/security/jsse/JSSERefGuide.html
+for more info on all of this.
+
+
+The ``uplib-certificate`` utility
+`````````````````````````````````
+
+UpLib includes a utility program ``uplib-certificate``, that can create
+new certificates for a repository, check that the certificate is good,
+and add the certificate to a Java keystore.
+
+On the server side, you can check the certificate for a repository, and fix it if necessary, with the command:
+
+  ``uplib-certificate --repository=FOLDER``
+
+where ``FOLDER`` is the top-level directory for the repository.
+
+On the client side, you can make sure that all of your Java clients recognize
+a particular server's certificate with the command:
+
+  ``uplib-certificate --repository=URL --java-default-trust-store``
+
+where ``URL`` is the "https:" URL for the repository.  This will make sure that the certificate
+for the repository is in your default keystore.
+
+See the man page for ``uplib-certificate`` for more information.
+
+
+Allowing the Java Web browser applet to cut and paste to the system clipboard
+`````````````````````````````````````````````````````````````````````````````
+
+To allow this, you must explicitly grant permission in a file in your
+home directory usually called ``.java.policy``.  Place the following
+lines in that file::
+
+  grant codeBase "https://MACHINE-NAME:PORT/-" {
+      permission java.awt.AWTPermission "accessEventQueue";
+      permission java.awt.AWTPermission "setDropTarget";
+      permission java.awt.AWTPermission "accessClipboard";
+      permission java.awt.AWTPermission "acceptDropBetweenAccessControllerContexts";
+      permission java.awt.AWTPermission "listenToAllAWTEvents";
+  };
+
+where ``https://MACHINE-NAME:PORT/`` is the URL for the UpLib repository you are pulling documents from.
+Note the trailing hyphen character!
+
+This should allow the applet to both access the system clipboard, and
+participate in drag-and-drop operations.  You must repeat this block for each repository
+you wish to authorize.
+
+
+Mac Notes
+=========
+
+By default, the Mac installer will start the UpLib Janitor (installed
+in ``/Applications/Utilities/UpLibJanitor.app``) as it finishes.  You
+can use this to get started with UpLib on OS X.
+
+Click the "New Repository" button on the Janitor to create a repository.
+A form will pop up, asking you a number of questions.  You
+will need to choose a location for your UpLib repository, a name
+for it (any name will do, or you can just leave that blank), a port for it to listen on (8080 is
+what we generally use, but you can use whatever port works on your
+machine, or just leave it blank, and a default will be chosen automatically), and an optional password for the repository.  A new
+directory will be created, and a launchd service will be installed
+and started on that machine.  This service will be automatically
+re-started if you reboot the machine.
+
+Note that ``uplib-make-repository`` prompts for an admin password;
+it needs this to set up the UpLib guardian angel as a root launchd
+service.
+
+Once you have a repository, you can add documents to it with the
+UpLib portal, in ``/Applications/Utilities/UpLibPortal.app``.  You can
+also start this by pressing the "Portal" button on the Janitor, which 
+will be grayed out if the Portal is already running.  A small
+window with the UpLib icon will appear.  You can use this to add
+documents to UpLib (by dragging them onto it), or to retrieve
+documents from UpLib (by clicking on it, then issuing a query).
+Shift-clicking will bring up a file chooser, another way to add a
+document to a repository.
+
+When using UpLib on OS X on a Mac, there are a few additional applications installed
+that you can use.  The standard OS X installer will add, to ``/Applications/Utilities``,
+apps called UpLibJanitor, UpLibPortal, and UpLibToPDF.  You can put all of these
+in your Login Items, to be started when you login.  The UpLibJanitor application lets
+you manage your repository; the Portal lets you add stuff, and find it again; the ToPDF
+server supports adding Microsoft Office format documents, and Web pages, to your repository.
+Note that Microsoft Office conversion will only work if you have OpenOffice installed on
+your machine, version 3 or higher.
+
+In addition, the installer adds a print service, "Save PDF to UpLib", to
+``/Library/PDF Services/Save PDF to UpLib``.  You can use this to "print to UpLib".
+
+To look into this further, you can see the post-install script run by the Mac installer
+in the source tree, at ``unix/macosx/postinstall.in``.
+
+Adding the UpLib certificate to your Safari browser on the Mac
+--------------------------------------------------------------
+
+Unless you certify the UpLib SSL certificate to the Safari browser on
+the Mac, you will have to re-allow it every time you start up Safari.
+It's simplest just to add it to the system keychain.  Here's how you
+do that.
+
+* First, get a copy of the certificate, in a format that Safari understands:
+
+    ``uplib-certificate --repository=https://HOST:PORT/ --safari=/tmp/cert.pem``
+
+* Use "sudo" along with the command "certtool" to add it to your
+  list of certificates honored by the system:
+
+    ``sudo certtool i /tmp/cert.pem k=/System/Library/Keychains/X509Anchors``
+
+That should do it.  Now Safari will accept that certificate automatically.
+
+
+Setting up Java certificates for the UpLib Portal
+-------------------------------------------------
+
+This isn't done automatically, so that Java users who already have
+keystores can do it in a fashion suitable for their environment.
+However, if you don't already know about Java keystores, you can just
+follow these directions.
+
+At a Terminal shell, type the following line:
+
+   ``openssl x509 -in /usr/local/uplib/``\ *<version>*\ ``/lib/UpLib-``\ *<version>*\ ``/stunnel.pem -trustout -out /tmp/cert.x509``
+
+where *<version>* is the version of UpLib that you are using.
+
+Create a new Java keystore by typing the following line:
+
+   ``keytool -keystore ~/.keystore -import -file /tmp/cert.x509``
+
+Finally, create a file called ``~/.uplibrc``, and in it, place the lines::
+
+   [default]
+
+   java-default-trust-store: ~/.keystore
+
+This is all explained more fully `here in the USAGE manual`__.
+
+__ uplib-and-java-security_
+.. _uplib-and-java-security: #uplib-and-java-security
+
+
+Laptop machine names
+--------------------
+
+Installing UpLib on laptops provides some special issues having to do
+with the machine's name.
+
+Because UpLib is a client-server system, UpLib clients on your laptop
+have to know where to connect to, when they want to talk to an UpLib
+repository.  This is typically done by having the client specify the
+name of the machine to which it wants to connect.  But laptops can
+have many names, which typically differ depending on what network it's
+connected to, or whether it's using hardwired Ethernet or WiFi to
+connect to that network.  This means that the name of your computer can
+change quite a bit.
+
+This causes some problems with security, because there's only one
+hostname in a security certificate, and typically it has to match the
+hostname that the client is using to connect to that machine.
+
+UpLib has some work-arounds for this problem.  First of all, when you are
+using a laptop, you can put the "default repository" setting
+of ``https://127.0.0.1:``\ *<port>*\ ``/``
+in your ``~/.uplibrc`` file, as the value of ``default-repository``.  See `the section
+of the USAGE manual about the uplibrc file`__ for more information on this.
+
+__ the-uplibrc-configuration-file_
+.. _the-uplibrc-configuration-file: #the-uplibrc-configuration-file
+
+However, this still causes issues with Java, which internally usually insists
+on correspondence between machine names and certificate hostnames.  To get around
+this, we tell Java exactly what machine name to expect in the certificate.  You
+can find out what this is by using the command ``hostname`` in a Terminal shell.
+Add a line with this in it to the ``[default]`` section of your ``~/.uplibrc`` file:
+
+    ``java-default-certificate-hostname:``  *machine-name*
+
+where *machine-name* is the name returned by the ``hostname`` command.  You can
+see more information `on this here`__.
+
+__ java-default-certificate-hostname_
+.. _java-default-certificate-hostname: #configuration-options
+
+Making sure your UpLib service is always running
+------------------------------------------------
+
+As of UpLib 1.7.7, new repositories are created as launchd daemons,
+and the Mac system machinery will take care of keeping them always
+running, even when you're not logged in (handy for remote access).
+
+For earlier versions, you will find an application called
+``StartUpLibRepositories`` in ``/Applications/Utilities/``.  It checks
+to make sure your repositories are running, and restarts them if
+necessary.  If you use the ``System Preferences`` tool to put this in
+the set of Login Items for your account, your UpLib repositories will
+always be running when you are logged in.  Or you can use ``launchd``
+or ``cron`` to run this at boot time, to make sure they are
+automatically restarted when the machine boots.
+
+Starting the UpLib Portal
+-------------------------
+
+In addition to the Janitor (see above), the installation will also leave an application in
+``/Applications/Utilities``, called the "UpLibPortal".  When you
+start it, it will put a small icon on your desktop, which can be used
+to add documents or find documents.  You can find `more information on
+using the Portal here`__.
+
+__ using-the-uplib-portal_
+.. _using-the-uplib-portal: #the-uplib-portal
+
+You can also use ``System Preferences`` to put this in the set of programs which start up when you
+login, so that it's always available to you.
+
+Setting your PATH environment variable
+--------------------------------------
+
+*If you've used the UpLib Mac Installer to install UpLib on your system, you can skip this section.
+The installer symlinks the UpLib programs to /usr/bin.*
+
+To begin with, the UpLib code has been installed in
+``/Library/UpLib/``\ *RELEASE*, where *RELEASE* is the version of
+UpLib you are using.  For instance, with UpLib 1.4, you'd find a
+directory called ``/Library/UpLib/1.4``.  You will want to put
+``/Library/UpLib/``\ *RELEASE*\ ``/bin`` on your path.  If you are
+using the ``bash`` shell, the default shell on the Mac, you should add
+a line to your ``.profile`` file, something like:
+
+``PATH=/Library/UpLib/``\ *RELEASE*\ ``/bin:$PATH; export PATH``
+
+If you are using the C shell (csh), you will want to add a line to your ``.login`` or ``.cshrc``, something like:
+
+``setenv PATH /Library/UpLib/``\ *RELEASE*\ ``/bin:$PATH``
+
+If you are using a different shell, you probably know just what to do.
+
+
+The ToPDF conversion server on OS X
+-----------------------------------
+
+UpLib 1.7.7 and above comes with a rendering service that runs as an
+OS X LaunchAgent.  This service is used to convert Microsoft Office
+files to PDF, using OpenOffice, and also optionally uses ``wkpdf`` to
+convert HTML pages to PDF.  In the OS X installer, this agent is
+automatically installed for both "Aqua" and "LoginWindow" contexts;
+that is, it will run under the user's identity when someone is logged
+into the machine, and as "root" when no one is logged in.  This has
+a number of issues.
+
+In the first place, running as "root" when no one is logged in means
+that the service can convert any file on the local disk and return a
+PDF copy of it.  This is consistent with the UpLib security policy,
+which doesn't believe that any modern OS will effectively protect one
+user of a machine from another user on that machine, and thus only
+considers single-user-machine security issues.  The service will not,
+by default, accept connections from other machines.  However, if this
+practice is felt to be unacceptable, the user can, after running the
+installer, either delete
+``/Library/LaunchAgents/com.parc.uplib.ToPDFAgent.plist``, or modify
+it to remove the ``LoginWindow`` option from the
+``LimitLoadToSessionType`` array.  If you delete the agent, you can
+still start this service automatically when you log in, by putting
+``/Library/UpLib/``\ *RELEASE*\ ``/bin/UpLibToPDF.app`` in your Login
+Items.  This will start it when you log in, and stop it when you log
+out.
+
+Secondly, if Fast User Switching is enabled, launchd will attempt to
+create a new instance of the agent for each user that's logged in.
+This is a known bug in Apple's ``launchd``.  But only the first one of
+these will succeed, as it binds to a specific port (10880) on the
+machine.  Thus all renderings will be done with the identity of the
+first user to log in to the machine.  If that user cannot read the
+documents to be rendered, the rendering will fail.
+
+Thirdly, the system that the service uses to control OpenOffice
+(JODConverter 3) will restart OpenOffice when it dies (which it often
+does).  This interacts with logout sometimes; sometimes you'll find
+that "OpenOffice cancelled logout", because it started up again after
+being killed.  Typically just logging out again will work; if not,
+please report this behavior to the UpLib bug tracker.
+
+This service can also be configured to use different ports or allow
+connections from other machines, depending on standard UpLib
+configuration options and/or Java properties.  Those interested in
+using this for other purposes are urged to peruse the source code.
+
+
+
+Windows Notes
+=============
+
+1)  To make a repository, go to the "Start" button, select "Programs",
+    select "UpLib", and select "New Repository".  A text window
+    will pop up, giving you an interactive series of questions.  You
+    will need to choose a location for your UpLib repository, a name
+    for it (any name will do), a port for it to listen on (8080 is
+    what we generally use, but you can use whatever port works on your
+    machine), and an optional password for the repository.  A new
+    directory will be created, and a Windows service will be installed
+    and started on that machine.  This service will be automatically
+    re-started if you reboot the machine.  You can see if the service
+    is running by running the "Services" tool from the "Administrative
+    Tools" submenu of the "Start Programs" menu.
+
+    Note that ``uplib-make-repository`` prompts for your Windows password;
+    it needs this to set up the UpLib guardian angel as a Windows
+    Service.
+
+    The repository guardian angel will be a Windows process with the
+    name "UpLib Guardian Angel (port xxxx)".  You can find it in the
+    Services tool (Control Panel => Administrative Tools => Services)
+    under User services.
+
+2)  Once you have a repository, you can add documents to it with the
+    UpLib portal.  Start this by going to the "Start" button, select
+    "Programs", select "UpLib", and select "Portal".  A small
+    window with the UpLib icon will appear.  You can use this to add
+    documents to UpLib (by dragging them onto it), or to retrieve
+    documents from UpLib (by clicking on it, then issuing a query).
+    Shift-clicking will bring up a file chooser, another way to add a
+    document to a repository.
+
+
+
+.. _README: ./README.html
+.. _INSTALL: ./INSTALL.html
+.. _EXTENDING: ./EXTENDING.html

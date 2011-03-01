@@ -1,0 +1,138 @@
+<head><title>UpLib FAQ</title></head>
+<!--
+   This file is part of the "UpLib 1.7.11" release.
+   Copyright (C) 2003-2011  Palo Alto Research Center, Inc.
+   
+   This program is free software; you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation; either version 2 of the License, or
+   (at your option) any later version.
+   
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+   
+   You should have received a copy of the GNU General Public License along
+   with this program; if not, write to the Free Software Foundation, Inc.,
+   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+-->
+<body bgcolor="#e0f0f8">
+<table bgcolor="#c0d8e8" width=100%><tr>
+<td><table width=100%><tr>
+<td width=30% align=left><h2>UpLib FAQ</h2></td>
+<td width=10% align=center><a href="/" border=0><img src="/html/images/icon16.png" border=0></a></td>
+<td width=40% align=center><small><a href="searching.html">Searching</a> &middot; <a href="collections.html">Collections</a> &middot; <a href="extensions.html">Extensions</a> &middot; <a href="FAQ.html">FAQ</a></small></td>
+<td width=20% align=right><font size="-1" color="#ffffff">UpLib @PACKAGE_VERSION@</font>
+<font size="-2" color="#e0f0f8">&nbsp;&middot;&nbsp;PARC / ISL</font></td></tr></table></td></tr>
+</table>
+<HR>
+<UL>
+<!-- ****************************************************** -->
+<LI><b><i>I added a few documents to my UpLib, but they don't appear in my
+repository; instead, I found them in a directory called "pending".  Do
+you know why this is happening?</i></b>
+<blockquote>
+Newly submitted documents are placed in the "pending" folder while document
+rippers are run on them.  Depending on what rippers you are running,
+this can take a minute or two.  When the rippers are finished, the
+document is moved from pending to the "docs" subdirectory, and is then
+visible via the Web interface.
+</blockquote></LI>
+<!-- ****************************************************** -->
+<LI><b><i>
+When I put a document in my UpLib repository, it takes forever!  The 'uplib-add-document' program seems to hang and hang, and then when it finishes, the documents aren't in my UpLib.  What's happening?
+</b></i>
+<blockquote>
+When you submit a PDF file to the uplib-add-document program (or drop it on the UpLib droplet),
+this program does two things which can take a long time if your PDF file is fairly long.
+First, it creates a multi-page TIFF version of the document, and optimizes storage used for the pages by looking at the colors in each page to see if it can be stored in a more efficient compression form without loosing any image quality.  This can take up to 15 seconds per page on a slow machine.  Secondly, it attempts to find the text in the PDF file, sometimes by using OCR on each page.  Again, if the document is quite large, this can take a few minutes.
+<P>Once this program finishes, the document has been uploaded to the repository.
+The repository puts new documents in a "pending" folder while document
+rippers are run on them.  Depending on what rippers you are running,
+this can take a minute or two.  When the rippers are finished, the
+document is moved from pending to the "docs" subdirectory, and is then
+visible via the Web interface.
+</blockquote></li>
+<!-- ****************************************************** -->
+<LI><b><i>
+So how can I tell what's going on with the guardian angel?
+</b></i>
+<blockquote>
+The angel will write debugging output to a log file.  If you go to the directory where your repository is, you'll see a subdirectory called <tt>overhead</tt>.  In that subdirectory, there will be a file called <tt>angel.log</tt>.  You can look at the end of that file, to see log messages written recently.
+<p>If you are using Unix (or Linux or Mac OS X or Solaris), you can watch the file and see new messages as they are added to it, with a standard tool called <i>tail</i>.  Just type <tt>tail -f <i>logfile</i></tt>, where <tt><i>logfile</i></tt> is the full path to <tt>angel.log</tt>.  Perhaps there's a similar utility on machines running Windows.
+</blockquote></li>
+<!-- ****************************************************** -->
+<LI><b><i>
+I put "assume-no-password: true" in my <tt>~/.uplibrc</tt> file, but uplib-add-document still prompts for a password!  How can I make it stop?
+</b></i>
+<blockquote>
+This is usually because the <tt>~/.uplibrc</tt> file doesn't contain a section header, or the "assume-no-password" option is in a section that isn't being used for that machine.  There should always be a section header for the default section at the beginning of the configuration file.  This is a line which just contains the string "[default]".  If you put the "assume-no-password" option in this section, it will be used, unless overridden by a more specific section.
+<p>The other problem that may cause this symptom is having two (or more!) "assume-no-password" lines with differing values in the same section.  There should be only one.
+</blockquote></li>
+<!-- ****************************************************** -->
+<LI><b><i>
+I put a password on my UpLib repository, and now I've forgotten it and can't connect to the UpLib server.  How do I fix things?
+</b></i>
+<blockquote>
+You can't find out what the password is, but you can remove it manually.  First, stop the repository's guardian angel with the command<p><tt>uplib-check-angel --stop <i>DIRECTORY</i></tt><p>where <i>DIRECTORY</i> is the directory the repository is in.  Then go to the directory where the repository is.  There's a subdirectory called "overhead" there.  Go to that subdirectory.  You'll see a file called "metadata.txt".  Open that file with a text editor.  You'll see a line that begins with "password-hash", and contains a long hexadecimal number.  Delete that line, and save the modified metadata.txt file.  Now restart your repository's guardian angel with the command<p><tt>uplib-check-angel <i>DIRECTORY</i></tt><p>Your repository will now have no password, and you can assign a new one to it.
+</blockquote></li>
+<!-- ****************************************************** -->
+<LI><b><i>
+Can I use Python 2.4 or 2.5 instead of Python 2.3?
+</b></i>
+<blockquote>
+Yes, that seems to work fine.  In fact, 2.4 is probably preferable.
+</blockquote></li>
+<!-- ****************************************************** -->
+<LI><b><i>
+If I try to use <tt>uplib-add-document</tt> on an HTML file, or drop an HTML file on the Portal, I'm told that it "can't find a parser for this document".  What does this mean?  Doesn't HTML work in UpLib?  Why not?
+</b></i> <blockquote>HTML is a markup syntax, not a document format.
+To form an effective document, HTML files must be arranged in a
+certain proximity to image files, CSS files, Javascript files, and
+various other things it might include.  HTML is designed to be served
+from a Web server.  UpLib can handle HTML that is specified in the
+form of an HTTP URL, and which can be pulled from a Web server along
+with its other data files.  It can also handle HTML in the form of a
+Mozilla"Web
+Page Complete" document, in which the HTML file is stored along with
+all of its ancillary data in a specified format.
+</blockquote></li>
+<!-- ****************************************************** -->
+<LI><b><i>
+How can I remove an UpLib repository that I created for testing, or by accident?
+</b></i>
+<blockquote>
+First, use the UpLib Janitor, or <tt>uplib-check-angel</tt>, to stop the repository's angel.  Then
+simply delete the repository's directory.  The Janitor will show that the directory has
+disappeared.  If you then restart the Janitor, the repository will no longer be shown.
+</blockquote></li>
+<!-- ****************************************************** -->
+<LI><b><i>
+When I'm using IE on Windows, whenever I switch from one document to another, IE gives me a dialog box, saying that the page "contains both secure and insecure content", and I have to click a confirm box to accept it.  What makes that happen, and how do I get rid of it?
+</b></i>
+<blockquote>
+Well, we'd <b>really</b> like to know just what IE is complaining about, so if you can figure it out, tell us!
+<p>Meanwhile, Eric Bier figured out the following:<br><i>
+<blockquote>
+I poked around on the Web a little bit and found a fix to this problem.  In
+the IE preferences there is an option "Display mixed content?"  The options
+are disable, enable, and prompt.  The default is prompt.  Enable does the
+trick.
+</blockquote></i>
+Bill Janssen suggests a different workaround:<br><i>
+<blockquote>
+IE is buggy.  Don't use it.  Try Firefox or Safari or Opera instead.
+</blockquote></i>
+</blockquote></li>
+<!-- ****************************************************** -->
+<LI><b><i>
+Why is the login panel that bright shade of red?
+</b></i>
+<blockquote>
+It's not red, it's orange.
+<p>When I started at PARC, many of the hallways and the inside of the elevators were approximately that shade of bright orange.  I was told that when George Pake started PARC, he'd read some research claiming that the color orange stimulated creativity.  So he used plenty of it around the building.  Whenever I came in and saw that color, it reminded me of the optimism and determination Pake used to establish PARC.  I use it here to honor that spirit.  -- wcj
+</blockquote></li>
+
+
+</BODY>

@@ -1,0 +1,45 @@
+<html><head><title>UpLib Extensions Help</title>
+  <!--
+   This file is part of the "UpLib 1.7.11" release.
+   Copyright (C) 2003-2011  Palo Alto Research Center, Inc.
+   
+   This program is free software; you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation; either version 2 of the License, or
+   (at your option) any later version.
+   
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+   
+   You should have received a copy of the GNU General Public License along
+   with this program; if not, write to the Free Software Foundation, Inc.,
+   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+-->
+</head>
+<body bgcolor="#e0f0f8">
+<table bgcolor="#c0d8e8" width=100%><tr>
+<td><table width=100%><tr>
+<td width=30% align=left><h2>UpLib Extensions Help</h2></td>
+<td width=10% align=center><a href="/" border=0><img src="/html/images/icon16.png" border=0></a></td>
+<td width=40% align=center><small><a href="searching.html">Searching</a> &middot; <a href="collections.html">Collections</a> &middot; <a href="extensions.html">Extensions</a> &middot; <a href="FAQ.html">FAQ</a></small></td>
+<td width=20% align=right><font size="-1" color="#ffffff">UpLib 1.7.11</font>
+<font size="-2" color="#e0f0f8">&nbsp;&middot;&nbsp;PARC / ISL</font></td></tr></table></td></tr>
+</table>
+<HR>
+<P>
+The UpLib system can be changed by adding modules of code called <i>extensions</i> to repositories.  An extension can modify existing functionality or add new functionality.  Extensions are written in the <a href="http://www.python.org/">Python</a> programming language.  There are two basic classes of extensions:  <i>initializers</i>, which change or augment the underlying automatic functionality of the repository, and <i>actions</i>, which add functions to be explicitly invoked by a client of the repository service.
+<p>
+<b>Invoking an extension.</b><br>All actions have URLs associated with them, of the form <tt>/action/<i>module-name</i>/<i>function-name</i></tt>.  The <i>module-name</i> is the name of the Python module containing the function; the <i>function-name</i> is the name of the function being invoked.  You can invoke an action simply by typing the URL into your browser.  For example, if your repository was at port 9090 of host <tt>abc.com</tt>, you could invoke the action <tt>foo.bar</tt> by visiting the URL <tt>https://abc.com:9090/action/foo/bar</tt>.
+<p>
+You can pass parameters to an action function as query parameters to the URL.  For instance, suppose you had a function <tt>print</tt> in module <tt>utils</tt>.  You'd like to invoke it with two parameters, the document ID of the document to print (<tt>doc-id</tt>), and the name of the printer you want the document printed on (<tt>printer</tt>).  So you'd visit the URL <tt>https://abc.com:9090/action/utils/print?doc-id=01065-57-5728-074&printer=laser1</tt>.
+<p>
+It's often clumsy to type in parameters such as document ID.  You can avoid this by adding buttons which encapsulate action function calls to the small window in the upper left-hand side of the page view of a document.  See the document called USAGE for information on the configuration option "<tt>default-html-controls-template-file</tt>".
+<p>
+<b>Viewing active extensions.</b><br>If you go to the bottom of an UpLib repository view, you'll find a button there called "<a href="/action/basic/ext_list">Manage Extensions</a>".  Pressing it will take you to the Extensions Manager, which shows you all the extensions currently active in your repository.  Extensions can come from three places.  The first is a site-wide extensions site, which is used by site administrators for extensions they feel everyone should have.  The second is repository-specific; extensions installed in a particular repository can be either active or inactive.  Finally, each repository can have a list of directories, called its <i>extensions-path</i>.  A panel at the bottom of the Extensions Manager allows the user to add to or remove from this list.  Any extension in any of these directories will also be active in that repository.
+<p>
+<b>The Extensions Library.</b><br>It's possible to set up a library of extensions which users can contribute extensions to, or download extensions from.  Pressing the button at the top of the Extensions Manager labelled "<a href="/action/basic/ext_showlibrary">Find New Extensions to Install</a>" will take you to a view of the extensions available in the library.
+<p>
+<b>But be careful!</b>  Extensions are very powerful, and there's no virus scanning in UpLib.  Only download extensions from trusted authors!
+</BODY></html>

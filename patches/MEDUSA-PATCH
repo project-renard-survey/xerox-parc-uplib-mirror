@@ -1,0 +1,19 @@
+Index: http_server.py
+===================================================================
+RCS file: /cvsroot/oedipus/medusa/http_server.py,v
+retrieving revision 1.6
+diff -r1.6 http_server.py
+32c32
+< from urllib import unquote
+---
+> from urllib import unquote, splitquery
+459,460c459,464
+<             if '%' in request:
+<                 request = unquote (request)
+---
+> 	    rpath, rquery = splitquery(request)
+>             if '%' in rpath:
+> 	    	if rquery:
+>                 	request = unquote (rpath) + '?' + rquery
+> 		else:
+>                 	request = unquote (rpath)

@@ -1,0 +1,119 @@
+'\" t
+.\" $Id: uplib-get-document.1,v 1.9 2011/02/19 23:09:03 janssen Exp $
+.\"
+.\" This file is part of the "UpLib 1.7.11" release.
+.\" Copyright (C) 2003-2011  Palo Alto Research Center, Inc.
+.\" 
+.\" This program is free software; you can redistribute it and/or modify
+.\" it under the terms of the GNU General Public License as published by
+.\" the Free Software Foundation; either version 2 of the License, or
+.\" (at your option) any later version.
+.\" 
+.\" This program is distributed in the hope that it will be useful,
+.\" but WITHOUT ANY WARRANTY; without even the implied warranty of
+.\" MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.\" GNU General Public License for more details.
+.\" 
+.\" You should have received a copy of the GNU General Public License along
+.\" with this program; if not, write to the Free Software Foundation, Inc.,
+.\" 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+.\" 
+.\" uplib-get-document.1
+.TH UPLIB-GET-DOCUMENT 1 "UpLib 1.1 - http://www.parc.com/UpLib/"
+.SH NAME
+uplib-get-document \- get a document, in some format, from an UpLib personal library
+.SH SYNOPSIS
+\fBuplib-get-document\fR
+[--action=\fIaction\fR]
+[--format=\fIformat\fR]
+[--nopassword]
+[--pickall]
+[--pickone]
+[--repository=\fIrepository-URL\fR]
+[--repository=\fIdirectory\fR]
+[--showall]
+[--verbosity=\fIlevel\fR]
+\fIQUERY\fR
+.SH DESCRIPTION
+.B uplib-get-document
+is a command-line program that fetches a document from an UpLib personal document library
+in one of several formats, and invokes an action on it.  The document to fetch is determined
+by taking the results of a query against the UpLib full-text query facility, as specified in the \fIQUERY\fR argument,
+and selecting the highest-scoring result.  The \fIQUERY\fR may consist of one or more terms; they are joined with
+spaces before sending the query to the UpLib repository for processing.
+.SH OPTIONS
+Some options are also available as parameters in the configuration file \fC$HOME/.uplibrc\fR, or in the default configuration file.  Where applicable, the name of the configuration file parameter is shown after the documentation on the option.  An option given on the command line will override any configuration file parameter.  For more on configuration files, see below.
+.TP
+\fB--action=\fIaction\fR (or \fB-a \fIaction\fR)
+Specifies a program to run on the retrieved document, rather than the default action, which is to copy the result to standard output.  The \fIaction\fR should be the name of a program on the user's PATH, or a full pathname otherwise.  If the action is specified as a single hyphen, '-', the program will copy the pathname of the retrieved document, or in the case of \fIdoc-id\fR, the document ID, to standard output without invoking a separate program.
+.TP
+\fB--format=\fIformat\fR (or \fB-f \fIformat\fR)
+Specifies which format to fetch the document in.  Supported formats are (as of 1.1) 'pdf', 'text', 'images' (a zipped file containing PNG page images), 'html' (the page view used in the Web view of the document), 'icon' (the small document icon used in the Web view of the document), 'uplib' (a directory containing the UpLib folder for the document), 'doc-id' (the repository document ID), or 'metadata'.  The default format is 'pdf'.
+.TP
+\fB--nopassword\fR
+Specifies that the repository has no password.  [\fCassume-no-password\fR (boolean)]
+.TP
+\fB--pickall\fR
+Normally, only one document is opened.  If this option is specified, and there are multiple documents above the "minscore", all of them are opened, instead of asking the user which to open.
+.TP
+\fB--pickone\fR
+If there are multiple documents scoring above "minscore", the program normally asks the user which of them to open.  If this option is used, the program will automatically pick the highest-scoring document and open it.
+.TP
+\fB--repository=\fIrepository-URL\fR
+URL for the repository to pull the document from.  If not specified, the \fCdefault-repository\fR configuration value is used, if present.  The repository can also be specified as a local \fIdirectory\fR; in this case the directory is searched directly instead of going through HTTP.
+.TP
+\fB--showall\fR (or \fB-s\fR)
+When the search is run on the repository, there may be several documents that fall above a minimum threshold of likeliness.  When this happens, the command presents them to the user for selection.  However, sometimes it's interesting to show these even when some of them have a low likelihood score.  This option selects that behavior.
+.TP
+\fB--verbosity=\fIlevel\fR
+Specifies an integer verbosity level to use while processing the document.  By default, this is 1.  Setting it to a higher value will cause more debugging output to be written to stderr.  [\fCverbosity\fR (integer)]
+.SH EXAMPLES
+To fetch the 'July report' from the default repository, and display it with 'xpdf', one might use the following command:
+.sp
+\fC% uplib-get-document -a xpdf July report
+.br
+  1)  Monthly Report for July 2003  (0.600000)
+.br
+  2)  Monthly Report for July 2002  (0.600000)
+.br
+Which to open?  1
+.br
+% \fR
+.sp
+.SH "ENVIRONMENT VARIABLES"
+.TP
+\fCUPLIBRC\fR
+If set, will be used as the location of the user's UpLib configuration file.  Otherwise, the default value of \fC$HOME/.uplibrc\fR is used.
+.TP
+\fCUPLIB_PASSWORD\fR
+If set, no password prompt will be issued, and the value will be sent as the password to the repository.
+.SH "CONFIGURATION FILES"
+Two configuration files are examined for the values of various settings, in the operation of \fCuplib-add-document\fR.  The first is the user's configuration file, typically \fC$HOME/.uplibrc\fR (though see the environment variable \fCUPLIBRC\fR above).  The second is the site configuration file, \fC$UPLIB_HOME/lib/$UPLIB_VERSION/site.config\fR.  Both files contain any number of \fIsections\fR, each of which may contain any number of configuration parameter settings.  Each section has a name, which is enclosed in square brackets, followed by parameter settings.  Normally, only the section called "default" will be examined.
+.PP
+Parameter settings have the form form \fIname = value\fR, where name is the name of an UpLib parameter, and value is a string, integer, or boolean value.  A colon character (:) may be used instead of the equals sign to separate name and value.  Comments may be expressed by starting any line with the characters "rem", or with the character "#", or with the character ";".  Boolean values of True may be expressed with "TRUE", "true", "True", "on", or "1".  Boolean values of False may be expressed with "FALSE", "false", "False", "off", or "0".
+.PP
+The following parameters are understood:
+.TP
+\fBassume-no-password\fR
+Boolean value indicating whether the repository has a password.  The default is to assume that it has a password.
+.TP
+\fBdefault-repository\fR
+Repository URL to use.
+.TP
+\fBget-document-min-score\fR
+A floating-point value indicating the cutoff score over which all matches should be presented.  Default value is 0.5.
+.TP
+\fBget-document-open-action\fR
+The action to invoke on the retrieved file.  The default action is 'cat' (copy to standard output).  See also \fCget-document-open-action-\fIformat\fR.
+.TP
+\fBget-document-open-action-\fIformat\fR
+For each format, a particular action to invoke on the file can be specified.  The \fIformat\fR should be one of the known formats.
+.TP
+\fBget-document-show-all\fR
+A boolean value indicating that all results should be shown.  Default value is 'false'.
+.SH "SEE ALSO"
+\fChttp://parcweb.parc.xerox.com/project/uplib/\fR.
+.SH "BUGS"
+Report bugs to \fCuplib-tech@parc.com\fR.
+.SH "AUTHORS"
+Bill Janssen, <janssen@parc.com>

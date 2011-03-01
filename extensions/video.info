@@ -1,0 +1,6 @@
+after: off
+author: Bill Janssen
+before: off
+description: This extension contains a document parser for video clips, using the pyglet Python library to process the video, and the hachoir Python library to process metadata in the video.
+uplib-min-version: 1.7.6
+version: 1.7.6

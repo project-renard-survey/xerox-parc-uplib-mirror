@@ -1,0 +1,6 @@
+after: on
+author: Bill Janssen
+before: off
+description: Adds a web page cleaner which generates a clean-text UTF-8 version of the Web page, as pagecontents.txt.
+uplib-min-version: 1.7.9
+version: 1.1

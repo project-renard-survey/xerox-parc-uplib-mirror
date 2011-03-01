@@ -1,0 +1,134 @@
+#!@PYTHON@
+# -*- Python -*-
+#
+# This file is part of the "UpLib 1.7.11" release.
+# Copyright (C) 2003-2011  Palo Alto Research Center, Inc.
+# 
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+#
+# arg 1 is the file to convert from, arg 2 is the output file, and arg 3 is the export filter to use
+#
+
+import sys, os, signal, tempfile, traceback
+
+assert sys.version_info >= (2,4,0), 'requires Python 2.4 or better'
+
+from subprocess import Popen, STDOUT, call
+
+os.environ['UPLIBLIB'] = r'@UPLIB_LIB@'
+sys.path.append(r'@UPLIB_CODE@')
+
+# OpenOffice hangs if we don't get things right, so do a lot of checking
+# up front.
+
+KNOWN_CONVERTERS = (
+    'writer_web_pdf_Export',
+    'writer_pdf_Export',
+    'impress_pdf_Export',
+    'calc_pdf_Export',
+    'Impress MS PowerPoint 2007 XML',   # pptx
+    'MS Word 2007 XML',                 # docx
+    'Calc MS Excel 2007 XML',           # xlsx
+    'Rich Text Format',                 # rtf
+    )
+
+doc, pdffile, converter = sys.argv[1:4]
+if not os.path.exists(doc):
+    sys.stderr.write("No such document:  %s\n" % doc)
+    sys.exit(1)
+
+pdfdir = os.path.split(pdffile)[0]
+if not os.path.isdir(pdfdir):
+    sys.stderr.write("No such directory %s for output file %s\n" % (pdfdir, pdffile))
+    sys.exit(1)
+
+if converter not in KNOWN_CONVERTERS:
+    sys.stderr.write("Don't know about OpenOffice filter \"%s\".  Aborting.\n" % converter)
+    sys.exit(1)
+
+from uplib.plibUtil import configurator, get_fqdn, get_machine_id
+
+if hasattr(os, 'uname'):
+    osname = os.uname()[0]
+else:
+    osname = sys.platform
+hostname = get_fqdn()
+machineid = get_machine_id()
+
+sections = (machineid, hostname, osname, "client", "default",)
+
+conf = configurator(sections)
+xvfb_binary = conf.get("xvfb").strip()
+xvfb_flags = conf.get("xvfb-flags")
+soffice_binary = conf.get("soffice")
+
+if soffice_binary:
+    if not os.path.exists(soffice_binary):
+        sys.stderr.write("Specified soffice_binary, '%s', does not exist!" % soffice_binary)
+        sys.exit(1)
+    logfilepath = tempfile.mktemp()
+    logfile = open(logfilepath, "w+")
+    try:
+        try:
+            env = os.environ.copy()
+            # first, start xvfb and hang onto the PID
+            if xvfb_binary:
+                if not os.path.exists(xvfb_binary):
+                    sys.stderr.write("Specified xvfb_binary, '%s', does not exist!" % xvfb_binary)
+                    sys.exit(1)                    
+                if xvfb_flags: 
+                    args = [xvfb_binary, xvfb_flags, ":20"]
+                else:
+                    args = [xvfb_binary, ":20"]
+                xvfb = Popen(args, stdout=logfile, stderr=STDOUT, close_fds=True)
+                env['DISPLAY'] = ":20"
+            try:
+                # then, run soffice to do the conversion
+                args = [soffice_binary, "-headless", "-nologo", "-norestore", "-nofirststartwizard", "-invisible",
+                        'macro:///UpLib.Conversions.ToPDF("%s","%s","%s")' % (doc, pdffile, converter)]
+                # hmmm, how to get /dev/null on Windows?
+                devnull = open("/dev/null", "r")
+                status = call(args, stdout=logfile, stderr=STDOUT, stdin=devnull, close_fds=True, env=env)
+                if status != 0:
+                    raise ValueError("invalid status %s from OpenOffice" % status)
+            finally:
+                # finally, kill the :20 display
+                if xvfb_binary:
+                    try:
+                        os.kill(xvfb.pid, signal.SIGTERM)
+                        xvfb.wait()
+                    except:
+                        sys.stderr.write("Can't kill %s instance on display :20!" % xvfb_binary)
+        except:
+            sys.stderr.write(''.join(traceback.format_exception(*sys.exc_info())))
+            sys.stderr.write("Can't convert %s to PDF with OpenOffice.  Here's the log file:\n" % doc)
+            logfile.seek(0, 0)
+            for line in logfile:
+                sys.stderr.write(line)
+            sys.exit(1)
+        else:
+            sys.exit(0)
+    finally:
+        try:
+            logfile.close()
+        except:
+            pass
+        if os.path.exists(logfilepath):
+            os.unlink(logfilepath)
+        
+else:
+    sys.stderr.write("Either Xvfb or soffice (from OpenOffice) is missing")
+    sys.exit(1)
+

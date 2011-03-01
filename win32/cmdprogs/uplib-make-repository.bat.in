@@ -1,0 +1,2 @@
+@echo off
+start /b /wait "@PYTHON@" "@UPLIB_BIN@\uplib-make-repository.py" %*

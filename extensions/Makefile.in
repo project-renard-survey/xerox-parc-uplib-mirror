@@ -1,0 +1,87 @@
+#
+# This file is part of the "UpLib 1.7.11" release.
+# Copyright (C) 2003-2011  Palo Alto Research Center, Inc.
+# 
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+#
+
+PYTHON = @PYTHON@
+EXTENSIONSDIR = @UPLIB_LIB@/site-extensions
+
+EXTENSIONS =	FetchACMBibTex.py FetchACMBibTex.info \
+		CiteULike.py CiteULike.info \
+		NYTimes.py NYTimes.info \
+		WashPost.py WashPost.info \
+		SynchronizeRepositories.py SynchronizeRepositories.info \
+		UploadDocument.py UploadDocument.info \
+		RSSReader.py RSSReader.info \
+		FilterWebPage.py FilterWebPage.info \
+		CiteSeerX.py CiteSeerX.info \
+		UVFS.py UVFS.info \
+		video.py video.info \
+		ePub.py ePub.info \
+		Person.info \
+		vCardParser.info \
+		iCalendar.info \
+		IMAPServer.info \
+		NltkTagger.info
+
+PERSON =	Person/__init__.py \
+		Person/Person.js
+
+IMAP =		IMAPServer/__init__.py \
+		IMAPServer/abstractclasses.py \
+		IMAPServer/uplibBinding.py \
+		IMAPServer/medusaHandler.py
+
+VCARD =		vCardParser/__init__.py \
+		vCardParser/parser.py \
+		vCardParser/vcardimage.png
+
+ICALENDAR =	iCalendar/__init__.py \
+		iCalendar/parser.py \
+		iCalendar/clockimage.png \
+		iCalendar/windows-timezones.xml
+
+NLTKTAGGER =	NltkTagger/__init__.py \
+		NltkTagger/buildtntbrowntagger
+
+
+trycompile:
+	"@PYTHON_MSYS@" -c "import sys, compileall; sys.exit(0 if compileall.compile_dir('.') else 1)"
+
+all: build trycompile
+
+NltkTagger/TnTBrownTagger.pickle: NltkTagger/buildtntbrowntagger
+	${PYTHON} NltkTagger/buildtntbrowntagger NltkTagger/TnTBrownTagger.pickle
+
+build: NltkTagger/TnTBrownTagger.pickle
+
+install: NltkTagger/TnTBrownTagger.pickle
+	install -m 444 $(EXTENSIONS) "${EXTENSIONSDIR}"
+	install -d -m 755 "${EXTENSIONSDIR}/IMAPServer"
+	install -m 444 $(IMAP) "${EXTENSIONSDIR}/IMAPServer"
+	install -d -m 755 "${EXTENSIONSDIR}/vCardParser"
+	install -m 444 $(VCARD) "${EXTENSIONSDIR}/vCardParser"
+	install -d -m 755 "${EXTENSIONSDIR}/iCalendar"
+	install -m 444 $(ICALENDAR) "${EXTENSIONSDIR}/iCalendar"
+	install -d -m 755 "${EXTENSIONSDIR}/Person"
+	install -m 444 $(PERSON) "${EXTENSIONSDIR}/Person"
+	install -d -m 755 "${EXTENSIONSDIR}/NltkTagger"
+	install -m 444 $(NLTKTAGGER) NltkTagger/TnTBrownTagger.pickle "${EXTENSIONSDIR}/NltkTagger"
+	"${PYTHON}" -c "import compileall; compileall.compile_dir(r'${EXTENSIONSDIR}')"
+
+clean:
+	rm -f NltkTagger/TnTBrownTagger.pickle

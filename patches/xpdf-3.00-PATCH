@@ -1,0 +1,351 @@
+*** xpdf/TextOutputDev.cc	2004/06/18 00:57:35	1.1
+--- xpdf/TextOutputDev.cc	2004/06/25 19:27:43
+***************
+*** 15,20 ****
+--- 15,21 ----
+  #include <stdio.h>
+  #include <stdlib.h>
+  #include <stddef.h>
++ #include <stdarg.h>
+  #include <math.h>
+  #include <ctype.h>
+  #ifdef WIN32
+***************
+*** 234,244 ****
+--- 235,258 ----
+  
+  void TextWord::addChar(GfxState *state, double x, double y,
+  		       double dx, double dy, Unicode u) {
++ 
++   GfxFont *gfxFont;
++ 
+    if (len == size) {
+      size += 16;
+      text = (Unicode *)grealloc(text, size * sizeof(Unicode));
+      edge = (double *)grealloc(edge, (size + 1) * sizeof(double));
+    }
++   gfxFont = font->gfxFont;
++   if (gfxFont != NULL) {
++     yMin = y - gfxFont->getAscent() * fontSize;
++     yMax = y - gfxFont->getDescent() * fontSize;
++   } else {
++     // this means that the PDF file draws text without a current font,
++     // which should never happen
++     yMin = y - 0.95 * fontSize;
++     yMax = y + 0.35 * fontSize;
++   }
+    text[len] = u;
+    switch (rot) {
+    case 0:
+***************
+*** 473,478 ****
+--- 487,527 ----
+    cursorBaseIdx = wordBaseIdx;
+  }
+  
++ static void StreamPrintf(TextOutputFunc func, void *stream, const char *formatSpec, ...)
++ {
++   char buf[2000];
++   va_list ap;
++   va_start (ap, formatSpec);
++   vsprintf(buf, formatSpec, ap);
++   (*func)(stream, buf, strlen(buf));
++   va_end(ap);
++ }
++ 
++ void TextWord::printBox(TextOutputFunc func, void *stream, GBool newline, GBool space_follows) {
++ #define HYPHEN 45
++   if (len > 0) {
++     GBool hyphenated = newline && (text[len-1] == HYPHEN);
++     StreamPrintf(func, stream, "%11f %11f %11f %11f", xMin, yMin, xMax, yMax);
++     StreamPrintf(func, stream, "  %1d %4.1f %1d %1d %1d %1d %1d",
++                  (int) font->gfxFont->getType(), fontSize,
++                  font->gfxFont->isFixedWidth() ? 1 : 0,
++                  font->gfxFont->isSerif() ? 1 : 0, font->gfxFont->isSymbolic() ? 1 : 0,
++                  font->gfxFont->isItalic() ? 1 : 0, font->gfxFont->isBold() ? 1 : 0);
++     StreamPrintf(func, stream, "  %1d %1d %1d %4d ", hyphenated, space_follows, newline, len);
++     for (int i = 0;  i < len;  i++) {
++       StreamPrintf(func, stream, " %3d", text[i]);
++     }
++     StreamPrintf(func, stream, "  \"");
++     for (int i = 0;  i < len;  i++) {
++       if ((text[i] < 128) && (text[i] > 31))
++         StreamPrintf(func, stream, "%c", (char) text[i]);
++       else
++         StreamPrintf(func, stream, "?");                
++     }
++     StreamPrintf(func, stream, "\"\n");
++   }
++ }
++ 
+  //------------------------------------------------------------------------
+  // TextLine
+  //------------------------------------------------------------------------
+***************
+*** 3064,3070 ****
+  }
+  
+  void TextPage::dump(void *outputStream, TextOutputFunc outputFunc,
+! 		    GBool physLayout) {
+    UnicodeMap *uMap;
+    TextFlow *flow;
+    TextBlock *blk;
+--- 3113,3119 ----
+  }
+  
+  void TextPage::dump(void *outputStream, TextOutputFunc outputFunc,
+! 		    GBool physLayout, GBool wordboxes) {
+    UnicodeMap *uMap;
+    TextFlow *flow;
+    TextBlock *blk;
+***************
+*** 3103,3109 ****
+    //~ writing mode (horiz/vert)
+  
+    // output the page in raw (content stream) order
+!   if (rawOrder) {
+  
+      for (word = rawWords; word; word = word->next) {
+        s = new GString();
+--- 3152,3158 ----
+    //~ writing mode (horiz/vert)
+  
+    // output the page in raw (content stream) order
+!   if (rawOrder && !wordboxes) {
+  
+      for (word = rawWords; word; word = word->next) {
+        s = new GString();
+***************
+*** 3121,3128 ****
+        }
+      }
+  
+    // output the page, maintaining the original physical layout
+!   } else if (physLayout) {
+  
+      // collect the line fragments for the page and sort them
+      fragsSize = 256;
+--- 3170,3191 ----
+        }
+      }
+  
++   } else if (rawOrder && wordboxes) {
++     // output the wordboxes for the words on this page
++ 
++     for (word = rawWords; word; word = word->next) {
++       GBool newline = 
++         !(word->next &&
++           (fabs(word->next->base - word->base) <
++            maxIntraLineDelta * word->fontSize));
++       GBool space =
++         (!newline) && 
++         (word->next->xMin > word->xMax + minWordSpacing * word->fontSize);
++       word->printBox(outputFunc, outputStream, newline, space);
++     }
++ 
+    // output the page, maintaining the original physical layout
+!   } else if (physLayout && !wordboxes) {
+  
+      // collect the line fragments for the page and sort them
+      fragsSize = 256;
+***************
+*** 3184,3189 ****
+--- 3247,3275 ----
+  
+      gfree(frags);
+  
++     
++   } else if (wordboxes) {
++     // output the wordboxes for the words on this page
++ 
++     TextWord *word;
++ 
++     for (flow = flows; flow; flow = flow->next) {
++       for (blk = flow->blocks;  blk;  blk = blk->next) {
++         for (line = blk->lines; line; line = line->next) {
++           for (word = line->words;  word;  word = word->next) {
++             GBool newline = 
++               !(word->next &&
++                 (fabs(word->next->base - word->base) <
++                  maxIntraLineDelta * word->fontSize));
++             GBool space =
++               (!newline) && 
++               (word->next->xMin > word->xMax + minWordSpacing * word->fontSize);
++             word->printBox(outputFunc, outputStream, newline, space);
++           }
++         }
++       }
++     }
++   
+    // output the page, "undoing" the layout
+    } else {
+      for (flow = flows; flow; flow = flow->next) {
+***************
+*** 3424,3429 ****
+--- 3510,3549 ----
+    physLayout = physLayoutA;
+    rawOrder = rawOrderA;
+    ok = gTrue;
++   wordboxes = gFalse;
++ 
++   // open file
++   needClose = gFalse;
++   if (fileName) {
++     if (!strcmp(fileName, "-")) {
++       outputStream = stdout;
++ #ifdef WIN32
++       // keep DOS from munging the end-of-line characters
++       setmode(fileno(stdout), O_BINARY);
++ #endif
++     } else if ((outputStream = fopen(fileName, append ? "ab" : "wb"))) {
++       needClose = gTrue;
++     } else {
++       error(-1, "Couldn't open text file '%s'", fileName);
++       ok = gFalse;
++       return;
++     }
++     outputFunc = &outputToFile;
++   } else {
++     outputStream = NULL;
++   }
++ 
++   // set up text object
++   text = new TextPage(rawOrderA);
++ }
++ 
++ TextOutputDev::TextOutputDev(char *fileName, GBool physLayoutA,
++ 			     GBool rawOrderA, GBool append, GBool wordboxesA) {
++   text = NULL;
++   physLayout = physLayoutA;
++   rawOrder = rawOrderA;
++   ok = gTrue;
++   wordboxes = wordboxesA;
+  
+    // open file
+    needClose = gFalse;
+***************
+*** 3459,3464 ****
+--- 3579,3585 ----
+    rawOrder = rawOrderA;
+    text = new TextPage(rawOrderA);
+    ok = gTrue;
++   wordboxes = gFalse;
+  }
+  
+  TextOutputDev::~TextOutputDev() {
+***************
+*** 3481,3487 ****
+    text->endPage();
+    text->coalesce(physLayout);
+    if (outputStream) {
+!     text->dump(outputStream, outputFunc, physLayout);
+    }
+  }
+  
+--- 3602,3608 ----
+    text->endPage();
+    text->coalesce(physLayout);
+    if (outputStream) {
+!     text->dump(outputStream, outputFunc, physLayout, wordboxes);
+    }
+  }
+  
+*** xpdf/TextOutputDev.h	2004/06/18 00:58:48	1.1
+--- xpdf/TextOutputDev.h	2004/06/25 19:26:04
+***************
+*** 74,79 ****
+--- 74,82 ----
+    // Merge <word> onto the end of <this>.
+    void merge(TextWord *word);
+  
++   // Print bounding box and font info to outputStream
++   void printBox(TextOutputFunc func, void *outputStream, GBool newline, GBool space_follows);
++ 
+    // Compares <this> to <word>, returning -1 (<), 0 (=), or +1 (>),
+    // based on a primary-axis comparison, e.g., x ordering if rot=0.
+    int primaryCmp(TextWord *word);
+***************
+*** 403,409 ****
+  
+    // Dump contents of page to a file.
+    void dump(void *outputStream, TextOutputFunc outputFunc,
+! 	    GBool physLayout);
+  
+  #if TEXTOUT_WORD_LIST
+    // Build a flat word list, in content stream order (if
+--- 406,412 ----
+  
+    // Dump contents of page to a file.
+    void dump(void *outputStream, TextOutputFunc outputFunc,
+! 	    GBool physLayout, GBool wordboxes);
+  
+  #if TEXTOUT_WORD_LIST
+    // Build a flat word list, in content stream order (if
+***************
+*** 479,484 ****
+--- 482,496 ----
+    TextOutputDev(TextOutputFunc func, void *stream,
+  		GBool physLayoutA, GBool rawOrderA);
+  
++   // Open a text output file.  If <fileName> is NULL, no file is
++   // written (this is useful, e.g., for searching text).  If
++   // <physLayoutA> is true, the original physical layout of the text
++   // is maintained.  If <rawOrder> is true, the text is kept in
++   // content stream order.  if <bboxes> is true, no text is written,
++   // but word bounding boxes are output.
++   TextOutputDev(char *fileName, GBool physLayoutA,
++ 		GBool rawOrderA, GBool append, GBool bboxes);
++ 
+    // Destructor.
+    virtual ~TextOutputDev();
+  
+***************
+*** 565,570 ****
+--- 577,583 ----
+  				//   dumping text
+    GBool rawOrder;		// keep text in content stream order
+    GBool ok;			// set up ok?
++   GBool wordboxes;              // output bounding-boxes? 
+  };
+  
+  #endif
+*** xpdf/pdftotext.cc	2004/06/18 00:58:33	1.1
+--- xpdf/pdftotext.cc	2004/06/18 01:07:49
+***************
+*** 47,52 ****
+--- 47,53 ----
+  static char cfgFileName[256] = "";
+  static GBool printVersion = gFalse;
+  static GBool printHelp = gFalse;
++ static GBool wordboxes = gFalse;
+  
+  static ArgDesc argDesc[] = {
+    {"-f",       argInt,      &firstPage,     0,
+***************
+*** 57,62 ****
+--- 58,65 ----
+     "maintain original physical layout"},
+    {"-raw",     argFlag,     &rawOrder,      0,
+     "keep strings in content stream order"},
++   {"-wordboxes", argFlag,   &wordboxes,     0,
++    "output word bounding boxes"},
+    {"-htmlmeta", argFlag,   &htmlMeta,       0,
+     "generate a simple HTML file, including the meta information"},
+    {"-enc",     argString,   textEncName,    sizeof(textEncName),
+***************
+*** 232,238 ****
+  
+    // write text file
+    textOut = new TextOutputDev(textFileName->getCString(),
+! 			      physLayout, rawOrder, htmlMeta);
+    if (textOut->isOk()) {
+      doc->displayPages(textOut, firstPage, lastPage, 72, 72, 0, gTrue, gFalse);
+    } else {
+--- 235,241 ----
+  
+    // write text file
+    textOut = new TextOutputDev(textFileName->getCString(),
+! 			      physLayout, rawOrder, htmlMeta, wordboxes);
+    if (textOut->isOk()) {
+      doc->displayPages(textOut, firstPage, lastPage, 72, 72, 0, gTrue, gFalse);
+    } else {

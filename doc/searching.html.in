@@ -1,0 +1,82 @@
+<head><title>UpLib Search Help</title>
+<!--
+   This file is part of the "UpLib 1.7.11" release.
+   Copyright (C) 2003-2011  Palo Alto Research Center, Inc.
+   
+   This program is free software; you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation; either version 2 of the License, or
+   (at your option) any later version.
+   
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+   
+   You should have received a copy of the GNU General Public License along
+   with this program; if not, write to the Free Software Foundation, Inc.,
+   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+-->
+</head>
+<body bgcolor="#e0f0f8">
+<table bgcolor="#c0d8e8" width=100%><tr>
+<td><table width=100%><tr>
+<td width=30% align=left><h2>UpLib Search Help</h2></td>
+<td width=10% align=center><a href="/" border=0><img src="/html/images/icon16.png" border=0></a></td>
+<td width=40% align=center><small><a href="searching.html">Searching</a> &middot; <a href="collections.html">Collections</a> &middot; <a href="extensions.html">Extensions</a> &middot; <a href="FAQ.html">FAQ</a></small></td>
+<td width=20% align=right><font size="-1" color="#ffffff">UpLib @PACKAGE_VERSION@</font>
+<font size="-2" color="#e0f0f8">&nbsp;&middot;&nbsp;PARC / ISL</font></td></tr></table></td></tr>
+</table>
+<hr>
+<P>UpLib search is based on the <A HREF="http://jakarta.apache.org/lucene/docs/index.html">Lucene full-text search engine</A> from the <A HREF="http://www.apache.org/">Apache</A> project.  When you run a search, it selects the set of documents matching that search, and shows them to you.
+<P>A simple way to search is to type in a word or two, then hit return.  The search engine will look for documents that have all of those words in any of their fields, and return them, ranked according to <a href="http://www.supermind.org/blog/378/lucene-scoring-for-dummies">an arcane scoring system</a> which tries to put the documents best satisfying the search at the beginning.  The search is usually case-independent (but see the note on <a href="#keywords">"keywords"</a>).
+<P>Note that the words you specify are implicitly AND'ed; that is, only documents containing all of the words (in any of the fields that are searched) will match.  You can explicitly write the word "OR" between them to find documents that contain any of the words.
+<P><B>Phrase search</B><BR>
+You can search on multi-word phrases just by enclosing the phrase in double-quote marks (<B>"</B>).
+<P><B>Field-specific search</B><BR> The search query is applied both
+to the contents of the document and a subset of the metadata of the
+document.  By default, only the "title", "authors", "comment",
+"abstract", and "keyword" metadata values are searched.  However, the
+properties "title", "authors", "source", "date", "comment",
+"abstract", "citation", "categories", and "keywords" are all indexed
+(by default; others can be specified in the user's configuration
+file).  By using term-specific queries, you can search over all the
+indexed fields, rather than just the default subset.  For example, if
+you wanted to find all papers about ebooks written by Joe Smith, you might use
+the query &lsquo;<tt>ebooks AND authors:"Joe Smith"</tt>&rsquo;.
+<P><B>Date queries</B><BR>
+In addition, the "date" field is
+transformed into a string of the form "YYYYMMDD", so that it can be
+used with <a href="http://lucene.apache.org/java/2_9_1/queryparsersyntax.html#Range%20Searches">Lucene range queries</a>.  For instance, to search for all
+papers in the range 1/1/1970 - 1/1/1990, you could use either the query
+&lsquo;<tt>date:[19700101 TO 19900101]</tt>&rsquo; or the query &lsquo;<tt>date:[1/1/70 TO 1/1/90]</tt>&rsquo;.
+You can also use the special date queries &lsquo;<tt>date:today</tt>&rsquo;, &lsquo;<tt>date:yesterday</tt>&rsquo;, &lsquo;<tt>date:pastweek</tt>&rsquo;, &lsquo;<tt>date:pastmonth</tt>&rsquo;, and &lsquo;<tt>date:pastyear</tt>&rsquo; to search those particular time spans.
+There's also an automatically added
+similar field, "uplibdate", with the same syntax, which stores the date the
+document was added to the repository, and can be searched over with
+the same range syntax.
+<P><B>The "categories" and "keywords" fields.</B><BR>
+Two fields, "categories" and "keywords", are treated specially by the UpLib query
+system.  Normally, search terms are broken up into individual words.  However,
+for "categories" and "keywords", this doesn't happen.  This means that if you have
+a category called "digital libraries", searching on "libraries" or "digital" won't
+match.  It also means that if your category name contains any non-alphanumeric
+characters, you must put the search term in quotes, as in &lsquo;<tt>categories:"mail-archive"</tt>&rsquo;.
+You also can't do approximate searches over "categories" or "keywords".
+<A NAME="keywords"><P>In addition, while most searches are case-independent, the "keywords" field is set to be case
+dependent, so that &lsquo;<tt>keywords:ICE</tt>&rsquo; and &lsquo;<tt>keywords:ice</tt>&rsquo; and &lsquo;<tt>keywords:Ice</tt>&rsquo; are all different
+searches.</A>
+<P><B>"Must Have" and "Can't Have" search</B><BR>
+You can specify that a document must have a particular word by prefixing the word with a plus sign (<B>+</B>).  Similarly, prefixing the word with a minus sign (<B>-</B>) will specify that the document can't have this word.  For example, if you want to find all documents about ebooks, but not about the Kindle, you might search with &lsquo;<tt>+title:ebook~ AND -title:Kindle</tt>&rsquo;.
+<P><B>Approximate search</B><BR>
+If you'd like to find words which may be mispelled, or search for any words <i>like</i> another word, you can specify that the search should be approximate by putting a tilde character (<B>~</B>) at the end of the word.  This is also handy for searching on words that may be plurals; &lsquo;<tt>book~</tt>&rsquo; will search for both "book" and "books" and "ebook".
+<P><B>"Words close together" search</B><BR>
+If you'd like to search for two words close to each other, you can do that by putting the two words in double-quotes, as with a phrase search, but then ending the phrase with a tilde followed by a number, as in &lsquo;<tt>"good book"~4</tt>&rsquo; which would find "good" and "book" within four words of each other, so that it would find "good children's book" or "good but tough technical book".
+<P><B>ANDs and ORs of search elements</B><BR>
+You can combine two or more search primitives with the keywords AND and OR (they must be in all caps), and use parentheses to indicate groupings.  By default, search primitives are AND'ed together.
+<P><B>Defining search abbreviations</B><BR>
+If there are search components you use frequently, you can define abbreviations for them in your <tt>~/.uplibrc</tt> file, using the "search-abbreviations" configuration field.  For instance, you can abbreviate cumbersome search terms like &lsquo;<tt>apparent-mime-type:application/vnd.ms-powerpoint</tt>&rsquo; to something like &lsquo;<tt>$ppt</tt>&rsquo;.  See the UpLib User Manual for more information on this.
+<P><B>More information</B><BR>
+For more information on forming queries, see
+the <A HREF="http://jakarta.apache.org/lucene/docs/queryparsersyntax.html">Lucene Query Parser documentation</A> at
+the Apache web site.

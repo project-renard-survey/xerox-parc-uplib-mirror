@@ -1,0 +1,78 @@
+--- auth_handler.py	2002-11-25 18:24:52.000000000 -0800
++++ auth_handler.py	2010-03-08 11:05:02.000000000 -0800
+@@ -10,7 +10,7 @@
+ # support for 'basic' authenticaion.
+ 
+ import base64
+-import md5
++import hashlib
+ import re
+ import string
+ import time
+@@ -97,7 +97,7 @@
+ 
+     def apply_hash (self, s):
+         "Apply MD5 to a string <s>, then wrap it in base64 encoding."
+-        m = md5.new()
++        m = hashlib.md5()
+         m.update (s)
+         d = m.digest()
+         # base64.encodestring tacks on an extra linefeed.
+diff -r -u monitor.py monitor.py
+--- monitor.py	2002-03-23 07:08:06.000000000 -0800
++++ monitor.py	2010-03-08 11:05:23.000000000 -0800
+@@ -7,7 +7,7 @@
+ 
+ RCS_ID = '$Id: medusa-0.5.4-PATCH,v 1.1 2010/03/08 19:15:43 janssen Exp $'
+ 
+-import md5
++import hashlib
+ import socket
+ import string
+ import sys
+@@ -191,7 +191,7 @@
+                 )
+ 
+ def hex_digest (s):
+-    m = md5.md5()
++    m = hashlib.md5()
+     m.update (s)
+     return string.joinfields (
+             map (lambda x: hex (ord (x))[2:], map (None, m.digest())),
+diff -r -u monitor_client.py monitor_client.py
+--- monitor_client.py	2002-03-20 09:37:48.000000000 -0800
++++ monitor_client.py	2010-03-08 11:05:49.000000000 -0800
+@@ -9,7 +9,7 @@
+ import sys
+ import os
+ 
+-import md5
++import hashlib
+ 
+ class stdin_channel (asyncore.file_dispatcher):
+     def handle_read (self):
+@@ -82,7 +82,7 @@
+             return data
+ 
+ def hex_digest (s):
+-    m = md5.md5()
++    m = hashlib.md5()
+     m.update (s)
+     return string.join (
+             map (lambda x: hex (ord (x))[2:], map (None, m.digest())),
+diff -r -u monitor_client_win32.py monitor_client_win32.py
+--- monitor_client_win32.py	2002-03-20 06:52:49.000000000 -0800
++++ monitor_client_win32.py	2010-03-08 11:06:04.000000000 -0800
+@@ -9,10 +9,10 @@
+ import string
+ import sys
+ import thread
+-import md5
++import hashlib
+ 
+ def hex_digest (s):
+-    m = md5.md5()
++    m = hashlib.md5()
+     m.update (s)
+     return string.join (
+             map (lambda x: hex (ord (x))[2:], map (None, m.digest())),

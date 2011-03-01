@@ -1,0 +1,725 @@
+#
+# This file is part of the "UpLib 1.7.11" release.
+# Copyright (C) 2003-2011  Palo Alto Research Center, Inc.
+# 
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+#
+
+OS_TARGET = @OS_TARGET@
+JPEN_JAR = @JPENJAR@
+JAVA_HAS_COOKIE_HANDLING = @JAVA_HAS_COOKIE_HANDLING@
+LUCENE_USER_SUPPLIED = @LUCENE_USER_SUPPLIED@
+CODEDIR = @UPLIB_CODE@
+LIBDIR = @UPLIB_LIB@
+JODCONVERTER = @JODCONVERTER@
+SIMPLE = @SIMPLE@
+UNZIP = @UNZIP@
+
+ifeq ($(OS_TARGET),win32)
+
+	JAVA = "@JAVA@"
+	JAVAC = "@JAVAC@"
+	JAR = "@JAR@"
+
+else
+
+	JAVA = @JAVA@
+	JAVAC = @JAVAC@
+	JAR = @JAR@
+
+endif	
+
+LUCENE = @LUCENEBUILD_MSYS@
+
+ICLASSFILES =	com/parc/uplib/indexing/ExtractIndexingInfo.class \
+		com/parc/uplib/indexing/ExtractIndexingInfo$$DocumentIterator.class \
+		com/parc/uplib/indexing/ExtractIndexingInfo$$ContentsIterator.class \
+		com/parc/uplib/util/Configurator.class \
+		com/parc/uplib/util/Configurator$$Parse822.class \
+		com/parc/uplib/indexing/LuceneIndexing.class \
+		com/parc/uplib/indexing/UpLibQueryParser.class \
+		com/parc/uplib/indexing/UpLibPageQueryParser.class \
+		com/parc/uplib/indexing/HeaderField.class \
+		com/parc/uplib/util/Base64.class
+
+DCLASSFILES =	com/parc/uplib/portal/Portal.class \
+		com/parc/uplib/portal/Portal$$AnimationThread.class \
+		com/parc/uplib/portal/Portal$$DocumentUploaded.class \
+		com/parc/uplib/portal/Portal$$StickyPropertySet.class \
+		com/parc/uplib/portal/Portal$$SearchPerformed.class \
+		com/parc/uplib/portal/Portal$$SubmissionParameterPopup.class \
+		com/parc/uplib/portal/Portal$$SnippetSubmissionPopup.class \
+		com/parc/uplib/portal/Portal$$GetDocumentPopup.class \
+		com/parc/uplib/portal/Portal$$SearchThread.class \
+		com/parc/uplib/portal/Portal$$UploadThread.class \
+		com/parc/uplib/portal/Portal$$DeletableFileUploadThread.class \
+		com/parc/uplib/portal/Portal$$UploadFilenameFilter.class \
+		com/parc/uplib/portal/Portal$$SnippetUploadThread.class \
+		com/parc/uplib/portal/Portal$$PortalTransferHandler.class \
+		com/parc/uplib/portal/Portal$$GUILoader.class \
+		com/parc/uplib/portal/DesktopPortal.class \
+		com/parc/uplib/portal/DesktopPortal$$GUICreator.class \
+		com/parc/uplib/portal/DesktopPortal$$Shower.class \
+		com/parc/uplib/portal/DesktopPortal$$CheckOnScreen.class \
+		com/parc/uplib/portal/DesktopPortal$$ShutdownFinalizer.class \
+		com/parc/uplib/util/BrowserLauncher.class \
+		com/parc/uplib/util/BaseApp.class \
+		com/parc/uplib/util/WorkPopup.class \
+		com/parc/uplib/util/WorkPopup$$CloseHandler.class \
+		com/parc/uplib/util/WorkThread.class \
+		com/parc/uplib/util/WorkThread$$DialogCounter.class \
+		com/parc/uplib/util/WorkThread$$DialogError.class \
+		com/parc/uplib/util/WorkThread$$SubProc.class \
+		com/parc/uplib/util/ErrorDialog.class \
+		com/parc/uplib/util/MetadataFile.class \
+		com/parc/uplib/util/Base64.class \
+		com/parc/uplib/util/LogStackTrace.class \
+		com/parc/uplib/util/Configurator.class \
+		com/parc/uplib/util/Configurator$$Parse822.class \
+		com/parc/uplib/util/FeedbackApp.class \
+		com/parc/uplib/util/EmacsKeymap.class \
+		com/parc/uplib/util/EmacsKeymap$$MultiAction.class \
+		com/parc/uplib/util/EmacsKeymap$$MultiPaste.class \
+		com/parc/uplib/util/EmacsKeymap$$SetMark.class \
+		com/parc/uplib/util/EmacsKeymap$$WriteAction.class
+
+
+PCLASSFILES =	com/parc/uplib/util/Configurator.class \
+		com/parc/uplib/util/Configurator$$Parse822.class \
+		com/parc/uplib/util/EmacsKeymap$$MultiAction.class \
+		com/parc/uplib/util/EmacsKeymap$$MultiPaste.class \
+		com/parc/uplib/util/EmacsKeymap$$SetMark.class \
+		com/parc/uplib/util/EmacsKeymap$$WriteAction.class \
+		com/parc/uplib/util/EmacsKeymap.class \
+		com/parc/uplib/util/Base64.class \
+		com/parc/uplib/util/DataURL.class \
+		com/parc/uplib/util/Rubberband.class \
+		com/parc/uplib/readup/widget/SwingWorker.class \
+		com/parc/uplib/readup/widget/SwingWorker$$1.class \
+		com/parc/uplib/readup/widget/SwingWorker$$2.class \
+		com/parc/uplib/readup/widget/SwingWorker$$ThreadVar.class \
+		com/parc/uplib/readup/applet/UpLibPageview.class \
+		com/parc/uplib/readup/applet/UpLibPageview$$1.class \
+		com/parc/uplib/readup/applet/UpLibPageview$$2.class \
+		com/parc/uplib/readup/applet/UpLibPageview$$PageOpener.class \
+		com/parc/uplib/readup/uplibbinding/LocateHandler.class \
+		com/parc/uplib/readup/uplibbinding/UpLibScribbleHandler.class \
+		com/parc/uplib/readup/uplibbinding/UpLibActivityLogger.class \
+		com/parc/uplib/readup/uplibbinding/UpLibActivityLogger$$1.class \
+		com/parc/uplib/readup/uplibbinding/UpLibHotSpot.class \
+		com/parc/uplib/readup/uplibbinding/UpLibHotSpot$$Iconic.class \
+		com/parc/uplib/readup/uplibbinding/UpLibHotSpot$$Factory.class \
+		com/parc/uplib/readup/uplibbinding/UpLibHotspotHandler.class \
+		com/parc/uplib/readup/uplibbinding/UpLibPageImageLoader.class \
+		com/parc/uplib/readup/uplibbinding/RBTree.class \
+		com/parc/uplib/readup/uplibbinding/RBTree$$RBNode.class \
+		com/parc/uplib/readup/uplibbinding/IntervalTree.class \
+		com/parc/uplib/readup/uplibbinding/IntervalTree$$IntervalNode.class \
+		com/parc/uplib/readup/uplibbinding/IntervalTree$$Interval.class \
+		com/parc/uplib/readup/uplibbinding/IntervalTree$$IntervalComparator.class \
+		com/parc/uplib/readup/uplibbinding/UpLibNoteHandler.class \
+		com/parc/uplib/readup/uplibbinding/UpLibBufferEmptier.class \
+		com/parc/uplib/readup/uplibbinding/UpLibPageTextLoader.class \
+		com/parc/uplib/readup/uplibbinding/UpLibPageTextLoader$$UpLibPageText.class \
+		com/parc/uplib/readup/uplibbinding/UpLibPageTextLoader$$UpLibPageText$$UpLibWordBox.class \
+		com/parc/uplib/readup/uplibbinding/UpLibPageTextLoader$$UpLibPageText$$AlphabeticalComparator.class \
+		com/parc/uplib/readup/uplibbinding/UpLibPageTextLoader$$UpLibPageText$$TextPositionComparator.class \
+		com/parc/uplib/readup/uplibbinding/MXCIFTree.class \
+		com/parc/uplib/readup/uplibbinding/MXCIFTree$$CNode.class \
+		com/parc/uplib/readup/uplibbinding/MXCIFTree$$BNode.class \
+		com/parc/uplib/readup/widget/Annotation.class \
+		com/parc/uplib/readup/widget/Annotation$$Type.class \
+		com/parc/uplib/readup/widget/Annotation$$Timestamp.class \
+		com/parc/uplib/readup/widget/AnnotationStreamHandler.class \
+		com/parc/uplib/readup/widget/AnnotationStreamHandler$$Listener.class \
+		com/parc/uplib/readup/widget/Scribble.class \
+		com/parc/uplib/readup/widget/Scribble$$ScribblePoint.class \
+		com/parc/uplib/readup/widget/DocViewer.class \
+		com/parc/uplib/readup/widget/DocViewerCallback.class \
+		com/parc/uplib/readup/widget/Activity.class \
+		com/parc/uplib/readup/widget/Clipboard.class \
+		com/parc/uplib/readup/widget/HotSpot.class \
+		com/parc/uplib/readup/widget/HotSpot$$Factory.class \
+		com/parc/uplib/readup/widget/HotSpot$$Icon.class \
+		com/parc/uplib/readup/widget/HotSpot$$Resolver.class \
+		com/parc/uplib/readup/widget/HotSpot$$RectResolver.class \
+		com/parc/uplib/readup/widget/HotSpot$$SpanResolver.class \
+		com/parc/uplib/readup/widget/ImageHolder.class \
+		com/parc/uplib/readup/widget/CachingLoader.class \
+		com/parc/uplib/readup/widget/ResourceLoader.class \
+		com/parc/uplib/readup/widget/ResourceLoader$$ResourceNotFound.class \
+		com/parc/uplib/readup/widget/ResourceLoader$$TemporaryFailure.class \
+		com/parc/uplib/readup/widget/ResourceLoader$$PrivilegeViolation.class \
+		com/parc/uplib/readup/widget/ResourceLoader$$CommunicationFailure.class \
+		com/parc/uplib/readup/widget/ResourceLoader$$ResourceTooLarge.class \
+		com/parc/uplib/readup/widget/SoftReferenceCache.class \
+		com/parc/uplib/readup/widget/SoftReferenceCache$$StrongRefs.class \
+		com/parc/uplib/readup/widget/SoftReferenceCache$$FinalLoadChecker.class \
+		com/parc/uplib/readup/widget/SoftReferenceCache$$ResourceID.class \
+		com/parc/uplib/readup/widget/SoftReferenceCache$$FetchThread.class \
+		com/parc/uplib/readup/widget/SoftReferenceCache$$FinalLoadChecker.class \
+		com/parc/uplib/readup/widget/PageText.class \
+		com/parc/uplib/readup/widget/PageText$$WordBox.class \
+		com/parc/uplib/readup/widget/PageTextLoader.class \
+		com/parc/uplib/readup/widget/PageImageLoaderCallback.class \
+		com/parc/uplib/readup/widget/NoteFrame.class \
+		com/parc/uplib/readup/widget/DocViewer$$1.class \
+		com/parc/uplib/readup/widget/DocViewer$$RomanNumerals.class \
+		com/parc/uplib/readup/widget/DocViewer$$LinkDescrDialog.class \
+		com/parc/uplib/readup/widget/DocViewer$$Notesheets.class \
+		com/parc/uplib/readup/widget/DocViewer$$FormatBlankNumbers.class \
+		com/parc/uplib/readup/widget/DocViewer$$FormatRomanNumbers.class \
+		com/parc/uplib/readup/widget/DocViewer$$FormatDecimalNumbers.class \
+		com/parc/uplib/readup/widget/DocViewer$$PageTextSetter.class \
+		com/parc/uplib/readup/widget/DocViewer$$NoteFramesSetter.class \
+		com/parc/uplib/readup/widget/DocViewer$$PageImageSetter.class \
+		com/parc/uplib/readup/widget/DocViewer$$DocThumbnails.class \
+		com/parc/uplib/readup/widget/DocViewer$$ScribbleSurface.class \
+		com/parc/uplib/readup/widget/DocViewer$$DVTransferHandler.class \
+		com/parc/uplib/readup/widget/DocViewer$$Pageview.class \
+		com/parc/uplib/readup/widget/DocViewer$$Pageview$$Note.class \
+		com/parc/uplib/readup/widget/DocViewer$$Pageview$$Note$$ContentUpdater.class \
+		com/parc/uplib/readup/widget/DocViewer$$SearchState.class \
+		com/parc/uplib/readup/widget/DocViewer$$ADHState.class \
+		com/parc/uplib/readup/widget/DocViewer$$ADHState$$UnPauser.class \
+		com/parc/uplib/readup/widget/DocViewer$$SelectionState.class \
+		com/parc/uplib/readup/widget/DocViewer$$AnnotationTimeControl.class \
+		com/parc/uplib/readup/widget/DocViewer$$Bookmark.class \
+		com/parc/uplib/readup/widget/DocViewer$$Inkpots.class \
+		com/parc/uplib/readup/widget/DocViewer$$InkpotsListener.class \
+		com/parc/uplib/readup/widget/DocViewer$$Inkpots$$Pot.class \
+		com/parc/uplib/readup/widget/DocViewer$$PageControl.class \
+		com/parc/uplib/readup/widget/DocViewer$$PageEdge.class \
+		com/parc/uplib/readup/widget/DocViewer$$ZoomedViewer.class \
+		com/parc/uplib/readup/widget/PieMenu$$BlinkActionListener.class \
+		com/parc/uplib/readup/widget/PieMenu$$BlinkTimer.class \
+		com/parc/uplib/readup/widget/PieMenu$$CancelPieMenuThread.class \
+		com/parc/uplib/readup/widget/PieMenu$$DelayThread.class \
+		com/parc/uplib/readup/widget/PieMenu$$ItemListener.class \
+		com/parc/uplib/readup/widget/PieMenu$$JMenuItemWrapper.class \
+		com/parc/uplib/readup/widget/PieMenu$$PieMenuHandler.class \
+		com/parc/uplib/readup/widget/PieMenu$$PieMenuListener.class \
+		com/parc/uplib/readup/widget/PieMenu$$PolarCoordinate.class \
+		com/parc/uplib/readup/widget/PieMenu$$PopupMenuCallback.class \
+		com/parc/uplib/readup/widget/PieMenu$$ShowSubmenuThread.class \
+		com/parc/uplib/readup/widget/PieMenu$$ShowThread.class \
+		com/parc/uplib/readup/widget/DraggedSelection.class \
+		com/parc/uplib/readup/widget/DraggedHotspot.class \
+		com/parc/uplib/readup/widget/WrappedSystemClipboard.class \
+		com/parc/uplib/readup/widget/PieMenu.class
+
+SHOWDOCFILES =	com/parc/uplib/readup/application/Node.class \
+		com/parc/uplib/readup/application/Organizer.class \
+		com/parc/uplib/readup/application/Cluster.class \
+		com/parc/uplib/readup/application/NodeListener.class \
+		com/parc/uplib/readup/application/DocGroup.class \
+		com/parc/uplib/readup/application/Workspace.class \
+		com/parc/uplib/readup/application/Workspace$$DocumentOpener.class \
+		com/parc/uplib/readup/application/Workspace$$DocGroupTreeNode.class \
+		com/parc/uplib/readup/application/Workspace$$AccessPanel.class \
+		com/parc/uplib/readup/application/Workspace$$AccessPanel$$CategoryTreeWatcher.class \
+		com/parc/uplib/readup/application/Workspace$$WorkspaceTransferHandler.class \
+		com/parc/uplib/readup/application/ClusterTransferHandler.class \
+		com/parc/uplib/readup/application/ClusterList.class \
+		com/parc/uplib/readup/application/ClusterFrame.class \
+		com/parc/uplib/readup/application/UpLibShowDoc.class \
+		com/parc/uplib/readup/application/UpLibShowDoc$$URLOpener.class \
+		com/parc/uplib/readup/application/UpLibShowDoc$$ActivityTracker.class \
+		com/parc/uplib/readup/application/UpLibShowDoc$$OurMenuItem.class \
+		com/parc/uplib/readup/application/UpLibShowDoc$$WindowItem.class \
+		com/parc/uplib/readup/application/UpLibShowDoc$$ShutdownHook.class \
+		com/parc/uplib/readup/application/UpLibShowDoc$$RepositoryOpener.class \
+		com/parc/uplib/readup/application/UpLibShowDoc$$UserCancelled.class \
+		com/parc/uplib/readup/application/UpLibShowDoc$$SetURLHandler.class \
+		com/parc/uplib/readup/application/UpLibShowDoc$$JNLPClipboard.class \
+		com/parc/uplib/readup/application/CardCatalog.class \
+		com/parc/uplib/readup/application/FileBoxHolder.class \
+		com/parc/uplib/util/FileBox.class \
+		com/parc/uplib/util/FileBox$$CardRun.class \
+		com/parc/uplib/util/FileBox$$StaticCardRun.class \
+		com/parc/uplib/util/FileBox$$DocumentCardRun.class \
+		com/parc/uplib/util/FileBox$$CardRunViewer.class \
+		com/parc/uplib/util/FileBox$$DividerSelected.class \
+		com/parc/uplib/readup/application/GetQueryDialog.class \
+		com/parc/uplib/readup/application/MessagePane.class \
+		com/parc/uplib/readup/application/Closer.class \
+		com/parc/uplib/readup/application/Trail.class \
+		com/parc/uplib/readup/application/Trail$$TrailView.class \
+		com/parc/uplib/readup/application/Trail$$Item.class \
+		com/parc/uplib/readup/application/Trail$$PageTurn.class \
+		com/parc/uplib/readup/application/Trail$$OpenDocument.class \
+		com/parc/uplib/readup/application/Trail$$FollowLink.class \
+		com/parc/uplib/util/CertificateHandler.class \
+		com/parc/uplib/util/CertificateHandler$$HostnameIgnorer.class \
+		com/parc/uplib/util/ClientKeyManager.class \
+		com/parc/uplib/util/ClientKeyManager$$CertKeyPair.class \
+		com/parc/uplib/util/PARCAwareCertHostnameVerifier.class \
+		com/parc/uplib/util/FeedbackApp.class \
+		com/parc/uplib/util/Configurator.class \
+		com/parc/uplib/util/Configurator$$Parse822.class \
+		com/parc/uplib/util/BrowserLauncher.class \
+		com/parc/uplib/util/MetadataFile.class \
+		com/parc/uplib/readup/uplibbinding/Repository.class \
+		com/parc/uplib/readup/uplibbinding/Repository$$IndexInputStream.class \
+		com/parc/uplib/readup/uplibbinding/Repository$$Document.class \
+		com/parc/uplib/readup/uplibbinding/Repository$$DocumentGroup.class \
+		com/parc/uplib/readup/uplibbinding/Repository$$DocumentIterator.class \
+		com/parc/uplib/readup/uplibbinding/Repository$$Category.class \
+		com/parc/uplib/readup/uplibbinding/Repository$$Author.class \
+		com/parc/uplib/readup/uplibbinding/Repository$$Collection.class \
+		com/parc/uplib/readup/uplibbinding/Repository$$QueryCollection.class \
+		com/parc/uplib/readup/uplibbinding/Repository$$PrestoCollection.class \
+		com/parc/uplib/readup/uplibbinding/Repository$$Search.class \
+		com/parc/uplib/readup/uplibbinding/Repository$$Action.class \
+		com/parc/uplib/readup/uplibbinding/Repository$$Search$$Hit.class \
+		com/parc/uplib/readup/widget/ResizableDocViewer.class \
+	        com/parc/uplib/readup/widget/ResizableDocViewer$$1.class \
+		com/parc/uplib/readup/widget/ScaledJComponent$$1.class \
+		com/parc/uplib/readup/widget/ScaledJComponent$$2.class \
+		com/parc/uplib/readup/widget/ScaledJComponent$$ContentPane.class \
+		com/parc/uplib/readup/widget/ScaledJComponent$$DefaultEventRetargeter.class \
+		com/parc/uplib/readup/widget/ScaledJComponent$$LockingRepaintManager.class \
+		com/parc/uplib/readup/widget/ScaledJComponent$$LockingRepaintManager$$ContentPaneRepainter.class \
+		com/parc/uplib/readup/widget/ScaledJComponent$$Retargeter.class \
+		com/parc/uplib/readup/widget/ScaledJComponent$$ScaledMouseHandler.class \
+		com/parc/uplib/readup/widget/ScaledJComponent$$ZeroPane.class \
+		com/parc/uplib/readup/widget/ScaledJComponent.class \
+		$(PCLASSFILES)
+
+MONFILES =	com/parc/uplib/portal/RepositoryMonitor.class \
+		com/parc/uplib/portal/RepositoryMonitor$$MonitorThread.class \
+		com/parc/uplib/portal/RepositoryMonitor$$PendingFolderFilenameFilter.class \
+		com/parc/uplib/portal/RepositoryMonitor$$StateChanged.class \
+		com/parc/uplib/portal/RepositoryMonitor$$DocsCountChanged.class \
+		com/parc/uplib/portal/RepositoryMonitor$$LogFileFilter.class \
+		com/parc/uplib/portal/RepositoryMonitor$$GUICreator.class \
+		com/parc/uplib/util/CertificateHandler.class \
+		com/parc/uplib/util/CertificateHandler$$HostnameIgnorer.class \
+		com/parc/uplib/util/ClientKeyManager.class \
+		com/parc/uplib/util/ClientKeyManager$$CertKeyPair.class \
+		com/parc/uplib/util/PARCAwareCertHostnameVerifier.class \
+		com/parc/uplib/util/FeedbackApp.class \
+		com/parc/uplib/util/BaseApp.class \
+		com/parc/uplib/util/BrowserLauncher.class \
+		com/parc/uplib/util/LogStackTrace.class \
+		com/parc/uplib/util/MetadataFile.class \
+		com/parc/uplib/util/Base64.class \
+		com/parc/uplib/util/DocIDFilenameFilter.class \
+		com/parc/uplib/util/Configurator.class \
+		com/parc/uplib/util/Configurator$$Parse822.class \
+		com/parc/uplib/util/WorkPopup.class \
+		com/parc/uplib/util/WorkPopup$$CloseHandler.class \
+		com/parc/uplib/util/WorkThread.class \
+		com/parc/uplib/util/WorkThread$$DialogCounter.class \
+		com/parc/uplib/util/WorkThread$$DialogError.class \
+		com/parc/uplib/util/WorkThread$$SubProc.class \
+		com/parc/uplib/util/ErrorDialog.class \
+		com/parc/uplib/util/EmacsKeymap.class \
+		com/parc/uplib/util/EmacsKeymap$$MultiAction.class \
+		com/parc/uplib/util/EmacsKeymap$$MultiPaste.class \
+		com/parc/uplib/util/EmacsKeymap$$SetMark.class \
+		com/parc/uplib/util/EmacsKeymap$$WriteAction.class \
+		com/parc/uplib/portal/Janitor.class \
+		com/parc/uplib/portal/Janitor$$GUICreator.class \
+		com/parc/uplib/portal/Janitor$$MakeRepositoryDialog.class \
+		com/parc/uplib/portal/Janitor$$MakeRepositoryThread.class \
+		com/parc/uplib/portal/Janitor$$RepositoryDisplay.class \
+		com/parc/uplib/portal/Janitor$$RepositoryDisplay$$DisplayOpened.class \
+		com/parc/uplib/portal/Janitor$$RepositoryDisplay$$DisplayClosed.class
+
+EBOOKFILES =	com/parc/uplib/readup/ebook/EBook.class \
+		com/parc/uplib/readup/ebook/EBook$$URLOpener.class \
+		com/parc/uplib/readup/ebook/PageImageLoader.class \
+		com/parc/uplib/readup/ebook/Hotspot.class \
+		com/parc/uplib/readup/ebook/PageTextLoader.class \
+		com/parc/uplib/readup/ebook/PageTextLoader$$UpLibPageText$$AlphabeticalComparator.class \
+		com/parc/uplib/readup/ebook/PageTextLoader$$UpLibPageText$$TextPositionComparator.class \
+		com/parc/uplib/readup/ebook/PageTextLoader$$UpLibPageText$$UpLibWordBox.class \
+		com/parc/uplib/readup/ebook/PageTextLoader$$UpLibPageText.class \
+		com/parc/uplib/readup/widget/Activity.class \
+		com/parc/uplib/readup/widget/Annotation$$Timestamp.class \
+		com/parc/uplib/readup/widget/Annotation$$Type.class \
+		com/parc/uplib/readup/widget/Annotation.class \
+		com/parc/uplib/readup/widget/AnnotationStreamHandler$$Listener.class \
+		com/parc/uplib/readup/widget/AnnotationStreamHandler.class \
+		com/parc/uplib/readup/widget/CachingLoader.class \
+		com/parc/uplib/readup/widget/Clipboard.class \
+		com/parc/uplib/readup/widget/DocViewer$$1.class \
+		com/parc/uplib/readup/widget/DocViewer$$ADHState$$UnPauser.class \
+		com/parc/uplib/readup/widget/DocViewer$$ADHState.class \
+		com/parc/uplib/readup/widget/DocViewer$$AnnotationTimeControl.class \
+		com/parc/uplib/readup/widget/DocViewer$$Bookmark.class \
+		com/parc/uplib/readup/widget/DocViewer$$DVTransferHandler.class \
+		com/parc/uplib/readup/widget/DocViewer$$DocThumbnails.class \
+		com/parc/uplib/readup/widget/DocViewer$$FormatBlankNumbers.class \
+		com/parc/uplib/readup/widget/DocViewer$$FormatDecimalNumbers.class \
+		com/parc/uplib/readup/widget/DocViewer$$FormatRomanNumbers.class \
+		com/parc/uplib/readup/widget/DocViewer$$Inkpots$$Pot.class \
+		com/parc/uplib/readup/widget/DocViewer$$Inkpots.class \
+		com/parc/uplib/readup/widget/DocViewer$$InkpotsListener.class \
+		com/parc/uplib/readup/widget/DocViewer$$LinkDescrDialog.class \
+		com/parc/uplib/readup/widget/DocViewer$$NoteFramesSetter.class \
+		com/parc/uplib/readup/widget/DocViewer$$Notesheets.class \
+		com/parc/uplib/readup/widget/DocViewer$$PageControl.class \
+		com/parc/uplib/readup/widget/DocViewer$$PageEdge.class \
+		com/parc/uplib/readup/widget/DocViewer$$PageImageSetter.class \
+		com/parc/uplib/readup/widget/DocViewer$$PageTextSetter.class \
+		com/parc/uplib/readup/widget/DocViewer$$Pageview$$Note$$ContentUpdater.class \
+		com/parc/uplib/readup/widget/DocViewer$$Pageview$$Note.class \
+		com/parc/uplib/readup/widget/DocViewer$$Pageview.class \
+		com/parc/uplib/readup/widget/DocViewer$$RomanNumerals.class \
+		com/parc/uplib/readup/widget/DocViewer$$ScribbleSurface.class \
+		com/parc/uplib/readup/widget/DocViewer$$SearchState.class \
+		com/parc/uplib/readup/widget/DocViewer$$SelectionState.class \
+		com/parc/uplib/readup/widget/DocViewer$$ZoomedViewer.class \
+		com/parc/uplib/readup/widget/DocViewer.class \
+		com/parc/uplib/readup/widget/DocViewerCallback.class \
+		com/parc/uplib/readup/widget/DraggedHotspot.class \
+		com/parc/uplib/readup/widget/DraggedSelection.class \
+		com/parc/uplib/readup/widget/HotSpot$$Icon.class \
+		com/parc/uplib/readup/widget/HotSpot$$Factory.class \
+		com/parc/uplib/readup/widget/HotSpot$$Resolver.class \
+		com/parc/uplib/readup/widget/HotSpot$$RectResolver.class \
+		com/parc/uplib/readup/widget/HotSpot$$SpanResolver.class \
+		com/parc/uplib/readup/widget/HotSpot.class \
+		com/parc/uplib/readup/widget/ImageHolder.class \
+		com/parc/uplib/readup/widget/NoteFrame.class \
+		com/parc/uplib/readup/widget/PageImageLoaderCallback.class \
+		com/parc/uplib/readup/widget/PageText$$WordBox.class \
+		com/parc/uplib/readup/widget/PageText.class \
+		com/parc/uplib/readup/widget/PageTextLoader.class \
+		com/parc/uplib/readup/widget/PieMenu$$BlinkActionListener.class \
+		com/parc/uplib/readup/widget/PieMenu$$BlinkTimer.class \
+		com/parc/uplib/readup/widget/PieMenu$$CancelPieMenuThread.class \
+		com/parc/uplib/readup/widget/PieMenu$$DelayThread.class \
+		com/parc/uplib/readup/widget/PieMenu$$ItemListener.class \
+		com/parc/uplib/readup/widget/PieMenu$$JMenuItemWrapper.class \
+		com/parc/uplib/readup/widget/PieMenu$$PieMenuHandler.class \
+		com/parc/uplib/readup/widget/PieMenu$$PieMenuListener.class \
+		com/parc/uplib/readup/widget/PieMenu$$PolarCoordinate.class \
+		com/parc/uplib/readup/widget/PieMenu$$PopupMenuCallback.class \
+		com/parc/uplib/readup/widget/PieMenu$$ShowSubmenuThread.class \
+		com/parc/uplib/readup/widget/PieMenu$$ShowThread.class \
+		com/parc/uplib/readup/widget/PieMenu.class \
+		com/parc/uplib/readup/widget/ResourceLoader$$CommunicationFailure.class \
+		com/parc/uplib/readup/widget/ResourceLoader$$PrivilegeViolation.class \
+		com/parc/uplib/readup/widget/ResourceLoader$$ResourceNotFound.class \
+		com/parc/uplib/readup/widget/ResourceLoader$$ResourceTooLarge.class \
+		com/parc/uplib/readup/widget/ResourceLoader$$TemporaryFailure.class \
+		com/parc/uplib/readup/widget/ResourceLoader.class \
+		com/parc/uplib/readup/widget/Scribble$$ScribblePoint.class \
+		com/parc/uplib/readup/widget/Scribble.class \
+		com/parc/uplib/readup/widget/SoftReferenceCache$$FetchThread.class \
+		com/parc/uplib/readup/widget/SoftReferenceCache$$FinalLoadChecker.class \
+		com/parc/uplib/readup/widget/SoftReferenceCache$$FinalLoadChecker.class \
+		com/parc/uplib/readup/widget/SoftReferenceCache$$ResourceID.class \
+		com/parc/uplib/readup/widget/SoftReferenceCache$$StrongRefs.class \
+		com/parc/uplib/readup/widget/SoftReferenceCache.class \
+		com/parc/uplib/readup/widget/SwingWorker$$1.class \
+		com/parc/uplib/readup/widget/SwingWorker$$2.class \
+		com/parc/uplib/readup/widget/SwingWorker$$ThreadVar.class \
+		com/parc/uplib/readup/widget/SwingWorker.class \
+		com/parc/uplib/readup/widget/WrappedSystemClipboard.class \
+		com/parc/uplib/readup/uplibbinding/MXCIFTree.class \
+		com/parc/uplib/readup/uplibbinding/MXCIFTree$$CNode.class \
+		com/parc/uplib/readup/uplibbinding/MXCIFTree$$BNode.class \
+		com/parc/uplib/readup/uplibbinding/RBTree.class \
+		com/parc/uplib/readup/uplibbinding/RBTree$$RBNode.class \
+		com/parc/uplib/readup/uplibbinding/IntervalTree.class \
+		com/parc/uplib/readup/uplibbinding/IntervalTree$$IntervalNode.class \
+		com/parc/uplib/readup/uplibbinding/IntervalTree$$Interval.class \
+		com/parc/uplib/readup/uplibbinding/IntervalTree$$IntervalComparator.class \
+		com/parc/uplib/util/Base64.class \
+		com/parc/uplib/util/Rubberband.class \
+		com/parc/uplib/util/DataURL.class \
+		com/parc/uplib/util/BrowserLauncher.class \
+		com/parc/uplib/util/MetadataFile.class \
+		com/parc/uplib/util/EmacsKeymap$$MultiAction.class \
+		com/parc/uplib/util/EmacsKeymap$$MultiPaste.class \
+		com/parc/uplib/util/EmacsKeymap$$SetMark.class \
+		com/parc/uplib/util/EmacsKeymap$$WriteAction.class \
+		com/parc/uplib/util/EmacsKeymap.class
+
+
+EXTRA_EBOOK_FILES =
+
+TOPDF_FILES =	com/parc/uplib/topdf/ToPDF.class \
+		com/parc/uplib/topdf/ToPDF$$Task.class \
+		com/parc/uplib/topdf/ToPDF$$ShutdownHandler.class \
+		com/parc/uplib/util/MetadataFile.class \
+		com/parc/uplib/util/BaseApp.class \
+		com/parc/uplib/util/FeedbackApp.class \
+		com/parc/uplib/util/Base64.class \
+		com/parc/uplib/util/LogStackTrace.class \
+		com/parc/uplib/util/EmacsKeymap$$MultiAction.class \
+		com/parc/uplib/util/EmacsKeymap$$MultiPaste.class \
+		com/parc/uplib/util/EmacsKeymap$$SetMark.class \
+		com/parc/uplib/util/EmacsKeymap$$WriteAction.class \
+		com/parc/uplib/util/EmacsKeymap.class \
+		com/parc/uplib/util/Configurator.class \
+		com/parc/uplib/util/Configurator$$Parse822.class
+
+
+ifeq ($(OS_TARGET),Darwin)
+
+	EXTRA_SHOWDOC_FILES =	com/parc/uplib/util/MacOSXAppSupport.class \
+				com/parc/uplib/util/MacOSXAppSupport$$HandleAppleEvents.class
+
+	EXTRA_DCLASS_FILES =	com/parc/uplib/util/MacOSXAppSupport.class \
+				com/parc/uplib/util/MacOSXAppSupport$$HandleAppleEvents.class
+
+	EXTRA_JANITOR_FILES =	com/parc/uplib/util/MacOSXAppSupport.class \
+				com/parc/uplib/util/MacOSXAppSupport$$HandleAppleEvents.class
+
+	EXTRA_TOPDF_FILES =	com/parc/uplib/util/MacOSXAppSupport.class \
+				com/parc/uplib/util/MacOSXAppSupport$$HandleAppleEvents.class
+
+else
+
+	EXTRA_SHOWDOC_FILES =
+	EXTRA_DCLASS_FILES =
+	EXTRA_JANITOR_FILES =
+	EXTRA_TOPDF_FILES =
+
+endif
+
+ifeq ($(JAVA_HAS_COOKIE_HANDLING), yes)
+
+	EXTRA_SHOWDOC_FILES +=	com/parc/uplib/util/ListCookieHandler.class \
+				com/parc/uplib/util/ListCookieHandler$$Cookie.class
+
+endif
+
+
+JNLPSTUB_CLASSES =	./javax/jnlp/BasicService.class \
+			./javax/jnlp/ClipboardService.class \
+			./javax/jnlp/ServiceManager.class \
+			./javax/jnlp/ServiceManagerStub.class \
+			./javax/jnlp/SingleInstanceListener.class \
+			./javax/jnlp/SingleInstanceService.class \
+			./javax/jnlp/UnavailableServiceException.class
+
+
+DROPLET_IMAGES = ../images/favicon256.png \
+		../images/applet-logo.png \
+		../images/swirl.png \
+		../images/drop-ok.png \
+		../images/drop-bad.png \
+		../images/swirldoc.png
+
+PAGEVIEW_IMAGES = ../images/right-arrow-icon-alpha.png \
+		../images/left-arrow-icon-alpha.png \
+		../images/eyeball.png \
+		../images/eyeball-grayed.png \
+		../images/link-icon.png \
+		../images/applet-logo.png \
+		../images/note-corner.png \
+		../images/thumbnails.png \
+		../images/hotspots-label.png \
+		../images/snapback-left.png \
+		../images/snapback-right.png \
+		../images/search-icon.png \
+		../images/search-again-label.png \
+		../images/blank-button-pressed.png \
+		../images/blank-button-unpressed.png \
+		../images/left-arrow-label.png \
+		../images/right-arrow-label.png \
+		../images/toolbar-bottom.png \
+		../images/toolbar-center.png \
+		../images/toolbar-top.png \
+		../images/structured-selection-label.png \
+		../images/inkpot-label.png \
+		../images/inkpot-with-quill-label.png \
+		../images/postit-label.png \
+		../images/zoom-in.png \
+		../images/page-edge-background-right-end.png \
+		../images/page-edge-background-center.png \
+		../images/slider-top-right-end.png \
+		../images/slider-top-center.png \
+		../images/slider-bottom-right-end.png \
+		../images/slider-bottom-center.png \
+		../images/uplib-logo-label.png \
+		../images/bookmark-drop-shadow.png \
+		../images/purple-ribbon.png \
+		../images/red-ribbon.png \
+		../images/green-ribbon.png \
+		../images/small-ribbon-image.png
+
+SHOWDOC_IMAGES = ../images/ReadUp-logo.png \
+		../images/readup-favicon.png \
+		../images/sparrow-right-triangle.png \
+		../images/sparrow-down-triangle.png
+
+JANITOR_IMAGES = ../images/applet-logo.png \
+		../images/janitor-icon.png \
+		../images/sparrow-right-triangle.png \
+		../images/sparrow-down-triangle.png
+
+JAVAWEBSTARTJAR = jnlpstubs.jar
+
+INDEXING_JAR =
+
+ifdef LUCENEJAR
+INDEXING_JAR = LuceneIndexing.jar
+endif
+
+BASICJARFILES = $(INDEXING_JAR) UpLibPortal.jar UpLibPageview.jar ShowDoc.jar UpLibJanitor.jar ebookbase.jar
+JARFILES = $(BASICJARFILES)
+
+
+
+TOPDFLIBRARY = 
+
+ifdef SIMPLE
+ifdef JODCONVERTER
+
+JARFILES = $(BASICJARFILES) UpLibToPDF.jar
+
+$(JARFILES): topdf-library.jar
+
+topdf-library.jar: $(SIMPLE) $(JODCONVERTER)
+	sh build-topdf-library.sh
+
+TOPDFLIBRARY=topdf-library.jar
+
+endif
+endif
+
+ifdef JPEN_JAR
+CLASSPATH = @LUCENEBUILD@@JAVACLASSPATHSEP@@JPENJAR@@JAVACLASSPATHSEP@./jnlpstubs.jar@JAVACLASSPATHSEP@$(TOPDFLIBRARY)@JAVACLASSPATHSEP@.
+else
+CLASSPATH = @LUCENEBUILD@@JAVACLASSPATHSEP@./jnlpstubs.jar@JAVACLASSPATHSEP@$(TOPDFLIBRARY)@JAVACLASSPATHSEP@.
+endif
+
+%.class : %.java ; $(JAVAC) @JAVADEBUGFLAGS@ @JAVA_COMPAT_FLAG@ -classpath "$(CLASSPATH)" $<
+
+Makefile: Makefile.in ../replacements
+	(cd .. ; ./reconfigure)
+
+machine.config: machine.config.in ../replacements
+	(cd .. ; ./reconfigure)
+
+jars: jnlpstubs.jar $(JARFILES) Makefile
+
+all: jars machine.config
+
+install: $(JARFILES) machine.config jnlpstubs.jar
+ifeq ($(LUCENE_USER_SUPPLIED),false)
+	install -m 444 "@LUCENEBUILD_MSYS@" "@UPLIB_CODE_MSYS@"
+endif
+	install -m 444 $(JARFILES) jnlpstubs.jar "@UPLIB_CODE_MSYS@"
+	install -m 444 machine.config "@UPLIB_CODE_MSYS@"
+	install -m 444 machine.config "@UPLIB_LIB_MSYS@"
+	install -m 444 ShowDoc.jar "@UPLIB_CODE_MSYS@"/signedreadup.jar
+
+jnlpstubs.jar: $(JNLPSTUB_CLASSES)
+	$(JAR) cvf $@ $^
+
+ShowDocImages.jar : $(PAGEVIEW_IMAGES) $(SHOWDOC_IMAGES)
+	echo "UpLib-Version: @PACKAGE_VERSION@" > .manifest
+	$(JAR) cfvm $@ .manifest
+	for image in $(PAGEVIEW_IMAGES) $(SHOWDOC_IMAGES); do \
+		(baseimage=`basename $${image}`; cp ../images/$${image} . ; $(JAR) ufv0 $@ $${baseimage} ; rm -f $${baseimage}) done
+	rm -f .manifest
+
+LuceneIndexing.jar : $(ICLASSFILES)
+	echo "UpLib-Version: @PACKAGE_VERSION@" > .manifest
+	echo "Main-Class: com.parc.uplib.indexing.LuceneIndexing" >> .manifest
+	$(JAR) cfvm $@ .manifest
+	for classfile in '$(ICLASSFILES)'; do \
+		($(JAR) ufv $@ $${classfile}) done
+	rm -f .manifest
+
+UpLibJanitor.jar : $(MONFILES) $(JANITOR_IMAGES) $(EXTRA_JANITOR_FILES)
+	echo "UpLib-Version: @PACKAGE_VERSION@" > .manifest
+	echo "Main-Class: com.parc.uplib.portal.Janitor" > .manifest
+	$(JAR) cfvm $@ .manifest
+	for image in $(JANITOR_IMAGES); do \
+		(baseimage=`basename $${image}`; cp ../images/$${image} . ; $(JAR) ufv0 $@ $${baseimage} ; rm -f $${baseimage}) done
+	for classfile in '$(MONFILES) $(EXTRA_JANITOR_FILES)'; do \
+		($(JAR) ufv $@ $${classfile}) done
+	rm -f .manifest
+
+UpLibPortal.jar : $(DCLASSFILES) $(DROPLET_IMAGES) $(EXTRA_DCLASS_FILES)
+	echo "UpLib-Version: @PACKAGE_VERSION@" > .manifest
+	echo "Main-Class: com.parc.uplib.portal.DesktopPortal" >> .manifest
+	$(JAR) cfvm $@ .manifest
+	for image in $(DROPLET_IMAGES); do \
+		(baseimage=`basename $${image}`; cp ../images/$${image} . ; $(JAR) ufv0 $@ $${baseimage} ; rm -f $${baseimage}) done
+	for classfile in '$(DCLASSFILES) $(EXTRA_DCLASS_FILES)'; do \
+		($(JAR) ufv $@ $${classfile}) done
+	rm -f .manifest
+
+UpLibPageview.jar : $(PCLASSFILES) $(PAGEVIEW_IMAGES)
+	echo "UpLib-Version: @PACKAGE_VERSION@" > .manifest
+	echo "Main-Class: com.parc.uplib.readup.applet.UpLibPageview" >> .manifest
+	( mkdir build ; cd build ; $(JAR) xf "$(JPEN_JAR)" ; $(JAR) cf ../proto.jar com ; cd .. ; rm -rf build )
+	mv proto.jar $@
+	$(JAR) ufvm $@ .manifest
+	for image in $(PAGEVIEW_IMAGES); do \
+		(baseimage=`basename $${image}`; cp ../images/$${image} . ; $(JAR) ufv0 $@ $${baseimage} ; rm -f $${baseimage}) done
+	for classfile in '$(PCLASSFILES)'; do \
+		($(JAR) ufv $@ $${classfile}) done
+	rm -f .manifest
+	echo "signing UpLib applet jar file..."
+	("@OPENSSL@" pkcs12 -export -passout pass:foobar -out signingcertfile -in ../stunnel.pem -name signingcert ; \
+	 "@JARSIGNER@" -keystore signingcertfile -storetype pkcs12 -storepass foobar $@ signingcert ; \
+	 rm -f signingcertfile )
+
+ShowDoc.jar : jnlpstubs.jar $(SHOWDOCFILES) $(EXTRA_SHOWDOC_FILES) ShowDocImages.jar
+	echo "UpLib-Version: @PACKAGE_VERSION@" > .manifest
+	echo "Main-Class: com.parc.uplib.readup.application.UpLibShowDoc" >> .manifest
+	( mkdir build ; cd build ; $(JAR) xf "$(JPEN_JAR)" ; $(JAR) xf ../ShowDocImages.jar ; $(JAR) cf ../proto.jar . ; cd .. ; rm -rf build )
+	mv proto.jar $@
+	$(JAR) ufvm $@ .manifest
+	for classfile in '$(SHOWDOCFILES) $(EXTRA_SHOWDOC_FILES)'; do \
+		($(JAR) ufv $@ $${classfile}) done
+	rm -f .manifest
+	echo "signing Java Web Start version of ReadUp..."
+	("@OPENSSL@" pkcs12 -export -passout pass:foobar -out signingcertfile -in ../stunnel.pem -name signingcert ; \
+	 "@JARSIGNER@" -keystore signingcertfile -storetype pkcs12 -storepass foobar $@ signingcert ; \
+	 rm -f signingcertfile )
+
+ebookbase.jar : $(EBOOKFILES) $(PAGEVIEW_IMAGES) $(EXTRA_EBOOK_FILES)
+	echo "UpLib-Version: @PACKAGE_VERSION@" > .manifest
+	echo "Main-Class: com.parc.uplib.readup.ebook.EBook" >> .manifest
+	( mkdir build ; cd build ; $(JAR) xf "$(JPEN_JAR)" ; $(JAR) cf ../proto.jar com ; cd .. ; rm -rf build )
+	mv proto.jar $@
+	$(JAR) ufvm $@ .manifest
+	for image in $(PAGEVIEW_IMAGES); do \
+		(baseimage=`basename $${image}`; cp ../images/$${image} . ; $(JAR) ufv0 $@ $${baseimage} ; rm -f $${baseimage}) done
+	for classfile in '$(EBOOKFILES) $(EXTRA_EBOOK_FILES)'; do \
+		($(JAR) ufv $@ $${classfile}) done
+	rm -f .manifest
+
+ifdef SIMPLE
+ifdef JODCONVERTER
+
+UpLibToPDF.jar : topdf-library.jar $(TOPDF_FILES) $(EXTRA_TOPDF_FILES)
+	echo "UpLib-Version: @PACKAGE_VERSION@" > .manifest
+	echo "Main-Class: com.parc.uplib.topdf.ToPDF" >> .manifest
+	cp topdf-library.jar $@
+	$(JAR) ufvm $@ .manifest
+	for classfile in '$(TOPDF_FILES) $(EXTRA_TOPDF_FILES)'; do \
+		($(JAR) ufv $@ $${classfile}) done
+	rm -f .manifest
+
+endif
+endif
+
+
+
+clean:
+	rm -f *.tmp LuceneIndexing.jar .manifest UpLibPortal.jar UpLibPageview.jar ShowDoc.jar UpLibJanitor.jar ebookbase.jar UpLibToPDF.jar ShowDocImages.jar `find com -name \*.class` `find javax -name \*.class`

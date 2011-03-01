@@ -1,0 +1,83 @@
+.. This is UpLib, a personal document library system from the Palo
+   Alto Research Center (PARC).
+
+.. This document is written in reStructuredText, which is why it looks
+   a bit wierd to you.  See http://docutils.sourceforge.net/.
+
+========================================
+UpLib: A Personal Digital Library System
+========================================
+
+.. raw::  html
+
+   <p><center><img src="../images/favicon256.png" height=64 width=64 alt="the UpLib logo"></center><p>
+
+
+Overview
+========
+
+UpLib is a system from the `Palo Alto Research Center (PARC)`_ for
+maintaining and using a collection of documents in digital form.  It's
+focussed on the representation and manipulation of those documents in
+"virtual paper" form, regardless of the original form of the document
+-- scanned, PDF, Microsoft Word, HTML, digital photos, etc.  That is,
+each document is represented as a stack of sheets of virtual paper.
+These sheets can be individually manipulated, or treated as a group,
+just like a paper document.  The documents are full-text indexed, and
+metadata optionally associated with a document can also be indexed.
+
+UpLib consists of two major parts, the "guardian angel" (a custom Web
+server), and a small collection of command-line programs that can be
+used to simplify some operations.  The basic idea is that the angel
+runs as a daemon, giving access to the documents in the repository,
+and the user accesses the repository through a web browser.  New
+documents can be added to the repository by uploading them from a Web
+browser, but the utility program ``uplib-add-document`` simplifies the
+process, and adds the ability to convert documents from PDF format.
+For security, all communication between the browser and the angel is
+done over SSL encrypted communication paths, and the repository itself
+may optionally be password-protected.
+
+License
+=======
+
+::
+
+  This file is part of the "UpLib 1.7.11" release.
+  Copyright (C) 2003-2011  Palo Alto Research Center, Inc.
+  
+  This program is free software; you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation; either version 2 of the License, or
+  (at your option) any later version.
+  
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
+  
+  You should have received a copy of the GNU General Public License along
+  with this program; if not, write to the Free Software Foundation, Inc.,
+  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+
+To Build
+========
+
+See doc/INSTALL.txt for details.
+
+Feedback
+========
+
+You can send bug reports, usage impressions, and other communication to
+
+  uplib@parc.com
+
+Enjoy!
+
+Licence and Acknowledgements
+============================
+
+Please see the doc/ACKNOWLEDGEMENTS.txt file.
+
+
+.. _`Palo Alto Research Center (PARC)`: http://www.parc.com/

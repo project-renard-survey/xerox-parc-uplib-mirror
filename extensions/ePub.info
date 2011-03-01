@@ -1,0 +1,8 @@
+after: off
+author: Bill Janssen
+before: off
+date: 2/8/2010
+description: provides the ability to generate an epub version of any document
+uplib-min-version: 1.7
+url: 0
+version: 1

@@ -1,0 +1,476 @@
+#!@PYTHON@
+# -*- Python -*-
+#
+# This file is part of the "UpLib 1.7.11" release.
+# Copyright (C) 2003-2011  Palo Alto Research Center, Inc.
+# 
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+#
+
+import sys, os, string, re, getopt, httplib, socket
+
+os.environ['UPLIBLIB'] = r'@UPLIB_LIB@'
+sys.path.append(r'@UPLIB_CODE@')
+
+from uplib.plibUtil import true, false, configurator, set_verbosity, subproc, tempfile, Error, getpass, unzip, note, get_fqdn, get_machine_id
+from uplib.webutils import http_post_multipart, https_post_multipart, parse_URL_with_scheme
+
+KNOWN_FORMATS = ('pdf', 'images', 'text', 'icon', 'metadata', 'html', 'uplib', 'doc-id')
+
+EXITVAL_SUCCESS = 0
+EXITVAL_ERROR = 1
+EXITVAL_UNAUTHORIZED = 2
+EXITVAL_NO_RESULTS = 3
+EXITVAL_NO_RESULTS_ABOVE_THRESHOLD = 4
+EXITVAL_BAD_OPTION = 5
+EXITVAL_COMM_ERROR = 6
+
+class NotAuthorized(Error):
+
+    def __init__(self, headers, path):
+        self.headers = headers
+        self.path = path
+
+def usage(pname):
+    sys.stderr.write("Usage: %s [options] QUERY\n" % pname)
+    sys.stderr.write("Options are:\n"
+                     "  --repository=https://HOST:PORT/ -- run search in this repository\n"
+                     "  --repository=DIRECTORY -- run search in the repository in this directory\n"
+                     "  --minscore=VALUE -- min value for cutoff (default is 0.50)\n"
+                     "  --action=COMMAND (-a COMMAND) -- command to use to open the PDF after retrieval\n"
+                     "  --showall (-s) -- show all possible values, regardless of score\n"
+                     "  --nopassword -- indicate that the repository doesn't have a password\n"
+                     "  --format=FORMAT (-f FORMAT) -- return document in specified FORMAT\n"
+                     "  --pickone -- pick the highest scoring doc and perform the ACTION on it\n"
+                     "  --pickall -- perform the ACTION on all docs scoring above MINSCORE\n"
+                     "  --verbosity=LEVEL -- use LEVEL as the verbosity for debugging statements\n")
+    sys.stderr.write("Possible formats are: %s\n" % reduce(lambda x, y: x + ' ' + y, KNOWN_FORMATS, ""))
+    sys.exit(EXITVAL_BAD_OPTION)
+
+
+def figure_tempfile_name (hit, extension, unlink=false):
+    d = tempfile.gettempdir()
+    name = hit[2] or hit[1]
+    name = re.sub("[^-A-Z0-9a-z_]+", "_", name)
+    name = name + extension
+    path = os.path.join(d, name)
+    if unlink and (os.path.islink(path) or os.path.exists(path)):
+        os.path.unlink(path)
+    return path
+
+class FakeResponse (object):
+    def __init__(self):
+        self._error = None
+        self._redirect = None
+        self._file = None
+        self._filetype = None
+        self._filedelete = False
+    def error(self, code, msg):
+        self.error = (code, msg)
+    def redirect(self, url):
+        self._redirect = url
+    def return_file(self, filetype, filename, delete):
+        self._file = filename
+        self._filetype = filetype
+        self._filedelete = delete
+    def __del__(self):
+        if self._file and self._filedelete and os.path.exists(self._file):
+            os.unlink(self._file)
+
+def get_doc_to_file_http (scheme, host, port, password, path, fname, certificate=None):
+    if scheme == "https":
+        h = httplib.HTTPS(host, port, cert_file=certificate, key_file=certificate)
+    else:
+        h = httplib.HTTP(host, port)
+    h.putrequest('GET', path)
+    if password:
+        h.putheader('Password', password)
+    h.endheaders()
+    errcode, errmsg, headers = h.getreply()
+    if errcode == 200:
+        if fname:
+            fp = open(fname, 'wb')
+            fp.write(h.file.read())
+            fp.close()
+        else:
+            return h.file.read()
+    elif errcode == 302:
+        # moved temporarily
+        newpath = headers.get("Location")
+        if newpath:
+            note(3, "newpath is %s", newpath)
+            return get_doc_to_file_http(scheme, host, port, password, newpath, fname, certificate)
+        else:
+            raise Error('Temporary redirect (302) without a Location header while fetching ' + path)
+    elif errcode == 401:
+        raise NotAuthorized(headers, path)
+    else:
+        raise Error('bad status %d (%s) received while fetching %s' % (errcode, errmsg, path))
+
+def joinpath (p1, p2):
+    if p2.startswith("/"):
+        return os.path.join(p1, p2[1:])
+    else:
+        return os.path.join(p1, p2)
+
+def get_doc_to_file (scheme, host, port, password, path, fname, certificate=None, repo=None):
+    if repo is None:
+        return get_doc_to_file_http (scheme, host, port, password, path, fname, certificate=None)
+    m = re.match(r"/docs/(?P<docid>[^/]+)/(?P<part>[.*]+)", path)
+    if m:
+        # part of a doc
+        note("docid is %s, path is %s", m.group("docid"), m.group("path"))
+        doc = repo.get_document(m.group("docid"))
+        bits, mimetype = doc.get_requested_part(path, {}, None, None)
+    elif path.startswith("/action/basic/doc_pdf?doc_id="):
+        m = re.search(r"doc_id=(?P<docid>[-0-9]+)", path)
+        if not m:
+            raise Error("malformed path " + path + " encountered")
+        doc = repo.get_document(m.group("docid"))
+        from uplib.basicPlugins import _find_and_return_pdf
+        response = FakeResponse()
+        try:
+            _find_and_return_pdf(repo, response, doc, False, False)
+        except:
+            raise
+        print response._error, response._redirect, response._file
+        if response._error:
+            raise Error("bad status %d received while fetching %s", _error, doc.id)
+        elif response._redirect:
+            filepath = joinpath(repo.root(), response._redirect)
+            if os.path.exists(filepath):
+                bits = open(filepath, "rb").read()
+                mimetype = "application/pdf"
+            else:
+                raise Error("specified path %s doesn't exist!" % filepath)
+        else:
+            raise Error("can't fetch %s; response._error is %s, response._redirect is %s, response._file is %s" % (
+                doc.id, response._error, response._redirect, response._file))
+    elif path.startswith("/action/basic/doc_pageimages?doc_id="):
+        raise Error("fetching of page images isn't implemented")
+    elif path.startswith("/action/externalAPI/fetch_folder?doc_id="):
+        m = re.search(r"doc_id=(?P<docid>[-0-9]+)", path)
+        if not m:
+            raise Error("malformed path " + path + " encountered")
+        doc = repo.get_document(m.group("docid"))
+        from uplib.externalAPI import fetch_folder
+        response = FakeResponse()
+        try:
+            fetch_folder(repo, response, {'doc_id': doc.id})
+        except:
+            raise
+        if response._error:
+            raise Error("bad status %d received while fetching %s", _error, doc.id)
+        elif response._file and os.path.exists(response._file):
+            bits = open(response._file, "rb").read()
+            mimetype = response._filetype
+        else:
+            raise Error("can't fetch %s", doc.id)
+
+    if bits:
+        if fname:
+            fp = open(fname, 'wb')
+            fp.write(bits)
+            fp.close()
+        else:
+            return bits
+    else:
+        raise Error("can't fetch %s" % path)
+
+
+def apply_action (action_command, arg):
+
+    if (action_command == "-"):
+        sys.stdout.write(arg)
+        if not arg.endswith("\n"):
+            sys.stdout.write("\n")
+    elif (action_command.find("%s") >= 0):
+        os.system(action_command % arg)
+    else:
+        os.system("%s %s" % (action_command, arg))
+
+
+def main(argv):
+
+    if hasattr(os, 'uname'):
+        osname = os.uname()[0]
+    else:
+        osname = sys.platform
+    hostname = get_fqdn()
+    machineid = get_machine_id()
+
+    sections = (machineid, hostname, osname, "client", "default",)
+
+    conf = configurator(sections)
+    repository = conf.get('default-repository')
+    verbosity = None
+    nopassword = False
+    minscore = float(conf.get('get-document-min-score', '0.5'))
+    openaction = None
+    showall = conf.get_bool('get-document-show-all', false)
+    docviewer = conf.get_bool('use-java-docviewer', false)
+    format = conf.get('default-get-document-format', 'pdf')
+    certificate = None
+    pick_one = false
+    pick_all = false
+
+    possible_opts = ["nopassword", "repository=", "verbosity=", "action=", "showall", "format=", "minscore=", "pickone", "pickall", ]
+    try:
+        optlist, args = getopt.getopt(argv[1:], "sa:f:", possible_opts)
+        for o, a in optlist:
+            if o == "--repository":
+                repository = a
+            elif o == "--nopassword":
+                nopassword = true
+            elif o == "--pickone":
+                pick_one = true
+            elif o == "--pickall":
+                pick_all = true
+            elif o == "--minscore":
+                minscore = float(a)
+            elif o == "--action" or o == '-a':
+                openaction = a
+            elif o == "--showall" or o == '-s':
+                showall = true
+            elif o == "--format" or o == '-f':
+                format = a
+            elif o == "--verbosity":
+                verbosity = int(a)
+
+    except getopt.GetoptError, x:
+        sys.stderr.write("Error:  " + str(x) + ".\n")
+        usage(argv[0])
+
+    if len(args) != 1:
+        args = (' '.join(args),)
+
+    if not repository:
+        sys.stderr.write("No repository specified.\n")
+        usage(argv[0])
+
+    if repository.startswith("~"):
+        repository = os.path.expanduser(repository)
+    if (os.path.isdir(repository) and
+        os.path.exists(os.path.join(repository, "docs")) and
+        os.path.exists(os.path.join(repository, "overhead")) and
+        os.path.exists(os.path.join(repository, "overhead", "extensions")) and
+        os.path.exists(os.path.join(repository, "overhead", "metadata.txt")) and
+        os.path.exists(os.path.join(repository, "index"))):
+        
+        from uplib.repository import Repository
+        repo, use_ssl, ip_addr, conf = Repository.build_world(repository, inc_threads=False)
+
+        scheme = None
+        host = None
+        port = None
+        password = None
+
+    else:
+
+        repo = None
+        scheme, host, port, path = parse_URL_with_scheme(repository)
+        sections = ("%s:%s" % (host, port), host,) + sections
+        conf = configurator(sections)
+
+        nopassword = nopassword or conf.get_bool('assume-no-password', false)
+
+        # prompt for the repository password unless it is passed in
+        if os.environ.has_key("UPLIB_PASSWORD"):
+            # valid password was passed in by caller of this module
+            password = os.environ["UPLIB_PASSWORD"]
+        elif not (nopassword):
+            # prompt for the repository password
+            password = getpass("Password for repository: ")
+        else:
+            # there is no password
+            password = ""
+
+    certificate = conf.get('client-certificate-file')
+
+    if not format in KNOWN_FORMATS:
+        sys.stderr.write("Can't provide format '%s'.  Available formats are %s.\n" % (format, KNOWN_FORMATS))
+        usage(argv[0])
+
+    defalt = ((format == 'doc-id') and "-") or "cat"
+    openaction = openaction or conf.get('get-document-open-action-%s' % format) or conf.get('get-document-open-action', defalt)
+    
+    if verbosity != None:
+        set_verbosity(verbosity)
+
+    note(4, "repository URL is %s", repository);
+    note(4, "client-certificate-file is %s", certificate)
+
+    the_hit = None
+    hits = []
+    if repo is None:
+
+        if scheme == "http":
+            poster = http_post_multipart
+        else:
+            poster = https_post_multipart
+
+        try:
+            errcode, errmsg, headers, text = poster(host, port, password,
+                                                    "/action/externalAPI/search_repository",
+                                                    (('query', args[0]),), (),
+                                                    certfile=certificate)
+        except socket.error:
+            sys.stderr.write("Error:  Can't connect to the repository angel at https://%s:%s/.  Check to see if it's running.\n" % (host, port))
+            return EXITVAL_COMM_ERROR
+        if errcode == 401:
+            sys.stderr.write("Error:  Invalid password supplied.  Search failed.\n")
+            return EXITVAL_UNAUTHORIZED
+        elif errcode != 200:
+            sys.stderr.write("Error:  HTTP error code %d -- %s:\n%s\n" % (errcode, errmsg, text))
+            return EXITVAL_ERROR
+
+        lines = string.split(text, '\n')
+        note(5, "lines are\n%s", string.join(lines, '\n'))
+
+        doccount = 0
+        for line in lines:
+            if not line:
+                continue
+            parts = string.split(line, ",")
+            if showall or (float(parts[0]) > minscore):
+                hits.append(parts)
+            doccount = doccount + 1
+        if not hits and lines[0]:
+            hits.append(string.split(lines[0], ","))
+
+    else:
+        for score, doc in repo.do_query(args[0]):
+            hits.append((score, doc.id, doc.get_metadata("title")))
+
+    note(4, "hits are:\n%s", hits)
+    if pick_one and len(hits) > 1:
+        the_hit = hits[0]
+    elif showall or ((not pick_all) and len(hits) > 1):
+        selection = 0
+        while selection == 0:
+            count = 1
+            for parts in hits:
+                sys.stderr.write("%3d)  %s  (%f)\n" % (count, parts[2] or parts[1], float(parts[0])))
+                count = count + 1
+            sys.stderr.write("Which to open?  ")
+            sys.stderr.flush()
+            input = raw_input()
+            if not input:
+                return EXITVAL_ERROR
+            selection = string.atoi(input)
+            if selection > len(hits):
+                selection = 0
+        the_hit = hits[selection - 1]
+    elif len(hits) == 1:
+        the_hit = hits[0]
+    elif pick_all and len(hits) > 0:
+        pass
+    else:
+        if doccount < 1:
+            sys.stderr.write("No matches.\n")
+            return EXITVAL_NO_RESULTS
+        else:
+            sys.stderr.write("No matches (%d documents below minscore of %f).\n" % (doccount, minscore))
+            return EXITVAL_NO_RESULTS_ABOVE_THRESHOLD
+            
+    try:
+
+        for hit in ((the_hit and (the_hit,)) or hits):
+
+            note(4, "fetching hit %s as %s with action \"%s\"...", hit, format, openaction)
+
+            if format == 'pdf':
+                tfile = figure_tempfile_name(hit, ".pdf")
+
+                get_doc_to_file(scheme, host, port, password, '/action/basic/doc_pdf?doc_id=%s' % hit[1], tfile, certificate, repo)
+                apply_action (openaction, tfile)
+
+            elif format == 'text':
+                tfile = figure_tempfile_name(hit, ".txt")
+
+                get_doc_to_file(scheme, host, port, password, '/docs/%s/contents.txt' % hit[1], tfile, certificate, repo)
+                apply_action (openaction, tfile)
+                os.system('%s %s' % (openaction, tfile))
+
+            elif format == 'images':
+                tfile = figure_tempfile_name(hit, ".zip")
+
+                get_doc_to_file(scheme, host, port, password, '/action/basic/doc_pageimages?doc_id=%s' % hit[1], tfile, certificate, repo)
+                apply_action (openaction, tfile)
+                os.system('%s %s' % (openaction, tfile))
+
+            elif format == 'html':
+                tfile = figure_tempfile_name(hit, ".html")
+
+                if docviewer:
+                    fp = open(tfile, 'w')
+                    fp.write('<html><head><meta http-equiv="refresh" content="0; ' +
+                             'url=https://%s:%s/action/basic/dv_show?doc_id=%s">' % (host, port, hit[1]) +
+                             '</head></html>')
+                    fp.close()
+                else:
+                    contents = get_doc_to_file(scheme, host, port, password, '/docs/%s/index.html' % hit[1], None, certificate, repo)
+                    contents = re.sub('<base[^>]*?>', '<head><base href="https://' + host + ':' + str(port) + '/docs/' + hit[1] + '/">', contents)
+                    fp = open(tfile, 'w')
+                    fp.write(contents)
+                    fp.close()
+                apply_action (openaction, tfile)
+
+            elif format == 'metadata':
+                tfile = figure_tempfile_name(hit, ".metadata")
+
+                get_doc_to_file(scheme, host, port, password, '/docs/%s/metadata.txt' % hit[1], tfile, certificate, repo)
+                apply_action (openaction, tfile)
+
+            elif format == 'icon':
+                tfile = figure_tempfile_name(hit, ".png")
+
+                get_doc_to_file(scheme, host, port, password, '/docs/%s/thumbnails/first.png' % hit[1], tfile, certificate, repo)
+                apply_action (openaction, tfile)
+
+            elif format == 'uplib':
+                tfile = figure_tempfile_name(hit, "")
+                zipfile = tfile + ".zip"
+
+                get_doc_to_file(scheme, host, port, password, '/action/externalAPI/fetch_folder?doc_id=%s' % hit[1],
+                                zipfile, certificate, repo)
+                unzip(tfile, zipfile)
+                os.unlink(zipfile)
+                apply_action (openaction, tfile)
+
+            elif format == 'doc-id':
+                apply_action (openaction, hit[1])
+
+
+    except NotAuthorized, x:
+        sys.stderr.write("Error:  Invalid password specified.  Couldn't fetch document.\n")
+        return EXITVAL_UNAUTHORIZED
+
+    except socket.error:
+        sys.stderr.write("Error:  Can't connect to the repository at https://%s:%s/.  Check to see if it's running.\n" % (host, port))
+        return EXITVAL_COMM_ERROR
+
+    except:
+        type, value, tb = sys.exc_info()
+        import traceback
+        sys.stderr.write("Error:  An internal error -- here're the"
+                         " details:\n%s\n" % string.join(traceback.format_exception(type, value, tb)))
+        return EXITVAL_ERROR
+
+    return EXITVAL_SUCCESS
+
+
+if __name__ == "__main__":
+   sys.exit(main(sys.argv))

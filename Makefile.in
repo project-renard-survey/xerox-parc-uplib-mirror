@@ -1,0 +1,833 @@
+#
+# This file is part of the "UpLib 1.7.11" release.
+# Copyright (C) 2003-2011  Palo Alto Research Center, Inc.
+# 
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+#
+
+prefix = @UPLIB_HOME_MSYS@
+exec_prefix = @exec_prefix@
+BINDIR = @UPLIB_BIN_MSYS@
+CODEDIR = @UPLIB_CODE_MSYS@
+LIBDIR = @UPLIB_LIB_MSYS@
+MANDIR = @UPLIB_HOME_MSYS@/man
+IMAGESDIR = @UPLIB_SHARE_MSYS@/images
+SHAREDDIR = @UPLIB_SHARE_MSYS@
+DOCDIR = @UPLIB_SHARE_MSYS@/doc
+HELPDIR = @UPLIB_SHARE_MSYS@/help/html
+FUSEDIR = @UPLIB_CODE_MSYS@/uplib/fuse
+VERSION = @PACKAGE_VERSION@
+PYTHON = @PYTHON@
+MAKEWHATIS = @MAKEWHATIS@
+EXTENSIONSDIR = $(LIBDIR)/site-extensions
+OS_TARGET = @OS_TARGET@
+PYCHECKER = @PYCHECKER@
+ETAGS = @ETAGS@
+FIND = @FIND@
+UNOPKG = @UNOPKG@
+XVFB = @XVFB@
+XVFB_ARGS = @XVFB_ARGS@
+BUILD_FINDIMAGES = @BUILD_FINDIMAGES@
+TAR = @TAR@
+PDFLATEX = @PDFLATEX@
+RST2HTML = @RST2HTML@
+RST2LATEX = @RST2LATEX@
+EPYDOC = @EPYDOC@
+JAVADOC = @JAVADOC@
+EPM = @EPM@
+PREREQS_DIR = @PREREQS_DIR@
+
+LICENSE = GPLv2
+PACKAGENAME = 
+
+ifndef PACKAGENAME
+	PACKAGENAME = UpLib ${VERSION}
+endif
+
+DOCTOOLS=no
+ifdef PDFLATEX
+ifdef RST2HTML
+ifdef RST2LATEX
+ifdef EPYDOC
+	DOCTOOLS=yes
+endif
+endif
+endif
+endif
+
+JAVACOMMONFILES = java/Makefile.in \
+		java/testClass.java \
+		java/testProperty.java \
+		java/testLucene.java \
+		java/machine.config.in \
+		java/com/parc/uplib/util/Configurator.java \
+		java/com/parc/uplib/util/MetadataFile.java \
+		java/com/parc/uplib/util/PARCAwareCertHostnameVerifier.java \
+		java/com/parc/uplib/util/BrowserLauncher.java \
+		java/com/parc/uplib/util/FeedbackApp.java \
+		java/com/parc/uplib/util/CertificateHandler.java \
+		java/com/parc/uplib/util/ClientKeyManager.java \
+		java/com/parc/uplib/util/MacOSXAppSupport.java \
+		java/com/parc/uplib/util/Rubberband.java \
+		java/com/parc/uplib/util/DocIDFilenameFilter.java \
+		java/com/parc/uplib/util/WorkPopup.java \
+		java/com/parc/uplib/util/WorkThread.java \
+		java/com/parc/uplib/util/ErrorDialog.java \
+		java/com/parc/uplib/util/BaseApp.java \
+		java/com/parc/uplib/util/FileBox.java \
+		java/com/parc/uplib/util/DataURL.java \
+		java/com/parc/uplib/util/LogStackTrace.java \
+		java/com/parc/uplib/util/ListCookieHandler.java \
+		java/com/parc/uplib/util/EmacsKeymap.java
+
+INDEXINGFILES =	java/com/parc/uplib/indexing/LuceneIndexing.java \
+		java/com/parc/uplib/util/Base64.java \
+		java/com/parc/uplib/indexing/HeaderField.java \
+		java/com/parc/uplib/indexing/ExtractIndexingInfo.java
+
+JNLPSTUBS =	java/javax/jnlp/UnavailableServiceException.java \
+		java/javax/jnlp/ServiceManager.java \
+		java/javax/jnlp/ServiceManagerStub.java \
+		java/javax/jnlp/BasicService.java \
+		java/javax/jnlp/ClipboardService.java \
+		java/javax/jnlp/SingleInstanceService.java \
+		java/javax/jnlp/SingleInstanceListener.java
+
+JAVADROPFILES = java/com/parc/uplib/portal/Portal.java \
+		java/com/parc/uplib/portal/DesktopPortal.java \
+		java/com/parc/uplib/portal/Janitor.java \
+		java/com/parc/uplib/portal/RepositoryMonitor.java
+
+JAVAPAGEVIEW = 	java/com/parc/uplib/readup/widget/SwingWorker.java \
+		java/com/parc/uplib/readup/widget/NoteFrame.java \
+		java/com/parc/uplib/readup/widget/Annotation.java \
+		java/com/parc/uplib/readup/widget/AnnotationStreamHandler.java \
+		java/com/parc/uplib/readup/widget/Scribble.java \
+		java/com/parc/uplib/readup/widget/DocViewer.java \
+		java/com/parc/uplib/readup/widget/DocViewerCallback.java \
+		java/com/parc/uplib/readup/widget/Activity.java \
+		java/com/parc/uplib/readup/widget/HotSpot.java \
+		java/com/parc/uplib/readup/widget/PageText.java \
+		java/com/parc/uplib/readup/widget/PageTextLoader.java \
+		java/com/parc/uplib/readup/widget/CachingLoader.java \
+		java/com/parc/uplib/readup/widget/PieMenu.java \
+		java/com/parc/uplib/readup/widget/Clipboard.java \
+		java/com/parc/uplib/readup/widget/WrappedSystemClipboard.java \
+		java/com/parc/uplib/readup/widget/SoftReferenceCache.java \
+		java/com/parc/uplib/readup/widget/ResourceLoader.java \
+		java/com/parc/uplib/readup/widget/ImageHolder.java \
+		java/com/parc/uplib/readup/widget/ScaledJComponent.java \
+		java/com/parc/uplib/readup/widget/ResizableDocViewer.java \
+		java/com/parc/uplib/readup/widget/DraggedSelection.java \
+		java/com/parc/uplib/readup/widget/DraggedHotspot.java \
+		java/com/parc/uplib/readup/widget/PageImageLoaderCallback.java \
+		java/com/parc/uplib/readup/uplibbinding/Repository.java \
+		java/com/parc/uplib/readup/uplibbinding/LocateHandler.java \
+		java/com/parc/uplib/readup/uplibbinding/UpLibScribbleHandler.java \
+		java/com/parc/uplib/readup/uplibbinding/UpLibActivityLogger.java \
+		java/com/parc/uplib/readup/uplibbinding/UpLibHotSpot.java \
+		java/com/parc/uplib/readup/uplibbinding/UpLibHotspotHandler.java \
+		java/com/parc/uplib/readup/uplibbinding/UpLibPageImageLoader.java \
+		java/com/parc/uplib/readup/uplibbinding/UpLibNoteHandler.java \
+		java/com/parc/uplib/readup/uplibbinding/UpLibBufferEmptier.java \
+		java/com/parc/uplib/readup/uplibbinding/MXCIFTree.java \
+		java/com/parc/uplib/readup/uplibbinding/RBTree.java \
+		java/com/parc/uplib/readup/uplibbinding/IntervalTree.java \
+		java/com/parc/uplib/readup/uplibbinding/UpLibPageTextLoader.java \
+		java/com/parc/uplib/readup/applet/UpLibPageview.java \
+		java/com/parc/uplib/readup/application/Organizer.java \
+		java/com/parc/uplib/readup/application/Node.java \
+		java/com/parc/uplib/readup/application/Cluster.java \
+		java/com/parc/uplib/readup/application/CardCatalog.java \
+		java/com/parc/uplib/readup/application/UpLibShowDoc.java
+
+JAVAEBOOK =	java/com/parc/uplib/readup/ebook/EBook.java \
+		java/com/parc/uplib/readup/ebook/PageTextLoader.java \
+		java/com/parc/uplib/readup/ebook/Hotspot.java \
+		java/com/parc/uplib/readup/ebook/PageImageLoader.java
+
+JAVATOPDF =	java/com/parc/uplib/topdf/ToPDF.java
+
+JPENJAR =	java/JPen.jar
+LUCENE =	java/lucene-core-2.4.0.jar
+
+PYTHONPROGS =   python/uplib/startAngel.py \
+		python/uplib/startTornado.py \
+		python/uplib/code_timer.py \
+		python/uplib/static.py \
+		python/uplib/service.py \
+		python/uplib/plibUtil.py.in \
+		python/uplib/angelHandler.py \
+		python/uplib/tornadoHandler.py \
+		python/uplib/basicPlugins.py \
+		python/uplib/emailParser.py \
+		python/uplib/extensions.py \
+		python/uplib/indexing.py \
+		python/uplib/pageview.py \
+		python/uplib/newFolder.py \
+		python/uplib/repository.py \
+		python/uplib/repindex.py \
+		python/uplib/document.py \
+		python/uplib/ripper.py \
+		python/uplib/collection.py \
+		python/uplib/createThumbnails.py \
+		python/uplib/createHTML.py \
+		python/uplib/createIndexEntry.py \
+		python/uplib/createPageBboxes.py \
+		python/uplib/createHotSpots.py \
+		python/uplib/links.py \
+		python/uplib/addDocument.py \
+		python/uplib/xdocParser.py \
+		python/uplib/webutils.py \
+		python/uplib/related.py \
+		python/uplib/pylsearch.py \
+		python/uplib/externalAPI.py \
+		python/uplib/paragraphs.py \
+		python/uplib/categories.py \
+		python/uplib/roman.py \
+		python/uplib/music.py \
+		python/uplib/macstuff.py \
+		python/uplib/jpeg2000.py \
+		python/uplib/language.py \
+		python/uplib/__init__.py
+
+FUSE = 		fuse/__init__.py \
+		fuse/ctypesfuse.py \
+		fuse/uplibfuse.py
+
+WEBSERVICES =   webservices/NewExtensionsServer.py
+
+SCANSEPSHEET =  images/uplib-scan-separator-sheet.pdf
+
+IMAGES =	images/favicon.ico \
+		images/favicon256.png \
+		images/favicon-ipod.png \
+		images/rotating-uplib-logo.gif \
+		images/animated-swirl-24.gif \
+		images/delete.gif \
+		images/right-arrow-icon.png \
+		images/left-arrow-icon.png \
+		images/cream12boldregular.pil \
+		images/cream12boldregular.pbm \
+		images/GenR102.ttf \
+		images/icon16.png \
+		images/info.png \
+		images/swirl.png \
+		images/swirldoc.png \
+		images/drop-ok.png \
+		images/drop-bad.png \
+		images/janitor-icon.png \
+		images/sparrow-down-triangle.png \
+		images/sparrow-right-triangle.png \
+		images/pending.png \
+		images/transparent.png \
+		images/right-arrow-icon-alpha.png \
+		images/left-arrow-icon-alpha.png \
+		images/eyeball.png \
+		images/eyeball-grayed.png \
+		images/applet-logo.png \
+		images/note-corner.png \
+		images/thumbnails.png \
+		images/blank-button-pressed.png \
+		images/blank-button-unpressed.png \
+		images/left-arrow-label.png \
+		images/right-arrow-label.png \
+		images/tango-mail-reply-sender.png \
+		images/tango-mail-reply-all.png \
+		images/toolbar-bottom.png \
+		images/toolbar-center.png \
+		images/toolbar-top.png \
+		images/structured-selection-label.png \
+		images/inkpot-label.png \
+		images/inkpot-with-quill-label.png \
+		images/postit-label.png \
+		images/zoom-in.png \
+		images/page-edge-background-right-end.png \
+		images/page-edge-background-center.png \
+		images/slider-top-right-end.png \
+		images/slider-top-center.png \
+		images/slider-bottom-right-end.png \
+		images/slider-bottom-center.png \
+		images/uplib-logo-label.png \
+		images/hotspots-label.png \
+		images/bookmark-drop-shadow.png \
+		images/snapback-left.png \
+		images/snapback-right.png \
+		images/error.ico \
+		images/UpLibMultiIcon1.ico \
+		images/UpLibFolderMulti.ico \
+		images/Janitor.ico \
+		images/Portal.ico \
+		images/ReadUp.ico \
+		images/ReadUpJWS.gif \
+		images/ReadUp-logo.png \
+		images/readup-favicon.png \
+		images/search-icon.png \
+		images/search-again-label.png \
+		images/purple-ribbon.png \
+		images/red-ribbon.png \
+		images/green-ribbon.png \
+		images/link-icon.png \
+		images/small-ribbon-image.png
+
+MONTHNAMES_IMAGES = \
+		images/monthnames/january.png \
+		images/monthnames/february.png \
+		images/monthnames/march.png \
+		images/monthnames/april.png \
+		images/monthnames/may.png \
+		images/monthnames/june.png \
+		images/monthnames/july.png \
+		images/monthnames/august.png \
+		images/monthnames/september.png \
+		images/monthnames/october.png \
+		images/monthnames/november.png \
+		images/monthnames/december.png \
+
+MUSIC_IMAGES = \
+		images/music/generic.png \
+		images/music/folk.png \
+		images/music/blues.png
+
+JAVASCRIPT =	prototype.js
+
+EXTENSIONS =	extensions/FetchACMBibTex.py \
+		extensions/FetchACMBibTex.info \
+		extensions/CiteULike.py \
+		extensions/CiteULike.info \
+		extensions/NYTimes.py \
+		extensions/NYTimes.info \
+		extensions/WashPost.py \
+		extensions/WashPost.info \
+		extensions/UploadDocument.py \
+		extensions/UploadDocument.info \
+		extensions/UVFS.py \
+		extensions/UVFS.info \
+		extensions/ePub.py \
+		extensions/ePub.info \
+		extensions/RSSReader.py \
+		extensions/RSSReader.info \
+		extensions/FilterWebPage.py \
+		extensions/FilterWebPage.info \
+		extensions/CiteSeerX.py \
+		extensions/CiteSeerX.info \
+		extensions/NltkTagger/__init__.py \
+		extensions/NltkTagger/buildtntbrowntagger \
+		extensions/NltkTagger.info \
+		extensions/SynchronizeRepositories.py \
+		extensions/SynchronizeRepositories.info \
+		extensions/IMAPServer.info \
+		extensions/IMAPServer/__init__.py \
+		extensions/IMAPServer/abstractclasses.py \
+		extensions/IMAPServer/uplibBinding.py \
+		extensions/IMAPServer/medusaHandler.py \
+		extensions/vCardParser.info \
+		extensions/vCardParser/__init__.py \
+		extensions/vCardParser/parser.py \
+		extensions/vCardParser/vcardimage.png \
+		extensions/iCalendar.info \
+		extensions/iCalendar/__init__.py \
+		extensions/iCalendar/parser.py \
+		extensions/iCalendar/clockimage.png \
+		extensions/iCalendar/windows-timezones.xml \
+		extensions/Person.info \
+		extensions/Person/__init__.py \
+		extensions/Person/Person.js \
+		extensions/video.py \
+		extensions/video.info \
+		extensions/Makefile.in
+
+MANPAGES1 =	doc/uplib-get-document.1 \
+		doc/uplib-add-document.1 \
+		doc/uplib-make-repository.1 \
+		doc/uplib-certificate.1 \
+		doc/uplib-janitor.1 \
+		doc/uplib-portal.1
+
+MANPAGESN =	doc/uplib.n
+
+HELPPAGES =	doc/info.html \
+		doc/collections.html \
+		doc/searching.html \
+		doc/FAQ.html \
+		doc/about.html \
+		doc/extensions.html
+
+HELPPAGESRC =	doc/info.html.in \
+		doc/collections.html.in \
+		doc/searching.html.in \
+		doc/FAQ.html.in \
+		doc/about.html.in \
+		doc/extensions.html.in
+
+DOCFILES =	${MANPAGESN} ${MANPAGES1} ${HELPPAGESRC} ${HELPPAGES} \
+		doc/docs.tgz \
+		doc/pyapidocs.tgz \
+		doc/javaapidocs.tgz \
+		doc/index.html \
+		doc/index.html.in \
+		doc/uplibdoc-stylesheet.css \
+		doc/uplibdoc-style.tex \
+		doc/USAGE.txt \
+		doc/EXTENDING.txt \
+		doc/REQUIREMENTS.txt \
+		doc/ARCHITECTURE.txt \
+		doc/CHANGES.txt \
+		doc/INSTALL.txt \
+		doc/METADATA.txt \
+		doc/README.txt \
+		doc/ACKNOWLEDGEMENTS.txt \
+		doc/manual.txt.in \
+		doc/manual.txt \
+		doc/uplib-logo.pdf \
+		doc/uplib-logo.png \
+		doc/getting-started-on-a-mac.txt \
+		doc/WINDOWS.txt \
+		doc/images/portal-icon-on-desktop.png \
+		doc/images/portal-search-pane.png \
+		doc/images/portal-submission-window.png \
+		doc/epydoc-config.ini \
+		doc/Makefile.in
+
+BINTEMPLATES =	commandline/uplib-check-angel.in \
+		commandline/uplib-make-repository.in \
+		commandline/uplib-add-document.in \
+		commandline/uplib-get-document.in \
+		commandline/uplib-certificate.in \
+		commandline/uplib-version.in \
+		commandline/uplib-portal.in \
+		commandline/uplib-topdf.in \
+		commandline/uplib-janitor.in \
+		commandline/uplib-ps2pdf.in \
+		commandline/uplib-pdf2ps.in \
+		commandline/uplib-openoffice-convert-to-pdf.in \
+		commandline/uplib-openoffice-convert-to-pdf-via-server.in \
+		commandline/uplib-setup-openoffice.in \
+		commandline/uplib-cache-url.in \
+		commandline/mount_uvfs.in \
+		commandline/mount_uvfs2.in \
+		commandline/uplib-webkit2pdf.in \
+		commandline/readup.in
+
+BATTEMPLATES =	win32/cmdprogs/uplib-check-angel.bat.in \
+		win32/cmdprogs/uplib-make-repository.bat.in \
+		win32/cmdprogs/uplib-add-document.bat.in \
+		win32/cmdprogs/uplib-get-document.bat.in \
+		win32/cmdprogs/uplib-certificate.bat.in \
+		win32/cmdprogs/uplib-portal.bat.in \
+		win32/cmdprogs/uplib-janitor.bat.in \
+		win32/cmdprogs/uplib-ps2pdf.bat.in \
+		win32/cmdprogs/uplib-tiff-split.bat.in \
+		win32/cmdprogs/uplib-openoffice-convert-to-pdf.bat.in \
+		win32/cmdprogs/uplib-topdf.bat.in \
+		win32/cmdprogs/uplib-check-windows-service-right.py.in \
+		win32/cmdprogs/readup.bat.in
+
+WINDOWSFILES =  win32/windows-service-template \
+		win32/Makefile.in \
+		win32/cmdprogs/Makefile.in \
+		win32/de-msys \
+		win32/diruse.exe \
+		win32/grant.exe \
+		win32/windows.config.SAMPLE \
+		win32/createWinShortcuts.py.in \
+		win32/removeUpLibService.py \
+		win32/promptClosePortal.py \
+		win32/restartUpLibService.py \
+		win32/stopStartUpLibServices.py \
+		win32/removeAllUpLibGuardians.py \
+		win32/build-windows-dist.py \
+		win32/configure-target.py \
+		win32/htmldoc-isbuilder.nsi \
+		win32/uplib-installer.nsi \
+		win32/find-javahome.py \
+		win32/build-windows-prereqs.sh \
+		win32/install-script.py \
+		win32/unpack-uplib.py \
+		win32/post-install.py \
+		win32/build-msi-installer.py \
+		win32/installer-label.bmp \
+		win32/INSTRUCTIONS.txt \
+		${BATTEMPLATES}
+
+IMAGESFILES =   c/findimages/findimages.c \
+		c/findimages/Makefile.in \
+		c/findimages/images.py \
+		c/findimages/images.info
+
+MACFILES =	unix/macosx/MacPortalApp.tgz \
+		unix/macosx/ReadUpApp.tgz \
+		unix/macosx/JanitorApp.tgz \
+		unix/macosx/ToPDFApp.tgz \
+		unix/macosx/com.parc.uplib.ToPDFAgent.plist.in \
+		unix/macosx/StartUpLibRepositoriesApp.tgz \
+		unix/macosx/uplib-print-pdf-to-repository.in \
+		unix/macosx/ScanSnapUpLib.applescript \
+		unix/macosx/postinstall.in \
+		unix/macosx/buildpkg.py \
+		unix/macosx/package-properties.plist.in \
+		unix/macosx/package-description.plist.in \
+		unix/macosx/package-resources/ReadMe.html \
+		unix/macosx/package-resources/Welcome.txt \
+		unix/macosx/package-resources/background.tiff \
+		unix/macosx/build-mac-installation.csh \
+		unix/macosx/Makefile.in
+
+LINUXFILES =	unix/linux/Makefile.in \
+		unix/linux/figure-linux-java.py \
+		unix/linux/build-linux-installation.csh \
+		unix/linux/epm-product.list
+
+TOOLS =		email/mailcrawler.py \
+		email/imapcrawler.py \
+		java/build-topdf-library.sh.in
+
+PATCHES =	patches/MEDUSA-PATCH \
+		patches/MEDUSA-PATCH-2 \
+		patches/medusa-0.5.4-PATCH \
+		patches/xpdf-3.00-PATCH \
+		patches/xpdf-3.01-PATCH \
+		patches/xpdf-3.02-PATCH \
+		patches/HTMLDOC-1.8.24-PATCH \
+		patches/ytnef-2.6-patch \
+		patches/jpeg-msys-PATCH \
+		patches/ghostscript-8.71-mingw.patch \
+		patches/jcc-2.9-mingw-PATCH \
+		patches/PIL-1.1.7-msys-PATCH \
+		patches/jasper-1.900-PATCH \
+		patches/setuptools-0.6c9-PATCH
+
+TESTS =		tests/Makefile.in \
+		tests/TestSupport.py \
+		tests/TestAdds.py \
+		tests/Tests.java \
+		tests/Tests.class \
+		tests/tests.uplibrc \
+		tests/extensions/TestSupportExt.py \
+		tests/extensions/TestSupportExt.info \
+		tests/docs/uplib-logo.png \
+		tests/docs/uplib-logo.gif \
+		tests/docs/uplib-logo.jpg \
+		tests/docs/uplib-logo.bmp \
+		tests/docs/uplib-logo.tiff \
+		tests/docs/uplib-logo.jp2 \
+		tests/docs/testpage.txt \
+		tests/docs/testpage.pdf \
+		tests/docs/testpageMac2004.doc \
+		tests/docs/testpageMac2008.doc \
+		tests/docs/testpageMac2008.docx \
+		tests/docs/UpLib.html \
+		tests/docs/UpLib_files/Bier-tree-120.jpg \
+		tests/docs/UpLib_files/Breidenbach-horse.jpg \
+		tests/docs/UpLib_files/Royer-tree-128.jpg \
+		tests/docs/UpLib_files/face.gif \
+		tests/docs/UpLib_files/favicon256.png \
+		tests/docs/UpLib_files/janssen-bundled.jpg \
+		tests/docs/UpLib_files/parc-logo.png \
+		tests/docs/UpLib_files/profile.gif \
+		tests/docs/email-with-attached-picture.eml \
+		tests/docs/elephant-trumpeting.mp3 \
+		tests/docs/empty.txt \
+		tests/docs/NOTES.txt
+
+
+DISTFILES =	${PYTHONPROGS} ${IMAGES} ${BATTEMPLATES} \
+		${BINTEMPLATES} ${WINDOWSFILES} README ${DOCFILES} ${SCANSEPSHEET} \
+		${JAVACOMMONFILES} ${INDEXINGFILES} ${JAVADROPFILES} ${JAVAPAGEVIEW} ${JAVATOPDF} \
+		${JNLPSTUBS} ${JAVAEBOOK} ${JPENJAR} ${LUCENE} uplib.uno.pkg ${EXTENSIONS} \
+		site.config.in Makefile.in stunnel.pem configure configure.in default-controls-template \
+		configure-files.py replacements.in reconfigure.in \
+		EXTERNAL_CODE ${PATCHES} ${FUSE} ${TOOLS} ${TESTS} \
+		${IMAGESFILES} ${MUSIC_IMAGES} ${MONTHNAMES_IMAGES} ${MACFILES} ${JAVASCRIPT} \
+		unix/Makefile.in c/Makefile.in python/Makefile.in commandline/Makefile.in ${LINUXFILES}
+
+JAVAJARS =	java/LuceneIndexing.jar java/UpLibPortal.jar java/UpLibPageview.jar java/ShowDoc.jar java/UpLibJanitor.jar java/ebookbase.jar
+
+all:
+	make site.config
+	(cd java ; make all)
+	(cd c ; make all)
+	(cd python; make all)
+	(cd commandline ; make all)
+	if test "$(OS_TARGET)" = "win32"; then \
+		(cd win32; make all) \
+	else \
+		(cd unix; make all) \
+	fi
+	(cd extensions; make all)
+ifeq ($(DOCTOOLS),yes)
+	(cd doc; make docs.tgz)
+ifdef EPYDOC
+	(cd doc; make pyapidocs.tgz)
+endif
+ifdef JAVADOC
+	(cd doc; make javaapidocs.tgz)
+endif
+endif
+	make TAGS
+
+site.config: site.config.in
+	./reconfigure
+
+REPLACEMENTS_COPY	= /tmp/replacements-copy
+
+install: all ${HELPPAGES}
+
+ifeq ($(OS_TARGET),win32)
+
+# install-script.py clobbers replacements, so make a copy
+
+	echo "${REPLACEMENTS_COPY}"
+	-rm -f ${REPLACEMENTS_COPY}
+	cp replacements ${REPLACEMENTS_COPY}
+
+	platlib=`"@PYTHON@" -c "import distutils.sysconfig as sc; print sc.get_python_lib(plat_specific=True, prefix='@UPLIB_HOME_MSYS@')"` ; \
+	nonplat=`"@PYTHON@" -c "import distutils.sysconfig as sc; print sc.get_python_lib(plat_specific=False, prefix='@UPLIB_HOME_MSYS@')"` ; \
+	ppath=${PYTHONPATH} ; \
+	if test -d "$$platlib"; then \
+	   if test "x$$ppath" = "x"; then \
+	      ppath="$$platlib" ; \
+	   else \
+	      ppath="$${platlib}:$${ppath}" ; \
+	   fi ; \
+	fi ; \
+	if test -d "$$nonplat"; then \
+	   if test "x$$ppath" = "x"; then \
+	      ppath="$$nonplat" ; \
+	   else \
+	      ppath="$${nonplat}:$${ppath}" ; \
+	   fi ; \
+	fi ; \
+	export PYTHONPATH=$${ppath} ; \
+	echo "PYTHONPATH is $${PYTHONPATH}" ;\
+	"@PYTHON@" win32/install-script.py "@UPLIB_HOME@" "@PACKAGE_VERSION@"
+
+# now put back replacements and reconfig everything
+	cp $(REPLACEMENTS_COPY) replacements
+	./reconfigure
+
+else
+
+	install -d "${LIBDIR}"
+	install -d "${IMAGESDIR}"
+	install -d "${IMAGESDIR}/monthnames"
+	install -d "${IMAGESDIR}/music"
+	install -d "${BINDIR}"
+	install -d "${CODEDIR}"
+	install -d "${DOCDIR}"
+	install -d "${HELPDIR}"
+	install -d "${MANDIR}/man1"
+	install -d "${MANDIR}/mann"
+	install -d "${EXTENSIONSDIR}"
+
+	(cd python; make install)
+	(cd java; make install)
+	(cd c; make install)
+	(cd commandline; make install)
+
+	install -d "${FUSEDIR}"
+	install -m 444 ${FUSE} "${FUSEDIR}"
+	#	"${PYTHON}" -c "import sys, compileall; sys.exit(0 if compileall.compile_dir(r'${FUSEDIR}') else 1)"
+
+	(cd commandline; make install)
+	(cd unix; make install)
+
+	if test ! -e "${LIBDIR}/stunnel.pem"; then \
+		install -m 444 stunnel.pem "${LIBDIR}"; \
+	fi
+
+	install -m 444 ${JAVASCRIPT} "${CODEDIR}"
+	install -m 444 site.config "${LIBDIR}"
+	install -m 444 ${IMAGES} "${IMAGESDIR}"
+	install -m 444 ${MONTHNAMES_IMAGES} "${IMAGESDIR}/monthnames"
+	install -m 444 ${MUSIC_IMAGES} "${IMAGESDIR}/music"
+	install -m 444 default-controls-template ${SCANSEPSHEET} "${SHAREDDIR}"
+	install -m 444 ${HELPPAGES} "${HELPDIR}"
+	install -m 444 ${MANPAGES1} "${MANDIR}/man1"
+	install -m 444 ${MANPAGESN} "${MANDIR}/mann"
+	install -m 444 uplib.uno.pkg "${CODEDIR}"
+	if test -e doc/docs.tgz; then \
+		cat doc/docs.tgz | (cd "${DOCDIR}" ; "$(TAR)" xvfz - ) \
+	fi
+	-mkdir -p "${DOCDIR}/api"
+	-mkdir -p "${DOCDIR}/java"
+	if test -e doc/pyapidocs.tgz; then \
+		cat doc/pyapidocs.tgz | (cd "${DOCDIR}/api" ; "$(TAR)" xvfz - ) \
+	fi
+	if test -e doc/javaapidocs.tgz; then \
+		cat doc/javaapidocs.tgz | (cd "${DOCDIR}/java" ; "$(TAR)" xvfz - ) \
+	fi
+	(cd extensions; make install)
+
+	# this use of makewhatis may cause some error messages -- ignore them
+	if test "$(OS_TARGET)" != "win32" -a -x "${MAKEWHATIS}"; then \
+		${MAKEWHATIS} "${MANDIR}" ; \
+	fi
+ifneq ($(strip $(UNOPKG)),)
+ifneq ($(strip $(XVFB)),)
+	if test "$(OS_TARGET)" != "win32"; then \
+		"$(XVFB)" $(XVFB_ARGS) :20 >/dev/null 2>&1 & xvfb_pid="$$!"; export DISPLAY=":20"; \
+	fi ; \
+	installed=`"$(UNOPKG)" list --shared | grep "Name:.*uplib.uno.pkg"` ; \
+	if test "x$$installed" != "x"; then \
+		"$(UNOPKG)" remove uplib.uno.pkg --shared ;\
+	fi ; \
+	"$(UNOPKG)" add uplib.uno.pkg --shared ; \
+	if test "$(OS_TARGET)" != "win32"; then \
+		@KILL@ $$xvfb_pid ; \
+	fi
+endif
+endif
+endif
+
+clean:
+	(cd java; make clean)
+	(cd python; make clean)
+	(cd c; make clean)
+	(cd commandline; make clean)
+	if test "$(OS_TARGET)" = "win32"; then \
+		(cd win32; make clean) \
+	else \
+		(cd unix; make clean) \
+	fi
+	(cd extensions; make clean)
+	(cd tests ; make clean)
+	rm -f .macapps TAGS
+	rm -rf autom4te.cache
+
+Makefile: Makefile.in replacements
+	./reconfigure
+
+configure: configure.in
+	autoconf
+
+ifdef ETAGS
+ifdef FIND
+TAGS:
+	$(FIND) . \( -name \*.java -o -name \*.py -o -name \*.c -o -name \*.h \) | "$(ETAGS)" -o TAGS -
+else
+TAGS:
+	echo "no find -- TAGS ignored"
+endif
+else
+TAGS:
+	echo "no etags -- TAGS ignored"
+endif
+
+ifdef PYCHECKER
+pycheck: $(PYTHONPROGS)
+	UPLIBLIB=. ${PYCHECKER} --stdlib $^
+else
+pycheck:
+	echo "no pychecker -- pycheck ignored"
+endif
+
+distclean: clean
+	(cd doc; make clean)
+
+ifeq ($(DOCTOOLS),yes)
+doc/docs.tgz:
+	(cd doc; make docs.tgz)
+ifdef EPYDOC
+doc/pyapidocs.tgz:
+	(cd doc; make pyapidocs.tgz)
+else
+doc/pyapidocs.tgz:
+	echo "no epydoc!"
+	exit 1
+endif
+ifdef JAVADOC
+doc/javaapidocs.tgz:
+	(cd doc; make javaapidocs.tgz)
+else
+doc/javaapidocs.tgz:
+	echo "no javadoc!"
+	exit 1
+endif
+else
+doc/docs.tgz:
+	echo "no documentation tools (pdflatex, python-docutils, epydoc)!"
+	exit 1
+endif
+
+doc/README.txt: README
+	(cd doc; rm -f docs.tgz; make README.txt)
+
+test:
+	(cd tests; make all)
+
+tests/Tests.class: configure tests/Tests.java
+	(cd tests; make Tests.class)
+
+dist: configure java ${DISTFILES} pycheck
+
+ifeq ($(strip $(PREREQS_DIR)),)
+	echo "No --with-prereqs specified -- don't know where to find prereqs packages"
+	echo "Please reconfigure with --with-prereqs=DIR"
+	exit 1
+endif
+
+ifeq ($(strip $(EPM)),)
+	if test "$(OS_TARGET)" = "Linux"; then \
+		echo "no EPM installed -- can't build Linux packages" ;\
+		exit 1 ;\
+	fi
+endif
+
+
+	if ! test -f misc/licenses/${LICENSE}; then \
+		echo "No such license '${LICENSE}' in misc/licenses/" ; \
+		exit 1 ; \
+	else \
+		echo "uplib ${LICENSE}" > ./uplibtmp-${VERSION}.rlist ; \
+	fi
+
+	echo ${VERSION} > VERSION
+
+	(cd doc; rm -f docs.tgz; rm -f README.txt ; make README.txt)
+	"@PYTHON@" "./misc/rights-tagger.py" "./doc/README.txt" "./misc/licenses" "./uplibtmp-${VERSION}.rlist" "${PACKAGENAME}" ; \
+	(cd doc; make dist)
+
+	tar cvf ./uplibtmp-${VERSION}.tgz VERSION
+	for file in ${DISTFILES}; do \
+		tar ufv ./uplibtmp-${VERSION}.tgz $${file} ; \
+        done
+	if test -d uplib-${VERSION}; then \
+		rm -rf uplib-${VERSION}; \
+	fi
+	mkdir uplib-${VERSION}
+	cd uplib-${VERSION} ; \
+	tar xf ../uplibtmp-${VERSION}.tgz ; \
+	cd ..
+
+	cd uplib-${VERSION} ; \
+	"@PYTHON@" ../misc/rights-tagger.py . "../misc/licenses" ../uplibtmp-${VERSION}.rlist "${PACKAGENAME}" ; \
+	"@PYTHON@" ../misc/rights-tagger.py ./README "../misc/licenses" ../uplibtmp-${VERSION}.rlist "${PACKAGENAME}" ; \
+	if test -f "../misc/licenses/${LICENSE}.txt" ; then \
+		cp ../misc/licenses/${LICENSE}.txt ./LICENSE ; \
+	fi ; \
+	cd ..
+
+	tar cfz uplib-${VERSION}.tgz uplib-${VERSION}; \
+	rm -rf uplib-${VERSION}; rm -f ./uplibtmp-${VERSION}.tgz
+
+	if test "$(OS_TARGET)" = "win32"; then \
+		(cd java; make jars) ; \
+		(cd win32; make dist) \
+	else \
+		(cd unix; make dist) \
+	fi
+	rm -rf ./uplibtmp-${VERSION}.rlist
+

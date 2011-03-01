@@ -1,0 +1,1432 @@
+diff -u -b -r -P -x configure -x Makefile -x '*,v' -x '.gdb*' -x '#*' -x '.#*' -x 'config.*' -x aconf.h Makefile.in Makefile.in
+--- Makefile.in	2007-02-27 14:05:51.000000000 -0800
++++ Makefile.in	2009-11-22 12:11:34.000000000 -0800
+@@ -73,6 +73,12 @@
+ 	cd @UP_DIR@splash; $(MAKE)
+ 	cd @UP_DIR@xpdf; $(MAKE) pdfimages$(EXE)
+ 
++pdflinks:
++	cd goo; $(MAKE)
++	cd @UP_DIR@fofi; $(MAKE)
++	cd @UP_DIR@splash; $(MAKE)
++	cd @UP_DIR@xpdf; $(MAKE) pdflinks$(EXE)
++
+ dummy:
+ 
+ install: dummy
+@@ -84,6 +90,7 @@
+ 	$(INSTALL_PROGRAM) xpdf/pdffonts$(EXE) $(DESTDIR)@bindir@/pdffonts$(EXE)
+ @X@	$(INSTALL_PROGRAM) xpdf/pdftoppm$(EXE) $(DESTDIR)@bindir@/pdftoppm$(EXE)
+ 	$(INSTALL_PROGRAM) xpdf/pdfimages$(EXE) $(DESTDIR)@bindir@/pdfimages$(EXE)
++	$(INSTALL_PROGRAM) xpdf/pdflinks$(EXE) $(DESTDIR)@bindir@/pdflinks$(EXE)
+ 	-mkdir -p $(DESTDIR)@mandir@/man1
+ @X@	$(INSTALL_DATA) $(srcdir)/doc/xpdf.1 $(DESTDIR)@mandir@/man1/xpdf.1
+ 	$(INSTALL_DATA) $(srcdir)/doc/pdftops.1 $(DESTDIR)@mandir@/man1/pdftops.1
+@@ -92,6 +99,7 @@
+ 	$(INSTALL_DATA) $(srcdir)/doc/pdffonts.1 $(DESTDIR)@mandir@/man1/pdffonts.1
+ @X@	$(INSTALL_DATA) $(srcdir)/doc/pdftoppm.1 $(DESTDIR)@mandir@/man1/pdftoppm.1
+ 	$(INSTALL_DATA) $(srcdir)/doc/pdfimages.1 $(DESTDIR)@mandir@/man1/pdfimages.1
++	$(INSTALL_DATA) $(srcdir)/doc/pdflinks.1 $(DESTDIR)@mandir@/man1/pdflinks.1
+ 	-mkdir -p $(DESTDIR)@mandir@/man5
+ 	$(INSTALL_DATA) $(srcdir)/doc/xpdfrc.5 $(DESTDIR)@mandir@/man5/xpdfrc.5
+ 	-mkdir -p $(DESTDIR)@sysconfdir@
+diff -u -b -r -P -x configure -x Makefile -x '*,v' -x '.gdb*' -x '#*' -x '.#*' -x 'config.*' -x aconf.h configure.in configure.in
+--- configure.in	2007-02-27 14:05:51.000000000 -0800
++++ configure.in	2009-11-22 12:11:34.000000000 -0800
+@@ -92,6 +92,18 @@
+   UP_DIR="../"
+ fi
+ 
++dnl ##### Check for MinGW
++AC_CACHE_CHECK([for MinGW on Win32],
++xpdf_cv_sys_mingw,
++[AC_TRY_COMPILE([],
++[__MINGW32__],
++xpdf_cv_sys_mingw=yes, xpdf_cv_sys_mingw=no)])
++if test "$xpdf_cv_sys_mingw" = yes; then
++  EXE=".exe"
++  LIBS="${LIBS} -lgdi32"
++fi
++
++
+ dnl ##### Do substitutions.
+ AC_SUBST(EXE)
+ AC_SUBST(LIBPREFIX)
+diff -u -b -r -P -x configure -x Makefile -x '*,v' -x '.gdb*' -x '#*' -x '.#*' -x 'config.*' -x aconf.h doc/pdflinks.1 doc/pdflinks.1
+--- doc/pdflinks.1	1969-12-31 16:00:00.000000000 -0800
++++ doc/pdflinks.1	2009-11-22 12:11:34.000000000 -0800
+@@ -0,0 +1,182 @@
++.\" Copyright 1998-2005 Glyph & Cog, LLC
++.TH pdflinks 1 "17 August 2005"
++.SH NAME
++pdflinks \- Portable Document Format (PDF) link extractor
++(version 3.01)
++.SH SYNOPSIS
++.B pdflinks
++[options]
++.RI [PDF-file
++.RI [ text-file ]]
++.SH DESCRIPTION
++.B Pdflinks
++Pdflinks reads the 
++.IR PDF-file ,
++scans one or more pages,
++and writes one line of link information for each link found in the PDF file
++to
++.I text-file .
++If
++.I text-file
++is not specified, pdflinks writes information about links in
++.I file.pdf
++to
++.IR file.txt .
++If 
++.I text-file
++is \'-', the output is sent to stdout.
++The link information is strictly formatted, and suitable for further processing
++by computer programs.  The format is documented below.
++.SH CONFIGURATION FILE
++Pdflinks reads a configuration file at startup.  It first tries to
++find the user's private config file, ~/.xpdfrc.  If that doesn't
++exist, it looks for a system-wide config file, typically
++/usr/local/etc/xpdfrc (but this location can be changed when pdflinks
++is built).  See the
++.BR xpdfrc (5)
++man page for details.
++.SH OPTIONS
++Many of the following options can be set with configuration file
++commands.  These are listed in square brackets with the description of
++the corresponding command line option.
++.TP
++.BI \-f " number"
++Specifies the first page to scan.
++.TP
++.BI \-l " number"
++Specifies the last page to scan.
++.TP
++.BI \-opw " password"
++Specify the owner password for the PDF file.  Providing this will
++bypass all security restrictions.
++.TP
++.BI \-upw " password"
++Specify the user password for the PDF file.
++.TP
++.B \-q
++Don't print any messages or errors.
++.RB "[config file: " errQuiet ]
++.TP
++.B \-v
++Print copyright and version information.
++.TP
++.B \-cfg " filename"
++Specify an alternate configuration file to use.
++.TP
++.B \-h
++Print usage information.
++.RB ( \-help
++and
++.B \-\-help
++are equivalent.)
++.SH EXIT CODES
++The Xpdf tools use the following exit codes:
++.TP
++0
++No error.
++.TP
++1
++Error opening a PDF file.
++.TP
++2
++Error opening an output file.
++.TP
++3
++Error related to PDF permissions.
++.TP
++99
++Other error.
++.SH OUTPUT FORMAT
++The information about the links is output one page at a time, with one line of output
++for each link on the page.  A line containing only a formfeed character is output
++between pages.
++.P
++Each line of link information has a series of whitespace-separated fields, in the following
++order:
++.IP \(bu 4
++an integer giving the current page number
++.IP \(bu 4
++a floating point number giving the X coordinate of the upper-left corner of the link rectangle, in points
++.IP \(bu 4
++a floating point number giving the Y coordinate of the
++upper-left corner of the link rectangle, in points
++.IP \(bu 4
++a floating point number giving the X coordinate of the
++lower-right corner of the link rectangle, in points
++.IP \(bu 4
++a floating point number giving the Y coordinate of the
++lower-right corner of the link rectangle, in points
++.IP \(bu 4
++a code giving a partial description of the link border style.  This code consists of a
++style designator, which is one of the strings "none", "engraved", "dashed", "embossed", or "underlined",
++along with optional additional designator-specific parameters.  For the designator "none", there are no parameters.
++.RS
++.P
++For the designators "engraved", "embossed", or "underlined", width and
++color parameters are specified with
++\fIdesignator\fR:\fIwidth\fR:(\fIred-value\fR,\fIblue-value\fR,\fIgreen-value\fR),
++where \fIwidth\fR is a floating-point value giving the width in
++points, and the color specifiers are values between 0.0 and 1.0 giving
++the relative strength of that color component.
++.P
++For the designator "dashed", width, color, and dash are specified with
++the syntax
++\fIdesignator\fR:\fIwidth\fR:(\fIred-value\fR,\fIblue-value\fR,\fIgreen-value\fR):\fIdash\fR:\fIdash-length\fR,
++where \fIdash\fR is the width of the dash, and \fIdash-length\fR is
++the number of repetitions of the dash.
++.RE
++.IP \(bu 4
++a designator giving the type of the link, along with
++designator-specific parameters for each type of designator.  Possible
++designators are "goto" (a link to another location in the same
++document), "gotor" (a link to a location in another document), "uri"
++(a link to a URL), "named" (a trigger for a named action), "unknown"
++(an unknown link), and "action" (a link of another type).
++.RS
++.P
++If the type designator is "unknown", there are no further fields.  If
++the type designator is "action", there is an additional field giving
++the integer value of the action code for this link in the PDF file.
++If the type designator is "named", there is an additional field giving
++the specified name as a string.  If the designator is "uri", there is
++an additional field giving the specified URI as a string.
++.P
++If the designator is "goto" or "gotor", there are a number of additional fields.
++They consist of an integer giving the page number of the target, followed
++by a destination type, which is one of the following:
++.IP \(de 4
++xyz \fIleft\fR \fItop\fR \fIzoom\fR
++.IP \(de 4
++fit
++.IP \(de 4
++fitb
++.IP \(de 4
++fitbh \fItop\fR
++.IP \(de 4
++fitbv \fIleft\fR
++.IP \(de 4
++fith \fItop\fR
++.IP \(de 4
++fith \fIleft\fR
++.IP \(de 4
++fitr \fIleft\fR \fIbottom\fR \fIright\fR \fItop\fR
++.IP \(de 4
++unknown \fIcode\fR
++.P
++Finally, if the designator is "gotor", there may be one additional
++field, the filename of the file containing the document being referred
++to.
++.RE
++.SH AUTHOR
++The pdflinks software and documentation are copyright 1998-2005 Glyph
++& Cog, LLC.
++.SH "SEE ALSO"
++.BR xpdf (1),
++.BR pdftops (1),
++.BR pdftotext (1),
++.BR pdfinfo (1),
++.BR pdffonts (1),
++.BR pdftoppm (1),
++.BR xpdfrc (5)
++.br
++.B http://www.foolabs.com/xpdf/
+diff -u -b -r -P -x configure -x Makefile -x '*,v' -x '.gdb*' -x '#*' -x '.#*' -x 'config.*' -x aconf.h doc/pdflinks.cat doc/pdflinks.cat
+--- doc/pdflinks.cat	1969-12-31 16:00:00.000000000 -0800
++++ doc/pdflinks.cat	2009-11-22 12:11:34.000000000 -0800
+@@ -0,0 +1,160 @@
++pdflinks(1)							   pdflinks(1)
++
++
++
++NAME
++       pdflinks - Portable Document Format (PDF) link extractor (version 3.01)
++
++SYNOPSIS
++       pdflinks [options] [PDF-file [text-file]]
++
++DESCRIPTION
++       Pdflinks Pdflinks reads the PDF-file, scans  one	 or  more  pages,  and
++       writes one line of link information for each link found in the PDF file
++       to text-file .  If text-file is not specified, pdflinks writes informa-
++       tion  about  links  in  file.pdf to file.txt.  If text-file is '-', the
++       output is sent to stdout.  The link information is strictly  formatted,
++       and  suitable  for further processing by computer programs.  The format
++       is documented below.
++
++CONFIGURATION FILE
++       Pdflinks reads a configuration file at startup.	It first tries to find
++       the  user's  private config file, ~/.xpdfrc.  If that doesn't exist, it
++       looks for a system-wide config  file,  typically	 /usr/local/etc/xpdfrc
++       (but  this  location  can  be changed when pdflinks is built).  See the
++       xpdfrc(5) man page for details.
++
++OPTIONS
++       Many of the following options can be set with configuration  file  com-
++       mands.  These are listed in square brackets with the description of the
++       corresponding command line option.
++
++       -f number
++	      Specifies the first page to scan.
++
++       -l number
++	      Specifies the last page to scan.
++
++       -opw password
++	      Specify the owner password for the  PDF  file.   Providing  this
++	      will bypass all security restrictions.
++
++       -upw password
++	      Specify the user password for the PDF file.
++
++       -q     Don't print any messages or errors.  [config file: errQuiet]
++
++       -v     Print copyright and version information.
++
++       -cfg  filename
++	      Specify an alternate configuration file to use.
++
++       -h     Print usage information.	(-help and --help are equivalent.)
++
++EXIT CODES
++       The Xpdf tools use the following exit codes:
++
++       0      No error.
++
++       1      Error opening a PDF file.
++
++       2      Error opening an output file.
++
++       3      Error related to PDF permissions.
++
++       99     Other error.
++
++OUTPUT FORMAT
++       The  information about the links is output one page at a time, with one
++       line of output for each link on the page.  A  line  containing  only  a
++       formfeed character is output between pages.
++
++       Each  line  of  link  information  has a series of whitespace-separated
++       fields, in the following order:
++
++       o   an integer giving the current page number
++
++       o   a floating point number giving the X coordinate of  the  upper-left
++	   corner of the link rectangle, in points
++
++       o   a  floating	point number giving the Y coordinate of the upper-left
++	   corner of the link rectangle, in points
++
++       o   a floating point number giving the X coordinate of the  lower-right
++	   corner of the link rectangle, in points
++
++       o   a  floating point number giving the Y coordinate of the lower-right
++	   corner of the link rectangle, in points
++
++       o   a code giving a partial description of the link border style.  This
++	   code	 consists  of  a style designator, which is one of the strings
++	   "none", "engraved", "dashed", "embossed",  or  "underlined",	 along
++	   with	 optional  additional designator-specific parameters.  For the
++	   designator "none", there are no parameters.
++
++	   For the designators "engraved", "embossed", or "underlined",	 width
++	   and	color  parameters  are	specified  with designator:width:(red-
++	   value,blue-value,green-value),  where  width	 is  a	floating-point
++	   value giving the width in points, and the color specifiers are val-
++	   ues between 0.0 and 1.0 giving the relative strength of that	 color
++	   component.
++
++	   For	the  designator "dashed", width, color, and dash are specified
++	   with	  the	syntax	 designator:width:(red-value,blue-value,green-
++	   value):dash:dash-length,  where  dash is the width of the dash, and
++	   dash-length is the number of repetitions of the dash.
++
++       o   a designator giving the type of the link,  along  with  designator-
++	   specific parameters for each type of designator.  Possible designa-
++	   tors are "goto" (a link to another location in the same  document),
++	   "gotor"  (a	link to a location in another document), "uri" (a link
++	   to a URL), "named" (a trigger for a named  action),	"unknown"  (an
++	   unknown link), and "action" (a link of another type).
++
++	   If  the  type designator is "unknown", there are no further fields.
++	   If the type designator is "action", there is	 an  additional	 field
++	   giving  the	integer	 value of the action code for this link in the
++	   PDF file.  If the type designator is "named",  there	 is  an	 addi-
++	   tional  field giving the specified name as a string.	 If the desig-
++	   nator is "uri", there is an additional field giving	the  specified
++	   URI as a string.
++
++	   If the designator is "goto" or "gotor", there are a number of addi-
++	   tional fields.  They consist of an integer giving the  page	number
++	   of  the target, followed by a destination type, which is one of the
++	   following:
++
++	   o   xyz left top zoom
++
++	   o   fit
++
++	   o   fitb
++
++	   o   fitbh top
++
++	   o   fitbv left
++
++	   o   fith top
++
++	   o   fith left
++
++	   o   fitr left bottom right top
++
++	   o   unknown code
++
++	   Finally, if the designator is "gotor", there may be one  additional
++	   field,  the	filename  of  the  file	 containing the document being
++	   referred to.
++
++AUTHOR
++       The pdflinks software and documentation are copyright 1998-2005 Glyph &
++       Cog, LLC.
++
++SEE ALSO
++       xpdf(1),	   pdftops(1),	  pdftotext(1),	   pdfinfo(1),	  pdffonts(1),
++       pdftoppm(1), xpdfrc(5)
++       http://www.foolabs.com/xpdf/
++
++
++
++				17 August 2005			   pdflinks(1)
+diff -u -b -r -P -x configure -x Makefile -x '*,v' -x '.gdb*' -x '#*' -x '.#*' -x 'config.*' -x aconf.h doc/pdftotext.1 doc/pdftotext.1
+--- doc/pdftotext.1	2007-02-27 14:05:51.000000000 -0800
++++ doc/pdftotext.1	2009-11-22 12:24:30.000000000 -0800
+@@ -54,6 +54,12 @@
+ "undoes" column formatting, etc.  Use of raw mode is no longer
+ recommended.
+ .TP
++.B \-wordboxes
++Generate, for each page, a list of "wordboxes", which are rectangles
++containing words, along with information
++about the font and the Unicode characters of the text itself.
++See below for the format of the output.
++.TP
+ .B \-htmlmeta
+ Generate a simple HTML file, including the meta information.  This
+ simply wraps the text in <pre> and </pre> and prepends the meta
+@@ -101,6 +107,73 @@
+ and
+ .B \-\-help
+ are equivalent.)
++.SH WORDBOXES OUTPUT FORMAT
++When the \fI-wordboxes\fR option is selected, the output is a series
++of \fIpage records\fR, separated from each other by a line containing
++only an ASCII formfeed character.  The order of the page records is
++the same as the order of pages in the input PDF.  Each \fBpage
++record\fR is a series of \FIwordbox records\fR, in reading order for
++the page.
++.P
++Each \fBwordbox record\fR is a line of ASCII text containing a series
++of whitespace-separated ASCII fields, in the following order:
++.IP \(bu 4
++a floating point number giving the X coordinate of the upper-left corner of the word box, in points
++.IP \(bu 4
++a floating point number giving the Y coordinate of the
++upper-left corner of the word box, in points
++.IP \(bu 4
++a floating point number giving the X coordinate of the
++lower-right corner of the word box, in points
++.IP \(bu 4
++a floating point number giving the Y coordinate of the
++lower-right corner of the word box, in points
++.IP \(bu 4
++a floating point number giving the X or Y coordinate (depending on rotation) of the
++baseline of the word box, in points
++.IP \(bu 4
++an integer giving the rotation; 0 for unrotated (top of word towards
++top of page), 1 for 90 degree rotation (top of word towards right side
++of page), 2 for 180 degree rotation (top of word towards bottom of
++page), and 3 for 270 degree rotation (top of word towards left side of
++page
++.IP \(bu 4
++an integer giving the font-type code (see xpdf/GfxFont.h for a list of code values)
++.IP \(bu 4
++a string giving the font name, or "*" if the name is not available
++.IP \(bu 4
++an integer giving the font size in points
++.IP \(bu 4
++an integer 1 if the font is fixed-width, 0 otherwise
++.IP \(bu 4
++an integer 1 if the font is serif, 0 otherwise
++.IP \(bu 4
++an integer 1 if the font is a symbol font, 0 otherwise
++.IP \(bu 4
++an integer 1 if the font face is italic, 0 otherwise
++.IP \(bu 4
++an integer 1 if the font face is bold, 0 otherwise
++.IP \(bu 4
++an integer 1 if the word ends with an inserted hyphen, 0 if not
++.IP \(bu 4
++an integer 1 if a space follows the word, 0 if not
++.IP \(bu 4
++an integer 1 if the word ends a line of text, 0 otherwise
++.IP \(bu 4
++an integer giving the number of Unicode characters in the word
++.IP \(bu 4
++a space-separated sequence of integers giving the Unicode code
++points for each character in the word.
++.IP \(bu 4
++an ASCII-ized version of the word (with any non-ASCII
++characters replaced with "?" characters.)
++.P    
++Here's an example page record from a page with the two words "Hello,
++World!" on it in Times-Roman:
++.P
++\fC53.000000   82.804000   82.664000   93.604000  1 Times-Roman 12.0 0 1 0 0 0  0 1 0    6   72 101 108 108 111  44  "Hello,"\fP
++.P
++\fC85.664000   82.804000  120.320000   93.604000  1 Times-Roman 12.0 0 1 0 0 0  0 0 1    6   87 111 114 108 100  33  "World!"\fP
+ .SH BUGS
+ Some PDF files contain fonts whose encodings have been mangled beyond
+ recognition.  There is no way (short of OCR) to extract text from
+diff -u -b -r -P -x configure -x Makefile -x '*,v' -x '.gdb*' -x '#*' -x '.#*' -x 'config.*' -x aconf.h xpdf/LinkOutputDev.cc xpdf/LinkOutputDev.cc
+--- xpdf/LinkOutputDev.cc	1969-12-31 16:00:00.000000000 -0800
++++ xpdf/LinkOutputDev.cc	2009-11-22 12:11:34.000000000 -0800
+@@ -0,0 +1,183 @@
++//========================================================================
++//
++// LinkOutputDev.cc
++//
++// Copyright 1997-2003 Glyph & Cog, LLC
++//
++//========================================================================
++
++#include <aconf.h>
++
++#ifdef USE_GCC_PRAGMAS
++#pragma implementation
++#endif
++
++#include <stdio.h>
++#include <stdlib.h>
++#include <stddef.h>
++#include <math.h>
++#include <ctype.h>
++#ifdef WIN32
++#include <fcntl.h> // for O_BINARY
++#include <io.h>    // for setmode
++#endif
++#include "gmem.h"
++#include "GString.h"
++#include "GList.h"
++#include "config.h"
++#include "Error.h"
++#include "GlobalParams.h"
++#include "GfxState.h"
++#include "Link.h"
++#include "Catalog.h"
++#include "LinkOutputDev.h"
++
++#ifdef MACOS
++// needed for setting type/creator of MacOS files
++#include "ICSupport.h"
++#endif
++
++LinkOutputDev::LinkOutputDev(char *fileName)
++  : TextOutputDev (NULL, gTrue, gFalse, gFalse) {
++
++  ok = gTrue;
++  firstPage = gTrue;
++
++  // open file
++  needClose = gFalse;
++  if (fileName) {
++    if (!strcmp(fileName, "-")) {
++      outputStream = stdout;
++#ifdef WIN32
++      // keep DOS from munging the end-of-line characters
++      setmode(fileno(stdout), O_BINARY);
++#endif
++    } else if ((outputStream = fopen(fileName, "wb"))) {
++      needClose = gTrue;
++    } else {
++      error(-1, "Couldn't open text file '%s'", fileName);
++      ok = gFalse;
++      return;
++    }
++  } else {
++    ok = gFalse;
++    return;
++  }
++}
++
++void LinkOutputDev::setPage(int pageNum, GBool fp) {
++  firstPage = fp;
++  currentPage = pageNum;
++  if (!firstPage)
++    fprintf(outputStream, "\f\n");
++}
++
++void showDest (FILE *outputStream, LinkDest *d, Catalog *catalog) {
++
++  if (d != 0) {
++    if (d->isPageRef()) {
++      Ref r = d->getPageRef();
++      int pagenum = catalog->findPage(r.num, r.gen);
++      fprintf(outputStream, " %d", pagenum);
++    } else {
++      fprintf(outputStream, " %d", d->getPageNum());
++    }
++    LinkDestKind k = d->getKind();
++    if (k == destXYZ) {
++      fprintf (outputStream, " xyz %.1f %.1f %.1f", d->getLeft(), d->getTop(), d->getZoom());
++    } else if (k == destFit) {
++      fprintf (outputStream, " fit"); 
++    } else if (k == destFitH) {
++      fprintf (outputStream, " fith %.1f", d->getTop());
++    } else if (k == destFitV) {
++      fprintf (outputStream, " fitv %.1f", d->getLeft());
++    } else if (k == destFitR) {
++      fprintf (outputStream, " fitr %.1f %.1f %.1f %.1f", d->getLeft(), d->getBottom(), d->getRight(), d->getTop());
++    } else if (k == destFitB) {
++      fprintf (outputStream, " fitb");
++    } else if (k == destFitBH) {
++      fprintf (outputStream, " fitbh %.1f", d->getTop());
++    } else if (k == destFitBV) {
++      fprintf (outputStream, " fitbv %.1f", d->getLeft());
++    } else {
++      fprintf (outputStream, " unknown %d", (int) k);
++    }
++  }
++}
++
++void showAction (FILE *outputStream, LinkAction *a, Catalog *catalog) {
++
++  LinkActionKind ak = a->getKind();
++
++  if (ak == actionGoTo) {
++
++    fprintf (outputStream, "goto");
++
++    LinkDest *d = ((LinkGoTo*)a)->getDest();
++    GString *nd = ((LinkGoTo*)a)->getNamedDest();
++    if (d != NULL) {
++      showDest (outputStream, d, catalog);
++    } else if ((nd != NULL) && ((d = catalog->findDest(nd)) != NULL)) {
++      showDest(outputStream, d, catalog);
++    } else {
++      fprintf (outputStream, " 0 fit");
++    }
++    
++  } else if (ak == actionGoToR) {
++
++    fprintf (outputStream, "gotor");
++
++    LinkDest *d = ((LinkGoTo*)a)->getDest();
++    GString *nd = ((LinkGoTo*)a)->getNamedDest();
++    if (d != NULL) {
++      showDest (outputStream, d, catalog);
++    } else if ((nd != NULL) && ((d = catalog->findDest(nd)) != NULL)) {
++      showDest(outputStream, d, catalog);
++    } else {
++      fprintf (outputStream, " 0 fit");
++    }
++    
++    GString *filename = ((LinkGoToR*)a)->getFileName();
++    if (filename != 0)
++      fprintf(outputStream, " %s", filename->getCString());
++
++  } else if (ak == actionURI) {
++
++    fprintf (outputStream, "uri %s", ((LinkURI*)a)->getURI()->getCString());
++
++  } else if (ak == actionUnknown) {
++
++    fprintf (outputStream, "unknown");
++
++  } else if (ak == actionNamed) {
++
++    fprintf (outputStream, "named %s", ((LinkNamed*)a)->getName()->getCString());
++
++  } else {
++
++    fprintf (outputStream, "action-%d", (int) ak);
++
++  }
++}
++
++void LinkOutputDev::processLink(Link *link, Catalog *catalog) {
++
++  double corner1_x, corner1_y, corner2_x, corner2_y;
++  int adjusted_x1, adjusted_y1, adjusted_x2, adjusted_y2;
++
++  LinkAction *a = link->getAction();
++
++#define MIN(a,b) (((a)<(b))?(a):(b))
++#define MAX(a,b) (((a)>(b))?(a):(b))
++
++  link->getRect(&corner1_x, &corner1_y, &corner2_x, &corner2_y);
++  cvtUserToDev(corner1_x, corner1_y, &adjusted_x1, &adjusted_y1);
++  cvtUserToDev(corner2_x, corner2_y, &adjusted_x2, &adjusted_y2);
++  fprintf(outputStream, "%d %.1f %.1f %.1f %.1f none ", currentPage,
++          MIN(adjusted_x1, adjusted_x2)/10.0,
++          MIN(adjusted_y1, adjusted_y2)/10.0,
++          MAX(adjusted_x1, adjusted_x2)/10.0,
++          MAX(adjusted_y1, adjusted_y2)/10.0);
++  showAction(outputStream, link->getAction(), catalog);
++  fprintf(outputStream, "\n");
++}
+diff -u -b -r -P -x configure -x Makefile -x '*,v' -x '.gdb*' -x '#*' -x '.#*' -x 'config.*' -x aconf.h xpdf/LinkOutputDev.h xpdf/LinkOutputDev.h
+--- xpdf/LinkOutputDev.h	1969-12-31 16:00:00.000000000 -0800
++++ xpdf/LinkOutputDev.h	2009-11-22 12:11:34.000000000 -0800
+@@ -0,0 +1,66 @@
++//========================================================================
++//
++// LinkOutputDev.h
++//
++// Copyright 2005 Glyph & Cog, LLC
++//
++//========================================================================
++
++#ifndef LINKOUTPUTDEV_H
++#define LINKOUTPUTDEV_H
++
++#include <aconf.h>
++
++#ifdef USE_GCC_PRAGMAS
++#pragma interface
++#endif
++
++#include <stdio.h>
++#include "gtypes.h"
++#include "TextOutputDev.h"
++
++class GString;
++class GList;
++
++//------------------------------------------------------------------------
++// LinkOutputDev
++//------------------------------------------------------------------------
++
++class LinkOutputDev: public TextOutputDev {
++public:
++
++  // Open a text output file.  If <fileName> is NULL, no file is
++  // written (this is useful, e.g., for searching text).  If
++  // <physLayoutA> is true, the original physical layout of the text
++  // is maintained.  If <rawOrder> is true, the text is kept in
++  // content stream order.
++  LinkOutputDev(char *fileName);
++
++  // Create a TextOutputDev which will write to a generic stream.  If
++  // <physLayoutA> is true, the original physical layout of the text
++  // is maintained.  If <rawOrder> is true, the text is kept in
++  // content stream order.
++  LinkOutputDev(TextOutputFunc func, void *stream);
++
++  // Destructor.
++  virtual ~LinkOutputDev() {
++                       if (needClose && (outputStream != NULL)) fclose((FILE *) outputStream); };
++
++  // Check if file was successfully created.
++  virtual GBool isOk() { return ok; }
++
++  // specify current Page
++  virtual void setPage(int pageNum, GBool isFirst);
++
++  virtual void processLink (Link *link, Catalog *catalog);
++
++private:
++
++  FILE *outputStream;
++  GBool needClose;
++  GBool firstPage;
++  int currentPage;
++  GBool ok;			// set up ok?
++};
++
++#endif
+diff -u -b -r -P -x configure -x Makefile -x '*,v' -x '.gdb*' -x '#*' -x '.#*' -x 'config.*' -x aconf.h xpdf/Makefile.in xpdf/Makefile.in
+--- xpdf/Makefile.in	2007-02-27 14:05:52.000000000 -0800
++++ xpdf/Makefile.in	2009-11-22 12:11:34.000000000 -0800
+@@ -88,6 +88,7 @@
+ 	$(srcdir)/SplashOutputDev.cc \
+ 	$(srcdir)/Stream.cc \
+ 	$(srcdir)/TextOutputDev.cc \
++	$(srcdir)/LinkOutputDev.cc \
+ 	$(srcdir)/UnicodeMap.cc \
+ 	$(srcdir)/UnicodeTypeTable.cc \
+ 	$(srcdir)/XPDFApp.cc \
+@@ -99,6 +100,7 @@
+ 	$(srcdir)/pdftops.cc \
+ 	$(srcdir)/pdftotext.cc \
+ 	$(srcdir)/pdfinfo.cc \
++	$(srcdir)/pdflinks.cc \
+ 	$(srcdir)/pdffonts.cc \
+ 	$(srcdir)/pdftoppm.cc \
+ 	$(srcdir)/pdfimages.cc \
+@@ -107,10 +109,10 @@
+ #------------------------------------------------------------------------
+ 
+ all: xpdf$(EXE) pdftops$(EXE) pdftotext$(EXE) pdfinfo$(EXE) \
+-	pdffonts$(EXE) pdftoppm$(EXE) pdfimages$(EXE)
++	pdffonts$(EXE) pdflinks$(EXE) pdftoppm$(EXE) pdfimages$(EXE)
+ 
+ all-no-x: pdftops$(EXE) pdftotext$(EXE) pdfinfo$(EXE) pdffonts$(EXE) \
+-	pdfimages$(EXE)
++	pdfimages$(EXE) pdflinks$(EXE)
+ 
+ #------------------------------------------------------------------------
+ 
+@@ -198,6 +200,22 @@
+ 
+ #------------------------------------------------------------------------
+ 
++PDFLINKS_OBJS = Annot.o Array.o BuiltinFont.o BuiltinFontTables.o \
++	Catalog.o CharCodeToUnicode.o CMap.o Decrypt.o Dict.o Error.o \
++	FontEncodingTables.o Function.o Gfx.o GfxFont.o LinkOutputDev.o \
++	GfxState.o GlobalParams.o JArithmeticDecoder.o JBIG2Stream.o \
++	JPXStream.o Lexer.o Link.o NameToCharCode.o Object.o Outline.o \
++	OutputDev.o Page.o Parser.o PDFDoc.o PDFDocEncoding.o PSTokenizer.o \
++	SecurityHandler.o Stream.o TextOutputDev.o UnicodeMap.o \
++	UnicodeTypeTable.o XpdfPluginAPI.o XRef.o pdflinks.o
++PDFLINKS_LIBS = -L$(GOOLIBDIR) -lGoo $(OTHERLIBS) -lm
++
++pdflinks$(EXE): $(PDFLINKS_OBJS) $(GOOLIBDIR)/$(LIBPREFIX)Goo.a
++	$(CXX) $(CXXFLAGS) $(LDFLAGS) -o pdflinks$(EXE) $(PDFLINKS_OBJS) \
++		$(PDFLINKS_LIBS)
++
++#------------------------------------------------------------------------
++
+ PDFTOPPM_OBJS = Annot.o Array.o BuiltinFont.o BuiltinFontTables.o \
+ 	Catalog.o CharCodeToUnicode.o CMap.o Decrypt.o Dict.o Error.o \
+ 	FontEncodingTables.o Function.o Gfx.o GfxFont.o GfxState.o \
+@@ -243,6 +261,7 @@
+ 	rm -f $(PDFTOTEXT_OBJS) pdftotext$(EXE)
+ 	rm -f $(PDFINFO_OBJS) pdfinfo$(EXE)
+ 	rm -f $(PDFFONTS_OBJS) pdffonts$(EXE)
++	rm -f $(PDFLINKS_OBJS) pdflinks$(EXE)
+ 	rm -f $(PDFTOPPM_OBJS) pdftoppm$(EXE)
+ 	rm -f $(PDFIMAGES_OBJS) pdfimages$(EXE)
+ 
+diff -u -b -r -P -x configure -x Makefile -x '*,v' -x '.gdb*' -x '#*' -x '.#*' -x 'config.*' -x aconf.h xpdf/PDFDoc.cc xpdf/PDFDoc.cc
+--- xpdf/PDFDoc.cc	2007-02-27 14:05:52.000000000 -0800
++++ xpdf/PDFDoc.cc	2009-11-22 12:11:34.000000000 -0800
+@@ -287,6 +287,7 @@
+ 			    secHdlr->getFileKey(),
+ 			    secHdlr->getFileKeyLength(),
+ 			    secHdlr->getEncVersion(),
++                            secHdlr->getEncRevision(),
+ 			    secHdlr->getEncAlgorithm());
+ 	ret = gTrue;
+       } else {
+diff -u -b -r -P -x configure -x Makefile -x '*,v' -x '.gdb*' -x '#*' -x '.#*' -x 'config.*' -x aconf.h xpdf/SecurityHandler.h xpdf/SecurityHandler.h
+--- xpdf/SecurityHandler.h	2007-02-27 14:05:52.000000000 -0800
++++ xpdf/SecurityHandler.h	2009-11-22 12:11:34.000000000 -0800
+@@ -74,6 +74,7 @@
+   virtual Guchar *getFileKey() = 0;
+   virtual int getFileKeyLength() = 0;
+   virtual int getEncVersion() = 0;
++  virtual int getEncRevision() = 0;
+   virtual CryptAlgorithm getEncAlgorithm() = 0;
+ 
+ protected:
+@@ -101,6 +102,7 @@
+   virtual Guchar *getFileKey() { return fileKey; }
+   virtual int getFileKeyLength() { return fileKeyLength; }
+   virtual int getEncVersion() { return encVersion; }
++  virtual int getEncRevision() { return encRevision; }
+   virtual CryptAlgorithm getEncAlgorithm() { return encAlgorithm; }
+ 
+ private:
+diff -u -b -r -P -x configure -x Makefile -x '*,v' -x '.gdb*' -x '#*' -x '.#*' -x 'config.*' -x aconf.h xpdf/TextOutputDev.cc xpdf/TextOutputDev.cc
+--- xpdf/TextOutputDev.cc	2007-02-27 14:05:52.000000000 -0800
++++ xpdf/TextOutputDev.cc	2009-11-22 12:11:58.000000000 -0800
+@@ -15,6 +15,7 @@
+ #include <stdio.h>
+ #include <stdlib.h>
+ #include <stddef.h>
++#include <stdarg.h>
+ #include <math.h>
+ #include <ctype.h>
+ #ifdef WIN32
+@@ -291,11 +292,15 @@
+ 
+ void TextWord::addChar(GfxState *state, double x, double y,
+ 		       double dx, double dy, Unicode u) {
++
++  GfxFont *gfxFont;
++
+   if (len == size) {
+     size += 16;
+     text = (Unicode *)greallocn(text, size, sizeof(Unicode));
+     edge = (double *)greallocn(edge, size + 1, sizeof(double));
+   }
++  gfxFont = font->gfxFont;
+   text[len] = u;
+   switch (rot) {
+   case 0:
+@@ -563,6 +568,58 @@
+   cursorBaseIdx = wordBaseIdx;
+ }
+ 
++static void StreamPrintf(TextOutputFunc func, void *stream, const char *formatSpec, ...)
++{
++  char buf[2000];
++  va_list ap;
++  va_start (ap, formatSpec);
++  vsprintf(buf, formatSpec, ap);
++  (*func)(stream, buf, strlen(buf));
++  va_end(ap);
++}
++
++void TextWord::printBox(TextOutputFunc func, void *stream, GBool newline, GBool space_follows) {
++#define HYPHEN 45
++  if (len > 0) {
++    GBool hyphenated = newline && (text[len-1] == HYPHEN);
++    char *fontName = NULL;
++#ifdef TEXTOUT_WORD_LIST
++    fontName = ((this->font != NULL) && (this->font->fontName != NULL)) ? this->font->fontName->getCString() : NULL;
++#endif
++    if ((fontName == NULL) && (font->gfxFont != NULL) && (font->gfxFont->getOrigName() != NULL)) {
++      fontName = font->gfxFont->getOrigName()->getCString();
++    }
++    if ((fontName != NULL) && (strchr(fontName, '+') != NULL))
++        fontName = strchr(fontName, '+') + 1;
++    /* isBold really means "force bold even at small sizes", so to set our bold flag,
++       we look at the font name if we can */
++    GBool bold = font->gfxFont->isBold() || (fontName && (strlen(fontName) > 5) &&
++                                             ((strstr(fontName, ",Bold") != NULL) ||
++                                              (strstr(fontName, "-Bold") != NULL)));
++    GBool italic = font->gfxFont->isItalic() || (fontName && (strlen(fontName) > 5) &&
++                                                 ((strstr(fontName, ",Italic") != NULL) ||
++                                                  (strstr(fontName, "-Italic") != NULL)));
++    StreamPrintf(func, stream, "%11f %11f %11f %11f %11f", xMin, yMin, xMax, yMax, base);
++    StreamPrintf(func, stream, "  %1d %1d %s %4.1f  %1d %1d %1d %1d %1d", rot,
++                 (int) font->gfxFont->getType(), fontName ? fontName : "*", fontSize,
++                 font->gfxFont->isFixedWidth() ? 1 : 0,
++                 font->gfxFont->isSerif() ? 1 : 0, font->gfxFont->isSymbolic() ? 1 : 0,
++                 italic ? 1 : 0, bold ? 1 : 0);
++    StreamPrintf(func, stream, "  %1d %1d %1d %4d ", hyphenated, space_follows, newline, len);
++    for (int i = 0;  i < len;  i++) {
++      StreamPrintf(func, stream, " %3d", text[i]);
++    }
++    StreamPrintf(func, stream, "  \"");
++    for (int i = 0;  i < len;  i++) {
++      if ((text[i] < 128) && (text[i] > 31))
++        StreamPrintf(func, stream, "%c", (char) text[i]);
++      else
++        StreamPrintf(func, stream, "?");                
++    }
++    StreamPrintf(func, stream, "\"\n");
++  }
++}
++
+ //------------------------------------------------------------------------
+ // TextLine
+ //------------------------------------------------------------------------
+@@ -2026,7 +2083,11 @@
+ 	fabs(base - curWord->base) > 0.5 ||
+ 	curFontSize != curWord->fontSize) {
+       endWord();
++    } else if (!curWord->font->matches(state)) {
++      endWord();
++      updateFont(state);
+     }
++      
+     lastCharOverlap = overlap;
+   } else {
+     lastCharOverlap = gFalse;
+@@ -3442,7 +3503,7 @@
+ }
+ 
+ void TextPage::dump(void *outputStream, TextOutputFunc outputFunc,
+-		    GBool physLayout) {
++		    GBool physLayout, GBool wordboxes) {
+   UnicodeMap *uMap;
+   TextFlow *flow;
+   TextBlock *blk;
+@@ -3482,7 +3543,7 @@
+   //~ writing mode (horiz/vert)
+ 
+   // output the page in raw (content stream) order
+-  if (rawOrder) {
++  if (rawOrder && !wordboxes) {
+ 
+     for (word = rawWords; word; word = word->next) {
+       s = new GString();
+@@ -3500,8 +3561,22 @@
+       }
+     }
+ 
++  } else if (rawOrder && wordboxes) {
++    // output the wordboxes for the words on this page
++
++    for (word = rawWords; word; word = word->next) {
++      GBool newline = 
++        !(word->next &&
++          (fabs(word->next->base - word->base) <
++           maxIntraLineDelta * word->fontSize));
++      GBool space =
++        (!newline) && 
++        (word->next->xMin > word->xMax + minWordSpacing * word->fontSize);
++      word->printBox(outputFunc, outputStream, newline, space);
++    }
++
+   // output the page, maintaining the original physical layout
+-  } else if (physLayout) {
++  } else if (physLayout && !wordboxes) {
+ 
+     // collect the line fragments for the page and sort them
+     fragsSize = 256;
+@@ -3587,6 +3662,29 @@
+ 
+     gfree(frags);
+ 
++    
++  } else if (wordboxes) {
++    // output the wordboxes for the words on this page
++
++    TextWord *word;
++
++    for (flow = flows; flow; flow = flow->next) {
++      for (blk = flow->blocks;  blk;  blk = blk->next) {
++        for (line = blk->lines; line; line = line->next) {
++          for (word = line->words;  word;  word = word->next) {
++            GBool newline = 
++              !(word->next &&
++                (fabs(word->next->base - word->base) <
++                 maxIntraLineDelta * word->fontSize));
++            GBool space =
++              (!newline) && 
++              (word->next->xMin > word->xMax + minWordSpacing * word->fontSize);
++            word->printBox(outputFunc, outputStream, newline, space);
++          }
++        }
++      }
++    }
++  
+   // output the page, "undoing" the layout
+   } else {
+     for (flow = flows; flow; flow = flow->next) {
+@@ -3624,6 +3722,8 @@
+   // end of page
+   if (pageBreaks) {
+     (*outputFunc)(outputStream, eop, eopLen);
++    if (wordboxes)
++      (*outputFunc)(outputStream, eol, eolLen);
+   }
+ 
+   uMap->decRefCnt();
+@@ -3827,6 +3927,40 @@
+   rawOrder = rawOrderA;
+   doHTML = gFalse;
+   ok = gTrue;
++  wordboxes = gFalse;
++
++  // open file
++  needClose = gFalse;
++  if (fileName) {
++    if (!strcmp(fileName, "-")) {
++      outputStream = stdout;
++#ifdef WIN32
++      // keep DOS from munging the end-of-line characters
++      setmode(fileno(stdout), O_BINARY);
++#endif
++    } else if ((outputStream = fopen(fileName, append ? "ab" : "wb"))) {
++      needClose = gTrue;
++    } else {
++      error(-1, "Couldn't open text file '%s'", fileName);
++      ok = gFalse;
++      return;
++    }
++    outputFunc = &outputToFile;
++  } else {
++    outputStream = NULL;
++  }
++
++  // set up text object
++  text = new TextPage(rawOrderA);
++}
++
++TextOutputDev::TextOutputDev(char *fileName, GBool physLayoutA,
++			     GBool rawOrderA, GBool append, GBool wordboxesA) {
++  text = NULL;
++  physLayout = physLayoutA;
++  rawOrder = rawOrderA;
++  ok = gTrue;
++  wordboxes = wordboxesA;
+ 
+   // open file
+   needClose = gFalse;
+@@ -3863,6 +3997,7 @@
+   doHTML = gFalse;
+   text = new TextPage(rawOrderA);
+   ok = gTrue;
++  wordboxes = gFalse;
+ }
+ 
+ TextOutputDev::~TextOutputDev() {
+@@ -3885,7 +4020,7 @@
+   text->endPage();
+   text->coalesce(physLayout, doHTML);
+   if (outputStream) {
+-    text->dump(outputStream, outputFunc, physLayout);
++    text->dump(outputStream, outputFunc, physLayout, wordboxes);
+   }
+ }
+ 
+diff -u -b -r -P -x configure -x Makefile -x '*,v' -x '.gdb*' -x '#*' -x '.#*' -x 'config.*' -x aconf.h xpdf/TextOutputDev.h xpdf/TextOutputDev.h
+--- xpdf/TextOutputDev.h	2007-02-27 14:05:52.000000000 -0800
++++ xpdf/TextOutputDev.h	2009-11-22 12:11:34.000000000 -0800
+@@ -97,6 +97,9 @@
+   // Merge <word> onto the end of <this>.
+   void merge(TextWord *word);
+ 
++  // Print bounding box and font info to outputStream
++  void printBox(TextOutputFunc func, void *outputStream, GBool newline, GBool space_follows);
++
+   // Compares <this> to <word>, returning -1 (<), 0 (=), or +1 (>),
+   // based on a primary-axis comparison, e.g., x ordering if rot=0.
+   int primaryCmp(TextWord *word);
+@@ -471,7 +474,7 @@
+ 
+   // Dump contents of page to a file.
+   void dump(void *outputStream, TextOutputFunc outputFunc,
+-	    GBool physLayout);
++	    GBool physLayout, GBool wordboxes);
+ 
+   // Get the head of the linked list of TextFlows.
+   TextFlow *getFlows() { return flows; }
+@@ -553,6 +556,15 @@
+   TextOutputDev(TextOutputFunc func, void *stream,
+ 		GBool physLayoutA, GBool rawOrderA);
+ 
++  // Open a text output file.  If <fileName> is NULL, no file is
++  // written (this is useful, e.g., for searching text).  If
++  // <physLayoutA> is true, the original physical layout of the text
++  // is maintained.  If <rawOrder> is true, the text is kept in
++  // content stream order.  if <bboxes> is true, no text is written,
++  // but word bounding boxes are output.
++  TextOutputDev(char *fileName, GBool physLayoutA,
++		GBool rawOrderA, GBool append, GBool bboxes);
++
+   // Destructor.
+   virtual ~TextOutputDev();
+ 
+@@ -656,6 +668,7 @@
+   GBool rawOrder;		// keep text in content stream order
+   GBool doHTML;			// extra processing for HTML conversion
+   GBool ok;			// set up ok?
++  GBool wordboxes;              // output bounding-boxes? 
+ };
+ 
+ #endif
+diff -u -b -r -P -x configure -x Makefile -x '*,v' -x '.gdb*' -x '#*' -x '.#*' -x 'config.*' -x aconf.h xpdf/XRef.cc xpdf/XRef.cc
+--- xpdf/XRef.cc	2007-02-27 14:05:52.000000000 -0800
++++ xpdf/XRef.cc	2009-11-22 12:11:34.000000000 -0800
+@@ -39,6 +39,10 @@
+ #define permChange   (1<<3)
+ #define permCopy     (1<<4)
+ #define permNotes    (1<<5)
++#define permForms    (1<<8)
++#define permAccess   (1<<9)
++#define permAssemble (1<<10)
++#define permPrint2   (1<<11)
+ #define defPermFlags 0xfffc
+ 
+ //------------------------------------------------------------------------
+@@ -751,7 +755,8 @@
+ }
+ 
+ void XRef::setEncryption(int permFlagsA, GBool ownerPasswordOkA,
+-			 Guchar *fileKeyA, int keyLengthA, int encVersionA,
++			 Guchar *fileKeyA, int keyLengthA,
++                         int encVersionA, int encRevisionA,
+ 			 CryptAlgorithm encAlgorithmA) {
+   int i;
+ 
+@@ -768,18 +773,19 @@
+   }
+   encVersion = encVersionA;
+   encAlgorithm = encAlgorithmA;
++  rev3 = (encVersionA == 2) && (encRevisionA >= 3);
+ }
+ 
+ GBool XRef::okToPrint(GBool ignoreOwnerPW) {
+-  return (!ignoreOwnerPW && ownerPasswordOk) || (permFlags & permPrint);
++  return (!ignoreOwnerPW && ownerPasswordOk) || (permFlags & permPrint) || (rev3 && (permFlags & permPrint2));
+ }
+ 
+ GBool XRef::okToChange(GBool ignoreOwnerPW) {
+-  return (!ignoreOwnerPW && ownerPasswordOk) || (permFlags & permChange);
++  return (!ignoreOwnerPW && ownerPasswordOk) || (permFlags & permChange) || (rev3 && (permFlags & permAssemble));
+ }
+ 
+ GBool XRef::okToCopy(GBool ignoreOwnerPW) {
+-  return (!ignoreOwnerPW && ownerPasswordOk) || (permFlags & permCopy);
++  return (!ignoreOwnerPW && ownerPasswordOk) || (permFlags & permCopy) || (rev3 && (permFlags & permAccess));
+ }
+ 
+ GBool XRef::okToAddNotes(GBool ignoreOwnerPW) {
+diff -u -b -r -P -x configure -x Makefile -x '*,v' -x '.gdb*' -x '#*' -x '.#*' -x 'config.*' -x aconf.h xpdf/XRef.h xpdf/XRef.h
+--- xpdf/XRef.h	2007-02-27 14:05:52.000000000 -0800
++++ xpdf/XRef.h	2009-11-22 12:11:34.000000000 -0800
+@@ -56,7 +56,8 @@
+ 
+   // Set the encryption parameters.
+   void setEncryption(int permFlagsA, GBool ownerPasswordOkA,
+-		     Guchar *fileKeyA, int keyLengthA, int encVersionA,
++		     Guchar *fileKeyA, int keyLengthA,
++                     int encVersionA, int encRevisionA,
+ 		     CryptAlgorithm encAlgorithmA);
+ 
+   // Is the file encrypted?
+@@ -119,6 +120,7 @@
+   Guchar fileKey[16];		// file decryption key
+   int keyLength;		// length of key, in bytes
+   int encVersion;		// encryption version
++  GBool rev3;                   // encVersion == 2 && revision >= 3
+   CryptAlgorithm encAlgorithm;	// encryption algorithm
+ 
+   Guint getStartXref();
+diff -u -b -r -P -x configure -x Makefile -x '*,v' -x '.gdb*' -x '#*' -x '.#*' -x 'config.*' -x aconf.h xpdf/pdflinks.cc xpdf/pdflinks.cc
+--- xpdf/pdflinks.cc	1969-12-31 16:00:00.000000000 -0800
++++ xpdf/pdflinks.cc	2009-11-22 12:11:34.000000000 -0800
+@@ -0,0 +1,204 @@
++//========================================================================
++//
++// pdftotext.cc
++//
++// Copyright 1997-2003 Glyph & Cog, LLC
++//
++//========================================================================
++
++#include <aconf.h>
++#include <stdio.h>
++#include <stdlib.h>
++#include <stddef.h>
++#include <string.h>
++#include "parseargs.h"
++#include "GString.h"
++#include "gmem.h"
++#include "GlobalParams.h"
++#include "Object.h"
++#include "Link.h"
++#include "Stream.h"
++#include "Array.h"
++#include "Dict.h"
++#include "XRef.h"
++#include "Catalog.h"
++#include "Page.h"
++#include "PDFDoc.h"
++#include "LinkOutputDev.h"
++#include "CharTypes.h"
++#include "UnicodeMap.h"
++#include "Error.h"
++#include "config.h"
++
++static int firstPage = 1;
++static int lastPage = 0;
++static char ownerPassword[33] = "\001";
++static char userPassword[33] = "\001";
++static GBool quiet = gFalse;
++static char cfgFileName[256] = "";
++static GBool printVersion = gFalse;
++static GBool printHelp = gFalse;
++
++static ArgDesc argDesc[] = {
++  {"-f",       argInt,      &firstPage,     0,
++   "first page to convert"},
++  {"-l",       argInt,      &lastPage,      0,
++   "last page to convert"},
++  {"-opw",     argString,   ownerPassword,  sizeof(ownerPassword),
++   "owner password (for encrypted files)"},
++  {"-upw",     argString,   userPassword,   sizeof(userPassword),
++   "user password (for encrypted files)"},
++  {"-q",       argFlag,     &quiet,         0,
++   "don't print any messages or errors"},
++  {"-cfg",     argString,   cfgFileName,    sizeof(cfgFileName),
++   "configuration file to use in place of .xpdfrc"},
++  {"-v",       argFlag,     &printVersion,  0,
++   "print copyright and version info"},
++  {"-h",       argFlag,     &printHelp,     0,
++   "print usage information"},
++  {"-help",    argFlag,     &printHelp,     0,
++   "print usage information"},
++  {"--help",   argFlag,     &printHelp,     0,
++   "print usage information"},
++  {"-?",       argFlag,     &printHelp,     0,
++   "print usage information"},
++  {NULL}
++};
++
++int main(int argc, char *argv[]) {
++
++  PDFDoc *doc;
++  GString *fileName;
++  GString *textFileName;
++  GString *ownerPW, *userPW;
++  LinkOutputDev *linksOut;
++  FILE *f;
++  UnicodeMap *uMap;
++  Object info;
++  GBool ok;
++  char *p;
++  int exitCode;
++  Links *ll = 0;
++  int nlinks = 0;
++
++  exitCode = 99;
++
++  // parse args
++  ok = parseArgs(argDesc, &argc, argv);
++  if (!ok || argc < 2 || argc > 3 || printVersion || printHelp) {
++    fprintf(stderr, "pdftotext version %s\n", xpdfVersion);
++    fprintf(stderr, "%s\n", xpdfCopyright);
++    if (!printVersion) {
++      printUsage("pdftotext", "<PDF-file> [<text-file>]", argDesc);
++    }
++    goto err0;
++  }
++  fileName = new GString(argv[1]);
++
++  // read config file
++  globalParams = new GlobalParams(cfgFileName);
++
++  globalParams->setTextPageBreaks(gFalse);
++
++  if (quiet) {
++    globalParams->setErrQuiet(quiet);
++  }
++
++  // get mapping to output encoding
++  if (!(uMap = globalParams->getTextEncoding())) {
++    error(-1, "Couldn't get text encoding");
++    delete fileName;
++    goto err1;
++  }
++
++  // open PDF file
++  if (ownerPassword[0] != '\001') {
++    ownerPW = new GString(ownerPassword);
++  } else {
++    ownerPW = NULL;
++  }
++  if (userPassword[0] != '\001') {
++    userPW = new GString(userPassword);
++  } else {
++    userPW = NULL;
++  }
++
++  doc = new PDFDoc(fileName, ownerPW, userPW);
++
++  if (userPW) {
++    delete userPW;
++  }
++  if (ownerPW) {
++    delete ownerPW;
++  }
++  if (!doc->isOk()) {
++    exitCode = 1;
++    goto err2;
++  }
++
++  // check for copy permission
++  if (!doc->okToCopy()) {
++    error(-1, "Copying of text from this document is not allowed.");
++    exitCode = 3;
++    goto err2;
++  }
++
++  // construct text file name
++  if (argc == 3) {
++    textFileName = new GString(argv[2]);
++  } else {
++    p = fileName->getCString() + fileName->getLength() - 4;
++    if (!strcmp(p, ".pdf") || !strcmp(p, ".PDF")) {
++      textFileName = new GString(fileName->getCString(),
++				 fileName->getLength() - 4);
++    } else {
++      textFileName = fileName->copy();
++    }
++    textFileName->append(".links");
++  }
++
++  // get page range
++  if (firstPage < 1) {
++    firstPage = 1;
++  }
++  if (lastPage < 1 || lastPage > doc->getNumPages()) {
++    lastPage = doc->getNumPages();
++  }
++
++  // write links file
++  linksOut = new LinkOutputDev(textFileName->getCString());
++  linksOut->enableHTMLExtras(gTrue);
++  if (linksOut->isOk()) {
++    doc->displayPages(linksOut, firstPage, lastPage, 720, 720, 0,
++		      gFalse, gTrue, gTrue);
++    int pageIndex = firstPage;
++    while (pageIndex <= lastPage) {
++      linksOut->setPage(pageIndex, pageIndex == firstPage);
++      doc->processLinks(linksOut, pageIndex);
++      pageIndex += 1;
++    }
++  } else {
++    delete linksOut;
++    exitCode = 2;
++    goto err3;
++  }
++  delete linksOut;
++
++  exitCode = 0;
++
++  // clean up
++ err3:
++  delete textFileName;
++ err2:
++  delete doc;
++  uMap->decRefCnt();
++ err1:
++  delete globalParams;
++ err0:
++
++  // check for memory leaks
++  Object::memCheck(stderr);
++  gMemReport(stderr);
++
++  return exitCode;
++}
+diff -u -b -r -P -x configure -x Makefile -x '*,v' -x '.gdb*' -x '#*' -x '.#*' -x 'config.*' -x aconf.h xpdf/pdftotext.cc xpdf/pdftotext.cc
+--- xpdf/pdftotext.cc	2007-02-27 14:05:52.000000000 -0800
++++ xpdf/pdftotext.cc	2009-11-22 12:11:34.000000000 -0800
+@@ -47,6 +47,7 @@
+ static char cfgFileName[256] = "";
+ static GBool printVersion = gFalse;
+ static GBool printHelp = gFalse;
++static GBool wordboxes = gFalse;
+ 
+ static ArgDesc argDesc[] = {
+   {"-f",       argInt,      &firstPage,     0,
+@@ -57,6 +58,8 @@
+    "maintain original physical layout"},
+   {"-raw",     argFlag,     &rawOrder,      0,
+    "keep strings in content stream order"},
++  {"-wordboxes", argFlag,   &wordboxes,     0,
++   "output word bounding boxes"},
+   {"-htmlmeta", argFlag,   &htmlMeta,       0,
+    "generate a simple HTML file, including the meta information"},
+   {"-enc",     argString,   textEncName,    sizeof(textEncName),
+@@ -232,7 +235,7 @@
+ 
+   // write text file
+   textOut = new TextOutputDev(textFileName->getCString(),
+-			      physLayout, rawOrder, htmlMeta);
++			      physLayout, rawOrder, htmlMeta, wordboxes);
+   if (textOut->isOk()) {
+     doc->displayPages(textOut, firstPage, lastPage, 72, 72, 0,
+ 		      gFalse, gTrue, gFalse);

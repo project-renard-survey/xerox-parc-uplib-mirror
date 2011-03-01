@@ -1,0 +1,104 @@
+#
+# This file is part of the "UpLib 1.7.11" release.
+# Copyright (C) 2003-2011  Palo Alto Research Center, Inc.
+# 
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+#
+
+CMDLINEPROGS = 	uplib-check-angel uplib-make-repository uplib-add-document uplib-get-document uplib-portal uplib-janitor uplib-ps2pdf readup uplib-certificate uplib-openoffice-convert-to-pdf uplib-openoffice-convert-to-pdf-via-server uplib-setup-openoffice uplib-cache-url mount_uvfs mount_uvfs2 uplib-topdf uplib-pdf2ps uplib-webkit2pdf uplib-version
+
+
+all: $(CMDLINEPROGS)
+
+install:
+	install -m 755 $(CMDLINEPROGS) "@UPLIB_BIN@"
+
+clean:
+	rm -rf $(CMDLINEPROGS)
+
+dist:
+	make clean
+
+uplib-portal: uplib-portal.in
+	(cd .. ; ./reconfigure)
+	chmod +x uplib-portal
+
+uplib-topdf: uplib-topdf.in
+	(cd .. ; ./reconfigure)
+	chmod +x uplib-topdf
+
+readup: readup.in
+	(cd .. ; ./reconfigure)
+	chmod +x readup
+
+uplib-setup-openoffice: uplib-setup-openoffice.in
+	(cd .. ; ./reconfigure)
+	chmod +x uplib-setup-openoffice
+
+uplib-ps2pdf: uplib-ps2pdf.in
+	(cd .. ; ./reconfigure)
+	chmod +x uplib-ps2pdf
+
+uplib-webkit2pdf: uplib-webkit2pdf.in
+	(cd .. ; ./reconfigure)
+	chmod +x uplib-webkit2pdf
+
+uplib-pdf2ps: uplib-pdf2ps.in
+	(cd .. ; ./reconfigure)
+	chmod +x uplib-pdf2ps
+
+uplib-janitor: uplib-janitor.in
+	(cd .. ; ./reconfigure)
+	chmod +x uplib-janitor
+
+uplib-openoffice-convert-to-pdf: uplib-openoffice-convert-to-pdf.in
+	(cd .. ; ./reconfigure)
+	chmod +x uplib-openoffice-convert-to-pdf
+
+uplib-check-angel: uplib-check-angel.in
+	(cd .. ; ./reconfigure)
+	chmod +x uplib-check-angel
+
+uplib-make-repository: uplib-make-repository.in
+	(cd .. ; ./reconfigure)
+	chmod +x uplib-make-repository
+
+uplib-add-document: uplib-add-document.in
+	(cd .. ; ./reconfigure)
+	chmod +x uplib-add-document
+
+uplib-get-document: uplib-get-document.in
+	(cd .. ; ./reconfigure)
+	chmod +x uplib-get-document
+
+uplib-cache-url: uplib-cache-url.in
+	(cd .. ; ./reconfigure)
+	chmod +x uplib-cache-url
+
+uplib-version: uplib-version.in
+	(cd .. ; ./reconfigure)
+	chmod +x uplib-version
+
+uplib-certificate: uplib-certificate.in
+	(cd .. ; ./reconfigure)
+	chmod +x uplib-certificate
+
+mount_uvfs: mount_uvfs.in
+	(cd .. ; ./reconfigure)
+	chmod +x mount_uvfs
+
+mount_uvfs2: mount_uvfs2.in
+	(cd .. ; ./reconfigure)
+	chmod +x mount_uvfs2

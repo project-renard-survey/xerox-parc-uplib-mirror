@@ -1,0 +1,3 @@
+@echo off
+start /b /wait "@PYTHON@" "@UPLIB_BIN@\uplib-get-document.py" %*
+exit %ERRORLEVEL%

@@ -1,0 +1,2 @@
+@echo off
+START /b "UpLib Janitor" "@JAVA@" "-Dcom.parc.uplib.libdir=@UPLIB_LIB@" -jar "@UPLIB_CODE@\UpLibJanitor.jar" %*

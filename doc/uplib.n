@@ -1,0 +1,75 @@
+'\" t
+.\" $Id: uplib.n,v 1.5 2007/10/02 00:01:57 janssen Exp $
+.\"
+.\" This file is part of the "UpLib 1.7.11" release.
+.\" Copyright (C) 2003-2011  Palo Alto Research Center, Inc.
+.\" 
+.\" This program is free software; you can redistribute it and/or modify
+.\" it under the terms of the GNU General Public License as published by
+.\" the Free Software Foundation; either version 2 of the License, or
+.\" (at your option) any later version.
+.\" 
+.\" This program is distributed in the hope that it will be useful,
+.\" but WITHOUT ANY WARRANTY; without even the implied warranty of
+.\" MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.\" GNU General Public License for more details.
+.\" 
+.\" You should have received a copy of the GNU General Public License along
+.\" with this program; if not, write to the Free Software Foundation, Inc.,
+.\" 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+.\" 
+.\" uplib.n
+.TH UPLIB N "UpLib \- http://www.parc.com/UpLib/"
+.SH NAME
+UpLib \- the Universal Personal Digital Library System
+.SH DESCRIPTION
+.B UpLib
+is a system for archiving and using digital copies of documents
+in almost any format.  It incorporates a powerful full-text search
+engine, and provides a highly visual interface for finding and selecting
+documents.  It provides a drag-and-drop interface for entering documents,
+and a Web interface for finding and working with archived documents.
+Unlike many systems of its kind, stored documents are kept in the user's
+file space, and are stored in common file formats, not in some
+proprietary database; this allows documents to be used without
+UpLib, if desired.  The system also provides a wide variety of extension
+mechanisms, implemented with the Python scripting language.
+The system is built on a client-server model, and new clients can
+easily be written.  The server which watches over the store of 
+documents is called the \fIguardian angel\fR.
+.PP
+UpLib consists of a set of programs.  \fBuplib-make-repository\fR is
+used to create a new repository.  \fBuplib-add-document\fR is used to
+add documents to a repository.  \fBuplib-get-document\fR is a command-line
+program to find and retrieve documents from a repository.  \fBuplib-portal\fR
+is a drag-and-drop interface to \fIuplib-add-document\fR and
+\fIuplib-get-document\fR.  Each repository is also available as
+an SSL-protected Web service, so the repository can be managed, and documents read,
+via a Web browser.
+.PP
+UpLib runs on Windows, MacOS X, Linux, and other Unix platforms.
+.SH SECURITY
+Each repository can be password-protected, and all
+communication with the repository server is via encrypted channels.
+The various parts are crafted so that the password never appears as part of a command-line,
+and is never stored on disk.
+In addition, care is taken to instruct Web browsers to not automatically
+cache documents retrieved from a repository.
+.SH "SEE ALSO"
+\fBuplib-add-document\fR (1)
+.br
+\fBuplib-get-document\fR (1)
+.br
+\fBuplib-make-repository\fR (1)
+.br
+\fBuplib-certificate\fR (1)
+.br
+\fBuplib-portal\fR (1)
+.br
+\fBuplib-janitor\fR (1)
+.br
+\fChttp://parcweb.parc.com/project/uplib/\fR.
+.SH "BUGS"
+Report bugs to the Bugzilla database at \fChttp://bugzilla.parc.com/\fR.
+.SH "AUTHORS"
+Bill Janssen, <janssen@parc.com>

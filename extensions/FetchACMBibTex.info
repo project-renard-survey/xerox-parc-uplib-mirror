@@ -1,0 +1,8 @@
+author: Bill Janssen
+version: 1.3
+before: off
+after: on
+uplib-min-version: 1.7
+url: 0
+date: 11/09/06
+description: Adds ripper to UpLib repository that will fetch the BibTex entry from the ACM digital library, if the document has an "original-url" metadata item that contains the string "portal.acm.org".  So if you drag a PDF file from the ACM Digital Library onto your UpLib Portal, you should get the "citation" metadata field properly filled in. <p>This also sets the "title", "authors", "date", "abstract", and "page-numbers" metadata fields based on the entry in the ACM DL. <i>The date is only set if there is no existing "date" metadata field, as the data information in the ACM DL is often rather granular (year only).</i> <p>If the utility function <b>rerip</b> is called, the ripper will be run again on the document, and the document's metadata editor page will be displayed after re-loading the metadata. <p>Note that the ACM metadata for "author" and "date" will override any found in the PDF file.<p><i>Thanks to Marc Mosko for suggesting this ripper.</i>

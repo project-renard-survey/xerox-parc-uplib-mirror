@@ -1,0 +1,14 @@
+*** http_server.py	2003-07-03 17:24:02.000000000 -0700
+--- http_server.py.fixed	2008-11-28 11:45:01.000000000 -0800
+***************
+*** 277,282 ****
+--- 277,285 ----
+  
+          return time.strftime ( '%d/%b/%Y:%H:%M:%S ', gmt) + offset
+  
++     def log_info (self, msg, level):
++         self.channel.log_info(msg, level)
++ 
+      def log (self, bytes):
+          self.channel.server.logger.log (
+                  self.channel.addr[0],

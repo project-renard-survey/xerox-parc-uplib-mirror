@@ -1,0 +1,11 @@
+--- setuptools/command/easy_install.py	2008-09-24 10:22:12.000000000 -0700
++++ setuptools/command/easy_install.py	2010-03-03 18:50:04.000000000 -0800
+@@ -1364,7 +1364,7 @@
+                 "%s\n"
+                 "import sys; new=sys.path[sys.__plen:];"
+                 " del sys.path[sys.__plen:];"
+-                " p=getattr(sys,'__egginsert',0); sys.path[p:p]=new;"
++                " p=getattr(sys,'__egginsert',len(os.environ.get('PYTHONPATH','').split(os.pathsep))); sys.path[p:p]=new;"
+                 " sys.__egginsert = p+len(new)\n"
+             ) % data
+ 

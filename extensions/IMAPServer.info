@@ -1,0 +1,8 @@
+after: on
+author: Bill Janssen
+before: off
+date: 11/1/07
+description: Provides an IMAP interface to an UpLib repository.
+uplib-min-version: 1.7
+url: 0
+version: 1.0

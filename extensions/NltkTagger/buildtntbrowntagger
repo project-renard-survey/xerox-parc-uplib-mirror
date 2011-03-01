@@ -1,0 +1,40 @@
+#!/usr/bin/env python
+# -*- Mode: Python -*-
+#
+
+import sys, os, re, pickle
+nogood = False
+
+try:
+    import nltk
+except ImportError:
+    nogood = True
+else:
+    from nltk.tag import tnt
+    try:
+        from nltk.corpus import brown
+    except:
+        # try downloading it
+        try:
+            nltk.download("brown")
+        except:
+            nogood = True
+
+filename = sys.argv[1]
+if nogood:
+    fp = open(filename, "wb")
+    fp.flush()
+    fp.close()
+else:
+    sys.stdout.write("loading Brown corpus...\n")
+    d = list(brown.tagged_sents())
+    sys.stdout.write("%d pre-tagged sentences in corpus...\n" % len(d))
+
+    default_tagger = nltk.data.load(nltk.tag._POS_TAGGER)
+    sys.stdout.write("training TnT tagger on pre-tagged sentences...\n")
+    t = tnt.TnT(unk=default_tagger, Trained=True, N=1000, C=True)
+    t.train(d)
+    sys.stdout.write("dumping trained tagger to %s...\n" % filename)
+    pickle.dump(t, open(filename, "wb"), 1)
+    sys.stdout.write("dumped TnT-Brown tagger.\n")
+    sys.exit(0)

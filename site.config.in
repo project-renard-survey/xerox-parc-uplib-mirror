@@ -1,0 +1,327 @@
+#
+# This file is part of the "UpLib 1.7.11" release.
+# Copyright (C) 2003-2011  Palo Alto Research Center, Inc.
+# 
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+#
+
+[default]
+
+UPLIB_VERSION = @PACKAGE_VERSION@
+
+uplib-home = @UPLIB_HOME@
+uplib-bin = @UPLIB_BIN@
+uplib-lib = @UPLIB_LIB@
+uplib-share = @UPLIB_SHARE@
+uplib-code = @UPLIB_CODE@
+uplib-exec = @UPLIB_EXEC@
+
+# external URL for people to visit to find out more about UpLib
+uplib-external-url = http://uplib.parc.com/
+
+# which service framework to use, "Tornado" or "Medusa"
+service-framework = @WEB_SERVICE_FRAMEWORK@
+
+# best not to try to resolve names, actually
+dns-nameserver = @DNS_NAMESERVER@
+
+# which version of stunnel, 3 or 4
+use-stunnel = @USE_STUNNEL@
+stunnel-version = @STUNNEL_VERSION@
+stunnel = @STUNNEL@
+
+indexing-properties = contents:title:categories$,*:date@:apparent-mime-type*:authors$\sand\s:comment:abstract:email-message-id*:email-guid*:email-subject:email-from-name:email-from-address*:email-attachment-to*:email-thread-index*:email-references$,*:email-in-reply-to$,*:email-recipient-names$\s@\s*:email-recipients$\s/\s*:keywords$,*:album:performer:composer:music-genre*:audio-length:accompaniment:paragraph-ids$,*:sha-hash*:notes:vcard-name:event-end*:event-start*:event-uid*:text-language*
+
+search-properties = contents:title:authors$\sand\s:comment:abstract:keywords$,*:album:notes:email-recipient-names$\s@\s*
+
+indexing-add-command = %s @JAVA_HOTSPOT_FLAGS@ %s %s -classpath "%s:%s" -Dorg.apache.lucene.writeLockTimeout=20000 com.parc.uplib.indexing.LuceneIndexing "%s" update %s %s
+indexing-batch-add-command = %s @JAVA_HOTSPOT_FLAGS@ %s %s -classpath "%s:%s" -Dorg.apache.lucene.writeLockTimeout=20000 com.parc.uplib.indexing.LuceneIndexing "%s" batchupdate %s %s
+indexing-remove-command = %s @JAVA_HOTSPOT_FLAGS@ %s %s -classpath "%s:%s" -Dorg.apache.lucene.writeLockTimeout=20000 com.parc.uplib.indexing.LuceneIndexing "%s" remove %s
+indexing-search-command = %s @JAVA_HOTSPOT_FLAGS@ %s %s -classpath "%s:%s" com.parc.uplib.indexing.LuceneIndexing "%s" %s '%s'
+search-default-operator = AND
+use-pylucene: @USE_PYLUCENE@
+jcc-version: @JCC_VERSION@
+
+python = @PYTHON@
+
+java = @JAVA@
+javahome = @JAVAHOME@
+java-classpath-separator = @JAVACLASSPATHSEP@
+lucene-jarfile = @LUCENEJAR@
+uplib-indexing-jarfile = @UPLIB_CODE@/LuceneIndexing.jar
+
+ocr-url = @OCR_URL@
+xdoc-ocr-url = @XDOC_OCR_URL@
+msoffice-ocr-url = 
+summary-length = 250
+pdftotext = @PDFTOTEXT@
+pdfinfo = @PDFINFO@
+wordboxes-pdftotext = @WORDBOXES_PDFTOTEXT@
+pdftotext-command = %s -q "%s" -
+wordboxes-pdftotext-command = %s -q -raw -wordboxes "%s" "%s"
+pdflinks = @PDFLINKS@
+pdflinks-command = %s "%s" "%s"
+uplib-certificate-program = @UPLIB_BIN@/uplib-certificate
+findimages = @FINDIMAGES@
+
+# might want to use version 1 if working with older versions of UpLib
+# Version 2 includes baseline and rotation information
+wordbboxes-version-to-use: 2
+
+openssl = @OPENSSL@
+keytool = @KEYTOOL@
+
+# this is the max number of bytes an image can take internally, 3000x3000x4
+image-size-limit = 36000000
+
+tiffsplit = @TIFFSPLIT@
+tiffcp = @TIFFCP@
+tiffinfo = @TIFFINFO@
+tiffset = @TIFFSET@
+tiff2ps = @TIFF2PS@
+
+# jasper is used to convert JPEG2000
+jasper = @JASPER@
+
+# this is a PARC program which will recognize dataglyphs as split pages
+splitup = @SPLITUP@
+splitup-command = %s %s
+
+# the tiff-split-command expects as args TIFFCP, DOC-TIFF-FILE, TEMPFILE, TIFFSPLIT, TEMPFILE, TEMPDIRPREFIX
+tiff-split-command = %s -f msb2lsb -p contig -c none "%s" %s; %s %s %s
+
+# the tiff-compress-command expects as args TIFFCP, COMPRESSION-TYPE, OLD-FILE, NEW-FILE
+tiff-compress-command = %s -c %s %s %s
+
+# the tiff-to-pdf-command expects as args TIFF2PS, DOC-TIFF-FILE, PS2PDF
+tiff-to-pdf-command = %s -D -a -w %s -h %s -p %s | %s - %s
+
+numbering-font-file = @UPLIB_SHARE@/images/cream12boldregular.pil
+legend-font-file = @UPLIB_SHARE@/images/GenR102.ttf
+previous-page-icon-file = @UPLIB_SHARE@/images/left-arrow-icon.png
+next-page-icon-file = @UPLIB_SHARE@/images/right-arrow-icon.png
+top-icon-file = @UPLIB_SHARE@/images/icon16.png
+use-alpha-channel-thumbnails: false
+
+max-simultaneous-incorporation-threads: 4
+
+tar = @TAR@
+untar-command = cd %s; %s xvf %s
+tar-command = cd %s; %s cvf %s *
+
+ghostscript = @GHOSTSCRIPT@
+ps2pdf = @UPLIB_BIN@/uplib-ps2pdf
+pdf2ps = @UPLIB_BIN@/uplib-pdf2ps
+
+pdf-to-tiff-mono-command = %s -sDEVICE=tiffg4 -sOutputFile="%s" -q -dUseCropBox -dBATCH -r300 -dNOPAUSE "%s" < /dev/null
+pdf-to-tiff-color-command = %s -sDEVICE=tiff24nc -sOutputFile="%s" -q -dUseCropBox -dBATCH -r300 -dNOPAUSE "%s" < /dev/null
+
+pdf-to-png-mono-command = %s -sDEVICE=pngmono -sOutputFile="%s" -q -dUseCropBox -dBATCH -r300 -dNOPAUSE "%s" < /dev/null
+pdf-to-png-color-command = %s -sDEVICE=png16m -sOutputFile="%s" -q -dUseCropBox -dBATCH -r300 -dNOPAUSE "%s" < /dev/null
+
+soffice = @OPENOFFICE@
+xvfb = @XVFB@
+xvfb-flags = @XVFB_ARGS@
+use-openoffice-for-web-page-to-pdf: @USE_OPENOFFICE_FOR_WEB@
+use-openoffice-for-msoffice-to-pdf: @USE_OPENOFFICE_FOR_MSOFFICE@
+openoffice-convert-to-pdf = @UPLIB_BIN@/uplib-openoffice-convert-to-pdf
+openoffice-web-to-pdf-command = %s "%s" "%s" writer_web_pdf_Export
+openoffice-msword-to-pdf-command = %s "%s" "%s" writer_pdf_Export
+openoffice-powerpoint-to-pdf-command = %s "%s" "%s" impress_pdf_Export
+openoffice-excel-to-pdf-command = %s "%s" "%s" calc_pdf_Export
+openoffice-msword-xml-to-pdf-command = %s "%s" "%s" 'MS Word 2007 XML'
+openoffice-powerpoint-xml-to-pdf-command = %s "%s" "%s" 'Impress MS PowerPoint 2007 XML'
+openoffice-excel-xml-to-pdf-command = %s "%s" "%s" 'Calc MS Excel 2007 XML'
+openoffice-rtf-to-pdf-command = %s "%s" "%s" 'Rich Text Format'
+
+topdf-port: @TOPDF_PORT@
+use-topdf-service-for-msoffice-to-pdf: @USE_TOPDF_FOR_MSOFFICE@
+use-topdf-service-for-web-page-to-pdf: @USE_TOPDF_FOR_WEB@
+
+use-png-page-images: true
+use-java-docviewer: true
+pageturn-animation-milliseconds: 350
+
+use-parc-hostname-matcher: @USE_PARC_HOSTNAME_MATCHING@
+
+bourne-shell = @BOURNE_SHELL@
+
+interaction-charset = @INTERACTION_CHARSET@
+
+metadata-sharing-default-properties = title:authors:date:abstract:tiff-dpi:tiff-width:tiff-height:source:dpi:urls:keywords:citation:images-dpi:first-page-number:page-numbers:original-url:page-count:text-charset:text-language:images-width:images-size:images-height:album:performer:conductor:composer:music-genre:track:lyrics:accompaniment:audio-length:apparent-mime-type
+
+metadata-sharing-url = @METADATA_SHARING_URL@
+
+extensions-library-url = @EXTENSIONS_LIBRARY_URL@
+allow-old-extensions = false
+extensions-sites-ca-certs-file = @EXTENSIONS_SITES_CA_CERTS@
+
+python-has-guess-language: @PYTHON_HAS_GUESS_LANGUAGE@
+default-language: @DEFAULT_LANGUAGE@
+
+scoretext = @SCORETEXT@
+scoretext-model = @SCORETEXTMODEL@
+scoretext-command = %s "%s" "%s"
+scoretext-threshold = 3500
+
+enscript = @ENSCRIPT@
+# enscript-command % (enscript, outputfile.ps, inputfile.txt)
+enscript-command = %s --ps-level=2 --silent -o "%s" --no-header --word-wrap --media=Letter "%s"
+# code-enscript-command % (enscript, outputfile.ps, inputfile.{py,java,c,etc}
+code-enscript-command = %s --pretty-print=%s --ps-level=2 --silent -o "%s" --no-header --word-wrap --media=Letter "%s"
+
+nenscript = @NENSCRIPT@
+# nenscript-command % (nenscript, outputfile.ps, inputfile.txt)
+nenscript-command = %s "-p%s" -w -TUS -R -B "%s"
+# code-nenscript-command % (nenscript, outputfile.ps, inputfile.{py,java,c,etc}
+code-nenscript-command = nenscript-command = %s "-p%s" -w -TUS -r -B "%s"
+
+postscript-to-pdf-command = "%s" "%s" %s
+pdf-to-postscript-command = "%s" "%s" %s
+
+file-command = @FILE@ "%s"
+
+tnef = @TNEF@
+tnef-command = "%s" --directory="%s" --file="%s"
+
+htmldoc = @HTMLDOC@
+htmldoc-command = %s %s %s %s --header "..1" --footer "t.D" --headfootsize 8 --size Letter --no-strict --webpage --links --linkstyle plain --no-embedfonts --linkcolor "#000080" -f "%s" -t pdf13 "%s"
+
+wkpdf = @WKPDF@
+# note that the exact string "%s" is searched for by the ToPDF code,
+# so it must use double quotes, not single quotes
+wkpdf-command = "%s" --format Letter --ignore-http-errors --source "%s" --output "%s"
+
+wkhtmltopdf = @WKHTMLTOPDF@
+# note that the exact string "%s" is searched for by the ToPDF code,
+# so it must use double quotes, not single quotes
+wkhtmltopdf-command = "%s" --page-size Letter "%s" "%s"
+
+webkit2pdf = @WEBKIT2PDF@
+# note that the exact string "%s" is searched for by the ToPDF code,
+# so it must use double quotes, not single quotes
+webkit2pdf-command = @UPLIB_BIN@/uplib-webkit2pdf "%s" "%s" "%s"
+
+web-proxies:  @WEB_PROXIES@
+
+no-caching: true
+
+standard-doc-functions: Text, /docs/%s/contents.txt, _top; PDF, /action/basic/doc_pdf?doc_id=%s, _blank; Metadata, /action/basic/doc_meta?doc_id=%s, _top; Remove Doc, /action/basic/doc_delete?doc_id=%s, _top; Metadata (raw), /docs/%s/metadata.txt, _top; Original, /action/externalAPI/fetch_original?doc_id=%s&browser=true, _top; Email Thread, /action/basic/email_thread?doc_id=%s, _blank, lambda doc: ((doc.get_metadata("apparent-mime-type") == "message/rfc822") or (doc.get_metadata("email-attachment-to") is not None)); HTML, /action/basic/doc_html?doc_id=%s, _top; Categorize, /action/basic/doc_categorize?doc_id=%s, _top
+
+standard-collection-functions: Delete marked documents, /action/basic/repo_multidelete
+
+uplib-add-program = @UPLIB_ADD_PROGRAM@
+uplib-get-program = @UPLIB_GET_PROGRAM@
+
+ms-to-pdf-url = @MS_TO_PDF_SERVER_URL@
+
+skew-detection-url = @SKEW_DETECTION_SERVICE_URL@
+dryclean-service-url = @DRYCLEAN_SERVICE_URL@
+
+uplib-make-repository-program = @UPLIB_BIN@/uplib-make-repository
+uplib-check-repository-program = @UPLIB_BIN@/uplib-check-angel
+
+# for the janitor, various file browsers
+nautilus-browser-program = @NAUTILUS@
+konqueror-browser-program = @KONQUEROR@
+
+# update to version 2 of the hotspots protocol
+use-version-2-hotspots-protocol = true
+
+# whether or not the textcat language-identification library is available
+have-textcat: @HAVE_TEXTCAT@
+
+[Darwin]
+#
+# Configuration options for Mac OS X
+#
+
+get-document-open-action-pdf: /usr/bin/open -a preview
+get-document-open-action-html: /usr/bin/open 
+get-document-open-action-text: /usr/bin/open -a textedit
+get-document-open-action-metadata: /usr/bin/open -a textedit
+get-document-open-action-images: /usr/bin/open -a Stuffit\ Expander
+get-document-open-action-icon: /usr/bin/open -a preview
+get-document-open-action-uplib: /usr/bin/open
+
+[win32]
+#
+# Configuration options for Windows
+#
+
+get-document-open-action-pdf: start
+get-document-open-action-html: start
+get-document-open-action-text: start
+get-document-open-action-metadata: start
+get-document-open-action-images: start
+get-document-open-action-icon: start
+get-document-open-action-uplib: start
+
+default-get-document-format = html
+get-document-open-action-html = start
+get-document-open-action-pdf = start
+
+pdftotext = "@PDFTOTEXT@"
+wordboxes-pdftotext = "@WORDBOXES_PDFTOTEXT@"
+pdfinfo = "@PDFINFO@"
+pdflinks = "@PDFLINKS@"
+
+ps2pdf = "@UPLIB_BIN@\uplib-ps2pdf.py"
+enscript = "@ENSCRIPT@"
+htmldoc = "@HTMLDOC@"
+wkhtmltopdf = "@WKHTMLTOPDF@"
+diruse-program = "@DIRUSE@"
+
+openssl = "@OPENSSL@"
+keytool = "@KEYTOOL@"
+
+splitup-command = "%s" "%s"
+
+ms-to-pdf-url = @MS_TO_PDF_SERVER_URL@
+msoffice-ocr-url = @MS_OCR_URL@
+use-png-page-images = true
+
+# the tiff-compress-command expects as args TIFFCP, COMPRESSION-TYPE, OLD-FILE, NEW-FILE
+tiff-compress-command = "%s" -c %s "%s" "%s"
+
+# the tiff-split-command expects as args TIFFCP, DOC-TIFF-FILE, TEMPFILE, TIFFSPLIT, TEMPFILE, TEMPDIRPREFIX
+# tiff-split-command = %s -f msb2lsb -p contig -c none "%s" %s; %s %s %s
+tiff-split-command = "@UPLIB_BIN@\uplib-tiff-split.bat" "%s" "%s" "%s" "%s" "%s" "%s"
+
+# for JPEG2000
+jasper = "@JASPER@"
+
+pdf-to-tiff-mono-command = "%s" -sDEVICE=tiffg4 -sOutputFile="%s" -q -dUseCropBox -dBATCH -r300 -dNOPAUSE "%s"
+pdf-to-tiff-color-command = "%s" -sDEVICE=tiff24nc -sOutputFile="%s" -q -dUseCropBox -dBATCH -r300 -dNOPAUSE "%s"
+
+pdf-to-png-mono-command = "%s" -sDEVICE=pngmono -sOutputFile="%s" -q -dUseCropBox -dBATCH -r300 -dNOPAUSE "%s"
+pdf-to-png-color-command = "%s" -sDEVICE=png16m -sOutputFile="%s" -q -dUseCropBox -dBATCH -r300 -dNOPAUSE "%s"
+
+openoffice-convert-to-pdf = "@UPLIB_BIN@\uplib-openoffice-convert-to-pdf.bat"
+
+indexing-add-command = "%s" @JAVA_HOTSPOT_FLAGS@ %s %s -classpath "%s;%s" -Dorg.apache.lucene.writeLockTimeout=20000 com.parc.uplib.indexing.LuceneIndexing "%s" update "%s" %s
+indexing-batch-add-command = "%s" @JAVA_HOTSPOT_FLAGS@ %s %s -classpath "%s;%s" -Dorg.apache.lucene.writeLockTimeout=20000 com.parc.uplib.indexing.LuceneIndexing "%s" batchupdate "%s" %s
+indexing-remove-command = "%s" @JAVA_HOTSPOT_FLAGS@ %s %s -classpath "%s;%s" -Dorg.apache.lucene.writeLockTimeout=20000 com.parc.uplib.indexing.LuceneIndexing "%s" remove %s
+indexing-search-command = "%s" @JAVA_HOTSPOT_FLAGS@ %s %s -classpath "%s;%s" com.parc.uplib.indexing.LuceneIndexing "%s" %s "%s"
+
+uplib-check-repository-program = "@UPLIB_BIN@\uplib-check-angel.bat"
+uplib-make-repository-program = "@UPLIB_BIN@\uplib-make-repository.bat"
+uplib-certificate-program = "@UPLIB_BIN@\uplib-certificate.bat"
+
+uplib-add-program = "@UPLIB_BIN@\uplib-add-document.bat"
+uplib-get-program = "@UPLIB_BIN@\uplib-get-document.bat"
+
+java-max-heap = 400m
+java-max-stack = 50m

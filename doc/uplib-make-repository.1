@@ -1,0 +1,127 @@
+'\" t
+.\" $Id: uplib-make-repository.1,v 1.8 2011/02/16 22:28:02 janssen Exp $
+.\"
+.\" This file is part of the "UpLib 1.7.11" release.
+.\" Copyright (C) 2003-2011  Palo Alto Research Center, Inc.
+.\" 
+.\" This program is free software; you can redistribute it and/or modify
+.\" it under the terms of the GNU General Public License as published by
+.\" the Free Software Foundation; either version 2 of the License, or
+.\" (at your option) any later version.
+.\" 
+.\" This program is distributed in the hope that it will be useful,
+.\" but WITHOUT ANY WARRANTY; without even the implied warranty of
+.\" MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.\" GNU General Public License for more details.
+.\" 
+.\" You should have received a copy of the GNU General Public License along
+.\" with this program; if not, write to the Free Software Foundation, Inc.,
+.\" 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+.\" 
+.\" uplib-make-repository.1
+.TH UPLIB-MAKE-REPOSITORY 1 "UpLib 1.1 - http://www.parc.com/UpLib/"
+.SH NAME
+uplib-make-repository \- create a new UpLib personal digital library
+.SH SYNOPSIS
+\fBuplib-make-repository=\fR
+[--directory=\fIdirectory-name\fR]
+[--name=\fIrepository-name\fR]
+[--croncheck]
+[--no-guardian]
+[--password=\fIPASSWORD\fR]
+[--port=\fIport\fR]
+[--autoport]
+[--expert]
+[--nouser]
+[--research]
+[--extensions-dir=\fIDIRECTORY\fR]
+[\fIDIRECTORY-NAME\fR]
+.SH DESCRIPTION
+.B uplib-make-repository
+is a command-line program to create a new UpLib personal digital library.  It will create a new directory, specified either with the \fIDIRECTORY-NAME\fR argument, or with the \fI--directory\fR option, initialize it as an UpLib repository, start a 'guardian angel' program for the repository, and add a cron job to your crontab which will periodically check and if necessary restart the guardian angel program.  The directory specified must not already exist, even if it's empty.
+.SH OPTIONS
+.TP
+\fB--directory=\fIdirectory-name\fR
+Name of the new directory to create the repository in.  This directory must not already exist.
+.TP
+\fB--name=\fIrepository-name\fR
+Name of the new repository -- a fairly arbitrary string.  Optional.
+.TP
+\fB--croncheck\fR
+If specified, will attempt to add a cron job to your crontab, that will check and if necessary re-start the guardian angel.  This seemed like a good idea initially, but has proven to be a bad one.
+.TP
+\fB--no-guardian\fR
+If specified, no guardian angel program will be started.  This will make the repository very hard to use.  This option is mainly useful for debugging.  However, on OS X, a standard repository is created as a launchd system daemon, which runs in the background all the time.  This means that one usually has to have a superuser password to create a repository on OS X.  If you specify \fI--no-guardian\fR, no superuser access is needed, no launchd service is created, and one can then use \fCuplib-check-angel --start\fR to start the guardian angel for the repository.
+.TP
+\fB--password=\fIPASSWORD\fR
+Specifies an initial password for the repository.  Can be empty.  If this option is not specified, the program will prompt for a password.
+.TP
+\fB--port=\fIport-number\fR
+Specify the port to use for the repository.  In reality, some number of ports, from \fIport-number\fR to \fIport-number\fR + 5, will be used.  If not specified, the program will prompt for this (but see \fI--autoport\fR and \fI--nouser\fR).
+.TP
+\fB--autoport\fR
+If specified, and \fI--port\fR is not specified, the program will scan for a port that isn't currently in use, and choose the first one it finds to use as the port for the new repository.
+.TP
+\fB--expert\fR
+If specified, will suppress some prompts, add some debugging output, and allow certain unsafe options.
+.TP
+\fB--nouser\fR
+If specified, means that this program is being run by another program, and certain prompts (and looping!) are suppressed.
+.TP
+\fB--hierarchical\fR
+If specified, means that this new repository will have doc folders nested in a tree structure.  This is rarely necessary with modern filesystems, and need only be used for very large repositories (more than 100,000 documents is a good rule of thumb).
+.TP
+\fB--research\fR
+If specified, loosens the security of the repository.  It will listen directly on HTTP, rather than SSL-wrapped HTTP, and will be more lenient in the kinds of extensions it will load.
+.TP
+\fB--extensions-dir=\fIDIRECTORY\fR
+This can be used to add a 'trusted' extensions directory to the repository.  Any extensions installed in this directory will be initialized just as if they were in the repository's own \fCoverhead/extensions/active\fR subdirectory.  This means that the user doesn't have to add modules in this directory to the \fCuser-initialization-modules\fR config parameter, so this lessens the security of the repository.
+.SH EXAMPLES
+To create a new repository in \fC~/reports\fR with an angel listening on port 8080, one would use the following command:
+.sp
+\fC% uplib-make-repository --port=8080 ~/reports
+.br
+Name for the new repository:  Work reports
+.br
+Determining the hostname for this machine... mymachine
+.br
+Pass-phrase for new repository:   ***********
+.br
+Please re-type that pass-phrase:  ***********
+.br
+Creating directory /home/thisuser/reports and subdirectories...
+.br
+Starting the guardian angel (this takes about 30 seconds)...
+.br
+Done.
+.br
+% \fR
+.sp
+.SH "ENVIRONMENT VARIABLES"
+.TP
+UPLIBRC
+If set, will be used as the location of the user's UpLib configuration file.  Otherwise, the default value of \fC$HOME/.uplibrc\fR is used.
+.SH "CONFIGURATION FILES"
+Two configuration files are examined for the values of various settings, in the operation of \fCuplib-make-repository\fR.  The first is the user's configuration file, typically \fC$HOME/.uplibrc\fR (though see the environment variable \fCUPLIBRC\fR above).  The second is the site configuration file, \fC$UPLIB_HOME/lib/$UPLIB_VERSION/site.config\fR.  Both files contain any number of \fIsections\fR, each of which may contain any number of configuration parameter settings.  Each section has a name, which is enclosed in square brackets, followed by parameter settings.  Normally, only the section called "default" will be examined.
+.PP
+Parameter settings have the form form \fIname = value\fR, where name is the name of an UpLib parameter, and value is a string, integer, or boolean value.  A colon character (:) may be used instead of the equals sign to separate name and value.  Comments may be expressed by starting any line with the characters "rem", or with the character "#", or with the character ";".  Boolean values of True may be expressed with "TRUE", "true", "True", "on", or "1".  Boolean values of False may be expressed with "FALSE", "false", "False", "off", or "0".
+.PP
+The following parameters are consulted:
+.TP
+\fBuplib-certificate-program\fR
+The program to use to manage UpLib server certificates.
+.TP
+\fBwindows-service-template-file\fR
+On Windows, the file containing the template of what an UpLib service looks like on this machine.
+.TP
+\fBmake-repository-expert-mode\fR
+A boolean, giving the default value for the \fI--expert\fR switch.  Defaults to \fCFalse\fR.
+.TP
+\fBuse-pylucene\fR
+Whether or not to use PyLucene in the repository for indexing.  This is semi-obsolete, and defaults to \fCthe version of PyLucene\fR if PyLucene is available.
+.SH "SEE ALSO"
+\fChttp://uplib.parc.com/\fR.
+.SH "BUGS"
+Report bugs to \fCuplib-tech@parc.com\fR.
+.SH "AUTHORS"
+Bill Janssen, <janssen@parc.com>

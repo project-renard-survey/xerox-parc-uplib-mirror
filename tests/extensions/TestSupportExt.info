@@ -1,0 +1,8 @@
+author: Bill Janssen
+version: 1
+before: off
+after: off
+url: 0
+date: 2/24/2010
+uplib-min-version: 1.7.9
+description: contains function "print_env" which will print the env

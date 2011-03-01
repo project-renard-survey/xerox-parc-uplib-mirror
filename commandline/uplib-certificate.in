@@ -1,0 +1,634 @@
+#!@PYTHON@
+# -*- Python -*-
+#
+# This file is part of the "UpLib 1.7.11" release.
+# Copyright (C) 2003-2011  Palo Alto Research Center, Inc.
+# 
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+#
+
+import sys, os, string, traceback, signal, time, shutil, re, tempfile, getopt
+
+# make sure our code library is on the load path
+if not r'@UPLIB_CODE@' in sys.path:
+    sys.path.insert(0, r'@UPLIB_CODE@')
+
+# make sure the environ has UPLIBLIB; this is for the benefit of plibUtil.configurator()
+if not os.environ.has_key(r'UPLIBLIB'):
+    os.environ['UPLIBLIB'] = r'@UPLIB_LIB@'
+
+from uplib.plibUtil import true, false, note, update_metadata, getpass, set_verbosity, subproc, get_fqdn, get_known_repositories, set_note_sink, configurator
+from uplib.webutils import parse_URL_with_scheme
+
+OPENSSL = None
+KEYTOOL = None
+UPLIB_CHECK_REPOSITORY = None
+EMAIL_ADDRESS = None
+
+try:
+    import ssl
+except:
+    HAVE_SSL = False
+else:
+    HAVE_SSL = True
+
+####################################################################
+##
+## Exceptions
+##
+####################################################################
+
+class ConfigError (Exception):
+    def __init__(self, repodir, msg):
+        Exception.__init__(self, msg)
+        self.repo = repodir
+
+class OperationError(Exception):
+    def __init__(self, exit_status, termination_signal, program_output):
+        Exception.__init__(self, program_output)
+        self.exit_status = exit_status
+        self.termination_signal = termination_signal
+        self.msg = program_output
+    def __str__(self):
+        return "<OperationError: status=%d,tsig=%s,output=%s>" % (self.exit_status, self.termination_signal, self.msg)
+
+####################################################################
+##
+## code to manipulate SSL certificates
+##
+####################################################################
+
+# to convert from PEM to PKCS12 format:  openssl pkcs12 -export -in CERTFILE -out CERTFILE.p12 -passout pass:
+
+# to get subject info: openssl x509 -subject -in CERTFILE -noout
+# to get md5 fingerprint: openssl x509 -fingerprint -md5 -in CERTFILE -noout
+
+# in the config file, there must be a "<decimal>.commonName = " line for each commonName,
+# and a "<decimal>.commonName_default = " line giving the actual value.
+
+stunnel_configuration_template = """
+# create RSA certs - Server
+
+[ req ]
+default_bits = 1024
+encrypt_key = no
+distinguished_name = req_dn
+x509_extensions = cert_type
+
+[ req_dn ]
+countryName = Country Name (2 letter code)
+countryName_default             = US
+countryName_min                 = 2
+countryName_max                 = 2
+
+stateOrProvinceName             = State or Province Name (full name)
+stateOrProvinceName_default     = %(state)s
+
+localityName                    = Locality Name (eg, city)
+localityName_default            = %(city)s
+
+0.organizationName              = Organization Name (eg, company)
+0.organizationName_default      = %(organization)s
+
+organizationalUnitName          = Organizational Unit Name (eg, section)
+organizationalUnitName_default  = %(unit)s
+
+commonName = name for server
+commonName_default = %(common-name)s
+
+%(email)s
+
+[ cert_type ]
+nsCertType = server
+extendedKeyUsage= clientAuth, serverAuth
+
+%(alt-names)s
+"""
+
+def gen_new_cert (filename, fqdns):
+
+    configfilename = tempfile.mktemp()
+    # only include subjectAltName if needed
+    if len(fqdns) > 1:
+        alt_names = "subjectAltName = " + ", ".join([("DNS:" + fqdn) for fqdn in fqdns])
+    else:
+        alt_names = ""
+    emailaddress = os.environ.get("UPLIB_CERTIFICATE_EMAIL_ADDRESS")
+    if emailaddress:
+        emailaddress = "emailAddress = " + emailaddress + "\nemailAddress_default = " + emailaddress
+    elif EMAIL_ADDRESS:
+        emailaddress = "emailAddress = " + EMAIL_ADDRESS + "\nemailAddress_default = " + EMAIL_ADDRESS
+    else:
+        emailaddress = ""
+    pkcs12filename = os.path.splitext(filename)[0] + ".p12"
+    pkcs8filename = os.path.splitext(filename)[0] + ".pk8"
+    fp = open(configfilename, 'w')
+    fp.write(stunnel_configuration_template % { 'state' : "California",
+                                                'city' : "Palo Alto",
+                                                'organization' : "PARC",
+                                                'unit' : "UpLib",
+                                                'common-name' : fqdns[0],
+                                                'alt-names' : alt_names,
+                                                'email' : emailaddress,
+                                                })
+    fp.close()
+    note(4, "config file is\n%s\n", open(configfilename, 'r').read())
+
+    try:
+        have_randomness = os.path.exists("/dev/urandom") and r"@DD@" and (r"@DD@" != ("@" + "D" + "D" + "@"))
+
+        if have_randomness:
+
+            randomfilename = tempfile.mktemp()
+            status, output, tsig = subproc(r"@DD@ if=/dev/urandom of=%s bs=256 count=1" % randomfilename)
+            if status != 0:
+                raise OperationError(status, tsig, output)
+            try:
+                status, output, tsig = subproc("%s req -new -x509 -days 800 -nodes -rand %s -config %s -batch -out \"%s\" -keyout \"%s\"" % (OPENSSL, randomfilename, configfilename, filename, filename))
+                if status != 0:
+                    raise OperationError(status, tsig, output)
+            finally:
+                if os.path.exists(randomfilename):
+                    os.unlink(randomfilename)
+        else:
+
+            # on windows
+
+            status, output, tsig = subproc(r'%s req -new -x509 -days 800 -nodes -config %s -batch -out "%s" -keyout "%s" ' % (OPENSSL, configfilename, filename, filename))
+            if status != 0:
+                raise OperationError(status, tsig, output)
+
+        # now create a PKCS#12 version
+        status, output, tsig = subproc(r'%s pkcs12 -export -in "%s" -nodes -passout pass:server -out "%s" ' % (OPENSSL, filename, pkcs12filename))
+        if status != 0:
+            raise OperationError(status, tsig, output)
+
+        # and an unencrypted PKCS#8 version, for Java's PrivateKey class
+        status, output, tsig = subproc(r'%s pkcs8 -topk8 -in "%s" -passin pass: -nocrypt -outform PEM -out "%s" ' % (OPENSSL, filename, pkcs8filename))
+        if status != 0:
+            raise OperationError(status, tsig, output)
+
+    finally:
+        if os.path.exists(configfilename):
+            os.unlink(configfilename)
+
+def get_cert_fingerprint (certfile):
+    if not os.path.exists(certfile):
+        raise IOError("No such certificate file %s" % certfile)
+    note(3, "Looking at certificate file %s...", certfile)
+    status, output, tsig = subproc(r'%s x509 -fingerprint -md5 -noout -in "%s"' % (OPENSSL, certfile))
+    if status != 0:
+        note("raising error for status %s", status)
+        raise OperationError(status, tsig, output)
+    m = re.search("MD5 Fingerprint=([^/\n\r\f\t]+)", output)
+    note(3, "Fingerprint for %s returns %s", certfile, m and m.group(1))
+    return m and m.group(1)
+
+def get_cert_hostnames (certfile):
+    command = r'%s x509 -text -in "%s"' % (OPENSSL, certfile)
+    status, output, tsig = subproc(command)
+    if status != 0:
+        note("raising error for status %s", status)
+        raise OperationError(status, tsig, output)
+    names = []
+    output = [x.strip() for x in output.strip().split('\n')]
+    subjectstrings = []
+    for i in range(len(output)):
+        line = output[i]
+        if line.startswith("Subject:"):
+            subjectstrings.append(line)
+            for m in re.finditer("CN=([^/\n\r\f\t]+)", line):
+                name = m.group(1)
+                if name not in names:
+                    names.append(name)
+        elif (line == "X509v3 Subject Alternative Name:") and ((i+1) <= len(output)):
+            subjectstrings.append(line)
+            for m in re.finditer("DNS:([^\s,]+)", output[i+1]):
+                name = m.group(1)
+                if name not in names:
+                    names.append(name)
+    return names
+
+def check_certificate_files (repo_directory, fix=false, hostnames=None):
+
+    # look at the certs for the repo, see if there's one there matching the current FQDN
+
+    if not hostnames:
+        hostnames = (get_fqdn(),)
+    hostname = hostnames[0]
+    c = configurator(sections=[hostname,"default"])
+    extra_hostnames = []
+    if c:
+        e = c.get('extra-hostnames')
+        if e:
+            extra_hostnames = [x.strip() for x in e.split(',')]
+    certfile = os.path.join(repo_directory, "overhead", hostname + ".pem")
+    best_certfilename = certfile
+    if not os.path.exists(certfile):
+        note(2, "No certificate specifically for host FQDN " + hostname + ".")
+        certfile = os.path.join(repo_directory, "overhead", "stunnel.pem")
+        if not os.path.exists(certfile):
+            note(2, "No stunnel.pem certificate in overhead directory.")
+            certfile = os.path.join(r'@UPLIB_LIB@', "stunnel.pem")
+            if not os.path.exists(certfile):
+                msg = "No certificate file found for " + repo_directory + "!";
+                note(msg)
+                raise ConfigError(repo_directory, msg)
+    note(3, "Looking at certificate in %s...", certfile)
+    try:
+        certhostnames = get_cert_hostnames(certfile)
+    except ConfigError, x:
+        certhostnames = []
+    if hostname not in certhostnames:
+        note("Hostname in cert (%s) does not match actual hostname (%s).", certhostnames, hostname)
+        if fix:
+            note("Generating new cert with proper hostname to %s...", best_certfilename)
+            try:
+                gen_new_cert(best_certfilename, tuple(hostnames) + tuple(extra_hostnames))
+                certdir, newcertfilename = os.path.split(best_certfilename)
+                d = os.getcwd()
+                os.chdir(certdir)
+                for hostname in hostnames:
+                    filename = hostname + ".pem"
+                    if (filename != newcertfilename):
+                        try:
+                            if os.path.exists(filename):
+                                os.unlink(filename)
+                            if hasattr(os, "symlink"):
+                                os.symlink(newcertfilename, filename)
+                            elif hasattr(os, "link"):
+                                os.link(newcertfilename, filename)
+                            else:
+                                shutil.copyfile(newcertfilename, filename)
+                        except:
+                            note("exception making symlink from %s to %s", best_certfilename, filename)
+                os.chdir(d)
+                return true, true, best_certfilename
+            except OperationError, x:
+                note("attempt to generate new certificate failed with %s", x)
+                return false, false, None
+        else:
+            return false, false, certfile
+    elif certfile != best_certfilename:
+        note("certfile name is %s", certfile)
+        if fix:
+            note("Copying good certificate %s to %s...", certfile, best_certfilename)
+            shutil.copyfile(certfile, best_certfilename)
+            os.chmod(best_certfilename, 0400)
+            restart = true
+            return false, true, best_certfilename
+        else:
+            return false, false, certfile
+    else:
+        return true, false, certfile
+
+
+####################################################################
+##
+## Manipulate Java keystores
+##
+####################################################################
+
+KEYPATTERN = re.compile(r"^([^,\n]+),[^\n]*, trustedCertEntry,$\s+^Certificate fingerprint \(MD5\):\s+([A-F0-9:]*)$", re.DOTALL | re.MULTILINE)
+
+def display_keystore (keystore, password):
+    if password is None:
+        password = getpass("Keystore password: ")
+    if not password:
+        note(0, "This program can't read a Java keystore without the password.")
+        note(0, "Please read http://java.sun.com/j2se/1.5.0/docs/tooldocs/windows/keytool.html\n"
+             "to find out more about keystore passwords, including the default password.")
+        sys.exit(1)
+    status, output, tsig = subproc("%s -list -v -keystore \"%s\" -storepass \"%s\"" % (KEYTOOL, keystore, password))
+    if status != 0:
+        note("Can't read keystore %s -- %s", keystore, status)
+        raise OperationError(status, tsig, output)
+    sys.stdout.write("keystore %s:\n%s" % (keystore, output))
+    return password
+
+def read_keystore(keystore, password):
+    if password is None:
+        password = getpass("Keystore password: ")
+    if not password:
+        note(0, "This program can't read a Java keystore without the password.")
+        note(0, "Please read http://java.sun.com/j2se/1.5.0/docs/tooldocs/windows/keytool.html\n"
+             "to find out more about keystore passwords, including the default password.")
+        sys.exit(1)
+    d = {}    
+    if os.path.exists(keystore):
+        status, output, tsig = subproc("%s -list -keystore \"%s\" -storepass \"%s\"" % (KEYTOOL, keystore, password))
+        if status != 0:
+            note("Can't read keystore %s -- %s", keystore, status)
+            raise OperationError(status, tsig, output)
+        for match in KEYPATTERN.finditer(output):
+            d[match.group(2)] = match.group(1)
+    return d, password
+
+def cert_in_keystore (certfile, keystore, password=None):
+    keystore_dict, password = read_keystore(keystore, password)
+    note("keystore is:")
+    for key in keystore_dict:
+        note("%s: %s", keystore_dict[key], key)
+    fingerprint = get_cert_fingerprint(certfile)
+    return (fingerprint in keystore_dict), password
+
+def add_cert_to_keystore (certfile, keystore, password=None, nickname=None, default_nickname=None):
+    if password is None:
+        password = getpass("Keystore password: ")
+    if not password:
+        note(0, "This program can't read a Java keystore without the password.")
+        note(0, "Please read http://java.sun.com/j2se/1.5.0/docs/tooldocs/windows/keytool.html\n"
+             "to find out more about keystore passwords, including the default password.")
+        sys.exit(1)
+    if nickname is None:
+        nickname = raw_input("Short name for this certificate: ")
+    if nickname is None:
+        nickname = default_nickname
+    if not nickname:
+        note(0, "You must choose a short nickname for this certificate, to add it to the keystore.")
+        sys.exit(1)
+    cmd = "%s -import -file \"%s\" -keystore \"%s\" -trustcacerts -noprompt -storepass \"%s\" -alias \"%s\"" % (KEYTOOL, certfile, keystore, password, nickname)
+    status, output, tsig = subproc(cmd)
+    if status != 0:
+        note("Can't add certificate %s to keystore %s -- %s", certfile, keystore, status)
+        raise OperationError(status, tsig, output)
+
+####################################################################
+##
+## Code to retrieve certs in, or convert certs to, X509 format
+##
+####################################################################
+
+def strip_to_x509_cert(certfile_contents, outfile=None):
+    m = re.search("^([-]+BEGIN CERTIFICATE[-]+[\r]*\n.*[\r]*^[-]+END CERTIFICATE[-]+)$", certfile_contents, re.MULTILINE | re.DOTALL)
+    if not m:
+        return None
+    else:
+        tn = tempfile.mktemp()
+        fp = open(tn, "w")
+        fp.write(m.group(1) + "\n")
+        fp.close()
+        tn2 = (outfile or tempfile.mktemp())
+        status, output, tsig = subproc(r'%s x509 -in "%s" -trustout -out "%s"' % (OPENSSL, tn, tn2))
+        if status != 0:
+            raise OperationError(status, tsig, output)
+        os.unlink(tn)
+        return tn2
+
+def get_local_cert(cert_filename):
+    if not os.path.exists(cert_filename):
+        note("Non-existent cert file %s", cert_filename)
+        return None
+    certdata = open(cert_filename, 'r').read()
+    return strip_to_x509_cert(certdata)
+
+def get_remote_cert (url=None, host=None, port=None, outfile=None):
+    if host is None or port is None:
+        scheme, host, port, path = parse_URL_with_scheme(url)
+
+    if HAVE_SSL:
+        pem = ssl.get_server_certificate((host, port))
+        outfile = outfile or tempfile.mktemp()
+        fp = open(outfile, 'w')
+        fp.write(pem)
+        fp.close()
+        return outfile
+
+    if sys.platform.startswith("win"):
+        tfile = tempfile.mktemp()
+        fp = open(tfile, "w")
+        fp.write("quit\n")
+        fp.close()
+        status, output, tsig = subproc('%s s_client -connect "%s:%s" -showcerts < "%s"' % (OPENSSL, host, port, tfile))
+        os.unlink(tfile)
+    else:	
+        status, output, tsig = subproc('%s s_client -connect "%s:%s" -showcerts < /dev/null' % (OPENSSL, host, port))
+    if status != 0:
+    	note(2, "Can't get remote certificate.  Status: %s\nOutput: %s" % (status, output))
+        return None
+    fn = strip_to_x509_cert(output, outfile=outfile)
+    if not fn:
+        note("Apparently invalid certificate output:\n%s", output)
+    return fn
+
+####################################################################
+##
+## Main program
+##
+####################################################################
+
+def usage (progname, exception=None):
+    if exception is not None:
+        sys.stderr.write("Error:  %s.\n" % str(exception))
+    sys.stderr.write("Usage:  %s [options]\n" % progname)
+    sys.stderr.write("Options are:\n"
+                     "  --repository=https://HOST:PORT/ -- look at certificate from this repository\n"
+                     "  --repository=DIRECTORY -- look at certificate from this repository\n"
+                     "  --keystore=FILENAME -- look at Java keystore in this file\n"
+                     "  --java-default-trust-store -- use or display the current default keystore\n"
+                     "  --storepass=PASSWORD -- password for keystore\n"
+                     "  --certificate=FILENAME -- look at this certificate\n"
+                     "  --hostname=FQDN -- specify a hostname rather then using the default\n"
+                     "  --safari=FILENAME -- create a copy of a certificate in the Safari X509 format\n"
+                     )
+    sys.exit(1)
+
+def main(argv):
+
+    set_verbosity(0)
+    set_note_sink(sys.stdout)
+    conf = configurator()
+    set_verbosity(conf.get_int("verbosity", 1))
+
+    global OPENSSL, KEYTOOL, UPLIB_CHECK_REPOSITORY, EMAIL_ADDRESS
+    OPENSSL = conf.get("openssl")
+    KEYTOOL = conf.get("keytool")
+    UPLIB_CHECK_REPOSITORY = conf.get("uplib-check-repository-program")
+    EMAIL_ADDRESS = conf.get("email-address")
+
+    repository_url = None
+    repository_dir = None
+    verbosity = 1
+    certificate_filename = None
+    keystore_filename = None
+    keystore_password = None
+    fqdn = []
+    default_keystore = None
+    java_default_trust_store = False
+    safari_cert_file = None
+    do_parc_names = False
+
+    possible_opts = ["repository=", "keystore=", "certificate=", "verbosity=", "storepass=", "hostname=", "java-default-trust-store", "safari=",]
+
+    note(4, "Starting parameter processing in addDocument.main")
+    try:
+        optlist, args = getopt.getopt(argv[1:], "", possible_opts)
+        for o, a in optlist:
+            if o == "--repository":
+                if a.startswith("https:"):
+                    repository_url = a
+                elif os.path.isdir(os.path.expanduser(a)):
+                    repository_dir = os.path.expanduser(a)
+                else:
+                    raise IOError("No such repository %s." % a)
+            elif o == "--keystore":
+                keystore_filename = os.path.expanduser(a)
+            elif o == "--storepass":
+                keystore_password = a
+            elif o == "--java-default-trust-store":
+                default_keystore = conf.get("java-default-trust-store") or os.path.join(os.path.expanduser("~"), ".keystore")
+            elif o == "--hostname":
+                fqdn.append(a)
+            elif o == "--safari":
+                safari_cert_file = a
+            elif o == "--certificate":
+                certificate_filename = os.path.expanduser(a)
+            elif o == "--verbosity":
+                verbosity=int(a)
+                if verbosity != 1:
+                    set_verbosity(verbosity)
+
+    except getopt.GetoptError, x:
+        usage(argv[0], x)
+
+    keystore_filename = keystore_filename or (default_keystore and os.path.expanduser(default_keystore))
+
+    if safari_cert_file and repository_url:
+        certificate_filename = get_remote_cert(url=repository_url, outfile=safari_cert_file)
+        if not certificate_filename:
+            note("Can't fetch certificate for remote repository at %s", repository_url)
+
+    elif safari_cert_file and certificate_filename:
+        fpin = open(certificate_filename, "rb")
+        tfile = strip_to_x509_cert(fpin.read(), outfile=safari_cert_file)
+        fpin.close()
+
+    elif repository_url and keystore_filename:
+        if certificate_filename:
+            note(0, "Can't copy a certificate file to a remote repository.")
+            sys.exit(1)
+        # make sure cert for repository is in keystore
+        certificate_filename = get_remote_cert(url=repository_url)
+        in_keystore, password = cert_in_keystore(certificate_filename, keystore_filename, keystore_password)
+        if not in_keystore:
+            add_cert_to_keystore(certificate_filename, keystore_filename, password, None)
+        else:
+            note("Certificate for %s already in keystore.", repository_url)
+
+    elif certificate_filename and repository_dir:       # and optionally keystore_filename
+        certhostnames = get_cert_hostnames(certificate_filename)
+        overhead_dir = os.path.join(repository_dir, "overhead")
+        certpathname = certificate_filename
+        if (not certificate_filename.endswith(".pem")) or (os.path.split(certificate_filename)[1][:-4] not in certhostnames):
+            certpathname = os.path.join(overhead_dir, certhostnames[0] + ".pem")
+            shutil.copyfile(certificate_filename, certpathname)
+        if keystore_filename:
+            certificate_filename = get_local_cert(certpathname)
+            in_keystore, password = cert_in_keystore(certificate_filename, keystore_filename, keystore_password)
+            if not in_keystore:
+                add_cert_to_keystore(certificate_filename, keystore_filename, password, None)
+        
+    elif repository_dir and keystore_filename:
+        # make sure cert for repository is in keystore
+        good, restart_needed, certificate_filename = check_certificate_files(repository_dir, hostnames=fqdn),
+        certificate_filename = get_local_cert(certificate_filename)
+        in_keystore, password = cert_in_keystore(certificate_filename, keystore_filename, keystore_password)
+        if not in_keystore:
+            add_cert_to_keystore(certificate_filename, keystore_filename, password, None)
+
+    elif certificate_filename and keystore_filename:
+        certificate_filename = get_local_cert(certificate_filename)
+        in_keystore, password = cert_in_keystore(certificate_filename, keystore_filename, keystore_password)
+        if not in_keystore:
+            add_cert_to_keystore(certificate_filename, keystore_filename, password, None)
+
+    elif repository_dir:
+        notRunning, output, tsignal = subproc("%s --check \"%s\"" %
+                                              (UPLIB_CHECK_REPOSITORY, repository_dir))
+        good, restart_needed, certificate_filename = check_certificate_files(repository_dir, fix=true, hostnames=fqdn)
+        if not notRunning and restart_needed:            
+            note("restarting repository after fixing certificate...")
+            status, output, tsig = subproc("%s --restart \"%s\"" %
+                                           (UPLIB_CHECK_REPOSITORY, repository_dir))
+            if status != 0:
+                raise OperationError(status, tsig, output)
+        note("Certificate is %s:" % ((good and "good") or "bad"))
+        status, output, tsig = subproc(r'%s x509 -subject -email -dates -noout -in "%s"' % (OPENSSL, certificate_filename))
+        if status != 0:
+            raise OperationError(status, tsig, output)
+        sys.stdout.write(output)
+
+    elif certificate_filename and fqdn:
+        c = configurator(sections=fqdn)
+        extra_hostnames = []
+        if c:
+            e = c.get('extra-hostnames')
+            if e:
+                extra_hostnames = [x.strip() for x in e.split(',')]
+        if os.path.exists(certificate_filename):
+            hostnames = get_cert_hostnames(certificate_filename)
+            hostnames.sort()
+            hostnames = tuple(hostnames)
+            fqdn2 = fqdn[:] + extra_hostnames
+            fqdn2.sort()
+            fqdn2 = tuple(fqdn2)
+            if hostnames != fqdn2:
+                note("generating new certificate with specified hostnames...")
+                gen_new_cert(certificate_filename, fqdn)
+        else:
+            note("generating new certificate with specified hostnames...")
+            gen_new_cert(certificate_filename, fqdn + extra_hostnames)
+        hostnames = get_cert_hostnames(certificate_filename)
+        sys.stdout.write(certificate_filename + ":  " + ', '.join(hostnames) + "\n")
+
+    elif certificate_filename:
+        status, output, tsig = subproc(r'%s x509 -subject -email -dates -noout -in "%s"' % (OPENSSL, certificate_filename))
+        if status != 0:
+            raise OperationError(status, tsig, output)
+        hostnames = get_cert_hostnames(certificate_filename)
+        if len(hostnames) > 1:
+            output += "subjectAltName: " + ", ".join([("DNS:" + name) for name in hostnames]) + "\n"
+        sys.stdout.write(output)
+
+    elif repository_url:
+        certificate_filename = get_remote_cert(url=repository_url)
+        if certificate_filename:
+            status, output, tsig = subproc(r'%s x509 -subject -email -dates -noout -in "%s"' % (OPENSSL, certificate_filename))
+            if status != 0:
+                raise OperationError(status, tsig, output)
+            hostnames = get_cert_hostnames(certificate_filename)
+            if len(hostnames) > 1:
+                output += "subjectAltName: " + ", ".join([("DNS:" + name) for name in hostnames]) + "\n"
+            sys.stdout.write(output)
+        else:
+            note("Can't fetch certificate for remote repository at %s", repository_url)
+
+    elif keystore_filename:
+        display_keystore(keystore_filename, keystore_password)
+            
+    else:
+        usage(argv[0], None)
+
+    return 0
+
+
+####################################################################
+##
+## primitive testing framework
+##
+####################################################################
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))

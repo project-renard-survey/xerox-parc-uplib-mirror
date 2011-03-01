@@ -1,0 +1,83 @@
+.. -*- Mode: rst -*-
+
+.. This file is part of the "UpLib 1.7.11" release.
+.. Copyright (C) 2003-2011  Palo Alto Research Center, Inc.
+.. 
+.. This program is free software; you can redistribute it and/or modify
+.. it under the terms of the GNU General Public License as published by
+.. the Free Software Foundation; either version 2 of the License, or
+.. (at your option) any later version.
+.. 
+.. This program is distributed in the hope that it will be useful,
+.. but WITHOUT ANY WARRANTY; without even the implied warranty of
+.. MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.. GNU General Public License for more details.
+.. 
+.. You should have received a copy of the GNU General Public License along
+.. with this program; if not, write to the Free Software Foundation, Inc.,
+.. 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+
+.. A list of changes to UpLib
+
+   It's written in something called "reStructuredText", which makes it seem a bit
+   odd, if you're looking at the plain text.
+
+   $Id: INSTALL.txt,v 1.4 2010/07/16 06:41:20 janssen Exp $
+
+================
+Installing UpLib
+================
+
+The guardian angel (see the README) and two command-line programs,
+``uplib-make-repository`` and ``uplib-check-angel``, make up the
+"server" side of the system, and the other command-line programs,
+``uplib-add-document`` and ``uplib-get-document``, makes up the
+"client" side of the system.  Both client and server programs are
+highly portable; they run on Linux, Mac OS X, and Windows.
+
+To build UpLib on your system, you should first make sure you have
+installed the various prerequisite packages for the system.  See the
+doc/REQUIREMENTS.txt file for specific packages; note that there are
+different (but not mutually exclusive) requirements for the
+server-side and client-side parts of the system.  There's an HTML
+version of REQUIREMENTS at doc/requirements.html, if you prefer to
+read it that way
+
+If you are installing on Windows, you should now switch to reading the
+doc/WINDOWS.txt file, which explains how to build UpLib on Windows.
+If you are using a Unix system (Linux, MacOS X, etc.), continue with
+this description.
+
+Once the prerequisites are available, you can build UpLib with the
+normal autoconf configure process::
+
+  % mkdir /tmp/uplib	# or wherever you build
+  % tar xvfz uplib-<version>.tar.gz
+  % ./configure --with-lucene=/usr/lib/lucene-1.3.jar
+  [ ...various configure output omitted... ]
+  % make
+  % make install
+
+By default, installation will be under /usr; you can use the ``--prefix``
+and ``--exec-prefix`` options with configure to modify this.  You can run
+"./configure --help" to get a list of the other configuration options.
+You *must* use the ``--with-lucene`` command switch to specify the location
+of the Lucene library.
+
+If you want to use a different version of the ``pdftotext`` program
+(for instance, one that supports the ``-wordboxes`` switch), you can specify the
+full path to this program with the special configuration switch
+``--with-pdftotext=PATH``, where ``PATH`` is the full path of that program.
+
+When giving the ``uplib-check-angel`` command, remember to provide the
+full path name of your repository.
+
+Once you've installed the code, use the command-line program
+``uplib-make-repository`` to create a repository and start an angel
+for it.  Once the angel is running, try connecting to it with a
+browser.  Remember to use an ``https:`` URL for it, as in
+``https://mymachine:8090/``, if ``mymachine`` is the machine you're
+running it on, and ``8090`` is the port you selected for it.  See the
+file doc/USAGE.txt for more explicit instructions.
+
+For information on extending UpLib for your own purposes, see the file EXTENDING.

@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<meta name="generator" content="Docutils 0.3.6: http://docutils.sourceforge.net/" />
+<title>UpLib: A Personal Digital Library System</title>
+</head>
+<body>
+<h1 class="title">UpLib: A Personal Digital Library System</h1>
+<div class="document" id="uplib-a-personal-digital-library-system">
+<!-- This is UpLib, a personal document library system from the Palo
+Alto Research Center (PARC). -->
+<!-- This document is written in reStructuredText, which is why it looks
+a bit wierd to you.  See http://docutils.sourceforge.net/. -->
+<p>UpLib is a system from the <a class="reference" href="http://www.parc.com/">Palo Alto Research Center (PARC)</a> for
+maintaining and using a collection of documents in digital form.  It's
+focussed on the representation and manipulation of those documents in
+&quot;virtual paper&quot; form, regardless of the original form of the document
+-- scanned, PDF, Microsoft Word, HTML, digital photos, etc.  That is,
+each document is represented as a stack of sheets of virtual paper.
+These sheets can be individually manipulated, or treated as a group,
+just like a paper document.  The documents are full-text indexed, and
+metadata optionally associated with a document can also be indexed.</p>
+<p>UpLib consists of two major parts, the &quot;guardian angel&quot; (a custom Web
+server), and a small collection of command-line programs that can be
+used to simplify some operations.  The basic idea is that the angel
+runs as a daemon, giving access to the documents in the repository,
+and the user accesses the repository through a web browser.  New
+documents can be added to the repository by uploading them from a Web
+browser, but the utility program <tt class="literal"><span class="pre">uplib-add-document</span></tt> simplifies the
+process, and adds the ability to convert documents from PDF format.
+For security, all communication between the browser and the angel is
+done over SSL encrypted communication paths, and the repository itself
+may optionally be password-protected.</p>
+</div>
+<div class="section" id="feedback">
+<h1><a name="feedback">Feedback</a></h1>
+<p>You can send bug reports, usage impressions, and other communication to</p>
+<blockquote>
+<a class="reference" href="mailto:uplib&#64;parc.com">uplib&#64;parc.com</a></blockquote>
+<p>Enjoy!</p>
+</div>
+</div>
+</body>
+</html>

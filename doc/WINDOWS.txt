@@ -1,0 +1,103 @@
+.. -*- Mode: rst -*-
+
+.. This file is part of the "UpLib 1.7.11" release.
+.. Copyright (C) 2003-2011  Palo Alto Research Center, Inc.
+.. 
+.. This program is free software; you can redistribute it and/or modify
+.. it under the terms of the GNU General Public License as published by
+.. the Free Software Foundation; either version 2 of the License, or
+.. (at your option) any later version.
+.. 
+.. This program is distributed in the hope that it will be useful,
+.. but WITHOUT ANY WARRANTY; without even the implied warranty of
+.. MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.. GNU General Public License for more details.
+.. 
+.. You should have received a copy of the GNU General Public License along
+.. with this program; if not, write to the Free Software Foundation, Inc.,
+.. 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+
+.. instructions for installing UpLib on Windows.
+
+   It's written in something called "reStructuredText", which makes it seem a bit
+   odd, if you're looking at the plain text.
+
+   $Id: WINDOWS.txt,v 1.23 2010/07/16 06:41:21 janssen Exp $
+
+=====================================
+Building UpLib from Source on Windows
+=====================================
+
+1) First, download and install, from ftp://gd.tuwien.ac.at/gnu/mingw/,
+   the three installers:  MinGW-5.1.3.exe, MSYS-1.0.10.exe, and
+   msysDTK-1.0.1.exe (you'll have to look for it in the list of
+   downloads).  Run them in that order.  When the MinGW installer
+   asks, go for a FULL install, not the default MINIMAL one.  The MSYS
+   installer will pop up a CMD.EXE window that will ask you if you
+   want to "normalize" the install.  Say "yes", and when it asks where
+   the MinGW install is, say "c:/MinGW".  After it finishes with the
+   CMD.EXE window, it will open some RTF documents; just close them
+   and continue on to install msysDTK-1.0.1.exe.
+
+   Once you have installed all three, you will have a Start folder called MinGW, and in it
+   another folder called "MSYS", and in it a program called "msys".  Select that program
+   and run it; it will start up an rxvt window running a Bourne shell.  You can now go and
+   use "configure" and "make" as you would on a UNIX platform.
+
+2)  To run a service (the UpLib Guardian Angel) as yourself on Windows,
+    you must add the "Log on as a service" right to your user account.
+    To do this on Windows XP, perform the following steps:
+
+    1) From the "Start" button, choose "Settings", and open "Control Panel".
+    2) Open "Administrative Tools".
+    3) Open "Local Security Policy".
+    4) Open "Local Policies".
+    5) Open "User Rights Assignment".
+    6) Double-click "Log on as a service".
+    7) If your account is not shown as one of the accounts with this
+       privilege, press the "Add User or Group" button.
+    8) Type <domain>\<username>, where <domain> is your domain (just "." if
+       you just want to use a local login), and <username> is your username
+       in that domain.
+    9) Click OK.
+
+3)  Build xpdf-3.02pl3 from sources, if you haven't already.  Unpack it, then apply the
+    ``xpdf-3.02-PATCH`` file from the UpLib tar file, using "patch".  Then "configure"
+    it and "make" it.  Use the "--enable-wordlist" and "--without-x" options to
+    "configure".
+
+4)  Next, you need to install all the other packages listed in the
+    REQUIREMENTS_ document.  Make sure that pythonservice.exe is
+    installed; some users have reported missing that step by accident.
+    See the end of this document for more comments by an UpLib user on
+    installing some of those packages.  Set up your ``PATH`` environment variable
+    so that the binaries directory for each of these packages is on it.
+
+5)  Choose a directory to unpack the UpLib code into.  It shouldn't
+    have any spaces in the pathname, so using a subdirectory of
+    ``C:\Documents and Settings\`` (like your home directory) isn't a
+    good idea.  (This is due to an issue with ``gcc`` which may be
+    fixed in a future release.)  Similarly, the directory you're
+    installing UpLib to, on this machine, should not have a space
+    anywhere in the pathname.  If you *are* using a directory with spaces in the name,
+    make sure you use the 8.3 names for the folders on the path (see #6 for more information on this).
+
+6)  Unpack the UpLib tar file (or check it out from CVS) and configure it.  If you checked it out from CVS,
+    you need to run the command "autoconf" to generate the "configure" script before invoking that script.
+    When specifying the installation location with
+    the "--prefix" option, you should use MinGW 8.3 notation for directory names.  For instance, in
+    MinGW 8.3 notation, the directory ``C:\Program Files\UpLib`` (which is where the standard UpLib installer
+    for Windows would put it) would be specified as
+    ``/c/PROGRA~1/UpLib``, and ``C:\Documents and Settings\username\test`` would be
+    ``/c/DOCUME~1/username/test``.
+
+7)  Type "make" to build the system, and "make install" to install it.
+
+8)  You should now be able to run ``uplib-add-document``, ``uplib-portal``, and
+    ``uplib-get-document``.  You may want to add the "bin" subdirectory of
+    the directory where you installed UpLib to your ``Path`` environment
+    variable.
+
+
+.. _USAGE: USAGE.html
+.. _REQUIREMENTS: REQUIREMENTS.html

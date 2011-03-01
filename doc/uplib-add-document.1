@@ -1,0 +1,285 @@
+'\" t
+.\" $Id: uplib-add-document.1,v 1.20 2011/02/18 19:09:18 janssen Exp $
+.\"
+.\" This file is part of the "UpLib 1.7.11" release.
+.\" Copyright (C) 2003-2011  Palo Alto Research Center, Inc.
+.\" 
+.\" This program is free software; you can redistribute it and/or modify
+.\" it under the terms of the GNU General Public License as published by
+.\" the Free Software Foundation; either version 2 of the License, or
+.\" (at your option) any later version.
+.\" 
+.\" This program is distributed in the hope that it will be useful,
+.\" but WITHOUT ANY WARRANTY; without even the implied warranty of
+.\" MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.\" GNU General Public License for more details.
+.\" 
+.\" You should have received a copy of the GNU General Public License along
+.\" with this program; if not, write to the Free Software Foundation, Inc.,
+.\" 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+.\" 
+.\" uplib-add-document.1
+.TH UPLIB-ADD-DOCUMENT 1 "UpLib 1.1 - http://www.parc.com/UpLib/"
+.SH NAME
+uplib-add-document \- Add a document to an UpLib personal digital library
+.SH SYNOPSIS
+\fBuplib-add-document\fR
+[--authors=\fIauthor-list\fR]
+[--categories=\fIcategory-list\fR]
+[--comment=\fIcomment\fR]
+[--date=\fImm/dd/yy\fR]
+[--deskew]
+[--disabled-rippers=\fIripper-names\fR]
+[--dpi=\fIvalue\fR]
+[--dryclean]
+[--extra-parsers=\fIfilenames\fR]
+[--early-upload]
+[--first-page=\fIpage-number\fR]
+[--format=\fIformat\fR]
+[--icon-file=\fIfilename\fR]
+[--image-size-limit=\flimit\fR]
+[--keepblankpages]
+[--keywords=\fIkeyword-list\fR]
+[--list-formats]
+[--metadata=\fIfilename\fR]
+[--nocolor]
+[--nopassword]
+[--notext]
+[--noupload]
+[--nooptimize]
+[--ocr]
+[--page-numbers=\fIpage-numbers\fR]
+[--parser=\fIparser\fR]
+[--repository=\fIrepository-URL\fR OR \fIrepository-directory\fR]
+[--rip]
+[--scoretext-threshold=\fIvalue\fR]
+[--source=\fIstring\fR]
+[--tiff-dpi=\fIdpi\fR]
+[--title=\fItitle-string\fR]
+[--url=\fIURL\fR]
+[--verbosity=\fIlevel=\fR]
+\fIFILE\fR
+[\fIFILE...\fR]
+.SH DESCRIPTION
+.B uplib-add-document
+is a command-line program to add a document to an UpLib repository.
+It can be used in several ways.  The simplest is to invoke it directly
+on a image or PDF file, which will then be converted into the format
+used in the repository, and uploaded to the repository.  Upon
+successful completion, the filename and repository document-id of the
+uploaded document will be written to stdout, unless the
+\fI--noupload\fR parameter is specified; in that case, the filename
+and the pathname of the directory in which the folder has been created
+will be written to stdout, in either case for each file specified.
+.SH OPTIONS
+Some options are also available as parameters in the configuration file \fC$HOME/.uplibrc\fR, or in the default configuration file.  Where applicable, the name of the configuration file parameter is shown after the documentation on the option.  An option given on the command line will override any configuration file parameter.  For more on configuration files, see below.
+.TP
+\fB--authors=\fIauthor-list\fR
+Specifies the authors of the document.  The \fIauthor-list\fR should be an 'and'-separated list of names, for example ``Jane Doe and Richard Roe''.
+.TP
+\fB--categories=\fIcategory-list\fR
+Specifies some categories for the document.  The list should be a comma-separated list of category names.
+.TP
+\fB--comment=\fIcomment\fR
+Specifies a comment string to assign to the document.
+.TP
+\fB--date=\fImm/dd/yy\fR
+Specifies a date to associate with the document.
+.TP
+\fB--deskew\fR
+Requests the system to deskew the page images, if possible.  This typically only works on page images that are mostly text, and requires an external deskew service, which is available at PARC.
+.TP
+\fB--disabled-rippers=\fIripper-names\fR
+Can be used only in conjunction with \fI--rip\fR.  Specifies that the comma-separated list of ripper names (the unqualified name of the Ripper subclass) should not be run.  The default value for this parameter is \fC"HTMLRipper,LuceneRipper"\fR; the first is outmoded, the second is pointless in this context.  An easy way to see a list of ripper names is to run \fCuplib-add-document\fR with the \fI--noupload --rip --verbosity=1\fR switches.
+.TP
+\fB--dpi=\fIvalue\fR
+Indicates that the document has the specified dots-per-inch resolution.  Used for image documents.  By default, the dpi is determined automatically using rules that usually work.
+.TP
+\fB--dryclean\fR
+Requests the system to deskew and generally clean up the page images, if possible.  This typically only works on page images that are mostly text, and requires an external dryclean service, which is available at PARC.
+.TP
+\fB--early-upload\fR
+Uploads the actual bits of the document twice:  once before beginning to generate page images and text, so that a version of the document is available almost immediately in the repository, albeit without any page images or text, and once again normally when the page images and text are available.
+.TP
+\fB--extra-parsers=\fIfilenames\fR
+Specifies a colon-separated list of \fIfilenames\fR in which can be found additional subclasses
+of the addDocument.DocumentParser class.  This allows the user to parse document formats not supported
+in the standard library.  See EXTENDING for more information.
+.TP
+\fB--format=\fIformat\fR
+The program attempts to automatically identify the type of the file and use the right
+format parser for it, but the user can explicitly force the use of a particular format parser
+by specifying the parser name as \fIformat\fR.  To see a list of the available parser names,
+run the program with the \fC--list-formats\fR switch.
+.TP
+\fB--icon-file=\fIfilename\fR
+As soon as possible, store a rough icon for the uploaded document in \fIfilename\fR, as a PNG image.
+.TP
+\fB--image-size-limit=\fIlimit\fR
+Specify a max size for images.  This is an integer giving the max size in bytes of an unpacked image.  The default is (3000 * 3000 * 4), which will handle a full color A4-size photograph at 300 DPI.
+.TP
+\fB--keepblankpages
+Tells the submission code to keep blank pages in the document.  By default, blank pages are stripped out of the document before it's put in the UpLib repository.
+.TP
+\fB--first-page=\fIpage-number\fR
+Start numbering the pages with \fIpage-number\fR, instead of the default value of 1.  See also \fB--page-numbers\fR.
+.TP
+\fB--keywords=\fIkeyword-list\fR
+Specifies a set of keywords to associate with the document.  This should be a comma-separated list.
+.TP
+\fB--list-formats\fR
+Writes a list of the supported MIME types to stdout, and exits.
+.TP
+\fB--metadata=\fIfilename\fR
+Takes the metadata in \fIfilename\fR, which must be in the UpLib metadata file format, and adds it to
+the metadata of the document or documents being added.
+.TP
+\fB--nocolor
+Specifies that the document contains only monochrome pages.  This usually will cause a compression-optimization step to be skipped.
+.TP
+\fB--nooptimize
+This will cause the page-image compression optimization step to be skipped.
+.TP
+\fB--nopassword
+Specifies that the UpLib repository does not have a password.  This will prevent the program from prompting the user for the password.  [\fCassume-no-password\fR (boolean)]
+.TP
+\fB--notext
+Specifies that the document does not contain text, and that any OCR steps should be omitted.
+.TP
+\fB--noupload
+Causes \fCuplib-add-document\fR to create a document folder in the UpLib format, but not to upload it to a repository.
+.TP
+\fB--ocr
+Causes the OCR system to be used for extracting the text of the document, even if there are other
+mechanisms which would be used by default.
+.TP
+\fB--page-numbers=\fInumbers\fR
+Number the pages according to \fInumbers\fR, which follows a syntax described in the ARCHITECTURE section of
+the user manual.  This allows for roman numerals, unnumbered pages, and multiple stretches of decimal numbering.
+.TP
+\fB--parser=\fIparser\fR
+Override the automatic format detection, and force the use of the parser specified with \fIparser\fR.  This value should the unqualified name of the parser class, e.g. "\fCPDFDoc\fR".
+.TP
+\fB--repository=\fIrepository-URL\fR OR \fIrepository-directory\fR
+Specifies the repository to upload the document or documents to.  This should be in the form of a complete URL, for example \fChttps://foo.com:12122/\fR.  If not specified, the configuration value of \fCdefault-repository\fR is used, if defined.  If the specified repository is actually not a URL, but a local directory that has the 'shape' of an UpLib repository, the document will be added directly to that repository, even if the guardian angel for the repository is not running.
+.TP
+\fB--rip\fR
+If \fI--noupload\fR is also specified, will invoke a ripper chain on the not-uploaded folder.  This uses a temporary repository created for the purpose, which is immediately removed after the rippers are run.  So the configuration settings invoked for this ripper chain will be those generic to the machine on which the command is run.  You can modify this by specifying settings for port 1, which is the pseudo-port that's used.
+.TP
+\fB--scoretext-threshold=\fIvalue\fR
+Specify the cutoff threshold for scoretext evaluation of automatically-retrieved text.  The default is 4000.  Higher scores means more forgiving of odd syntax and words.
+.TP
+\fB--source=\fIstring\fR
+Sets the "Source" metadata field for the document to \fIstring\fR.
+.TP
+\fB--tiff-dpi=\fIdpi\fR
+Specifies the dots-per-inch of the image form of the document as an integer.  By default, this value is 300.  This is chiefly useful for adding images to the repository, which may be in the typical presentation form of a 75-dpi document.  This option is the same as \fB--dpi\fR.
+.TP
+\fB--title=\fItitle-string\fR
+Specifies a title string to use for the document.
+.TP
+\fB--url=\fIURL\fR
+Associates the specified \fIURL\fR with the document, storing it in the \fCoriginal-url\fR metadata field of the document.
+.TP
+\fB--verbosity=\fIlevel\fR
+Specifies an integer verbosity level to use while processing the document.  By default, this is 1.  Setting it to a higher value will cause more debugging output to be written to stderr.  [\fCverbosity\fR (integer)]
+.SH EXAMPLES
+To upload a PDF file, \fCreport.pdf\fR, to the repository at https://example.com:8290/, with the title ``Monthly Report for July'', one might use the following command:
+.sp
+\fC% uplib-add-document --title="Monthly Report for July" \\
+.br
+       --date="8/1/03" --nocolor --categories="report,monthly" \\
+.br
+       report.pdf
+.br
+Password for repository: secret
+.br
+report.pdf 01049-32-7797-990
+.br
+% \fR
+.sp
+.SH "ENVIRONMENT VARIABLES"
+.TP
+\fCUPLIBRC\fR
+If set, will be used as the location of the user's UpLib configuration file.  Otherwise, the default value of \fC$HOME/.uplibrc\fR is used.
+.TP
+\fCUPLIB_PASSWORD\fR
+If set, no password prompt will be issued, and the value will be sent as the password to the repository.
+.SH "CONFIGURATION FILES"
+Two configuration files are examined for the values of various settings, in the operation of \fCuplib-add-document\fR.  The first is the user's configuration file, typically \fC$HOME/.uplibrc\fR (though see the environment variable \fCUPLIBRC\fR above).  The second is the site configuration file, \fC$UPLIB_HOME/lib/$UPLIB_VERSION/site.config\fR.  Both files contain any number of \fIsections\fR, each of which may contain any number of configuration parameter settings.  Each section has a name, which is enclosed in square brackets, followed by parameter settings.  Normally, only the section called "default" will be examined.
+.PP
+Parameter settings have the form form \fIname = value\fR, where name is the name of an UpLib parameter, and value is a string, integer, or boolean value.  A colon character (:) may be used instead of the equals sign to separate name and value.  Comments may be expressed by starting any line with the characters "rem", or with the character "#", or with the character ";".  Boolean values of True may be expressed with "TRUE", "true", "True", "on", or "1".  Boolean values of False may be expressed with "FALSE", "false", "False", "off", or "0".
+.PP
+The following parameters are understood:
+.TP
+\fBadditional-document-parsers\fR
+A colon-separated list of filenames, for files containing additional document parser classes, to support additional document formats.  Each file is loaded by the Python file loader, then scanned for subclasses of \fCuplib.addDocument.DocumentParser\fR.  Those found are incorporated into the list of parsers available to the program.  See \fCpython/uplib/addDocument.py\fR for lots of examples parsers.  Note that this can also be passed on the command-line with \fI--extra-parsers\fR.
+.TP
+\fBassembly-line\fR
+Where to create temporary files and document folders before they are uploaded to the UpLib repository.  If not specified, a temporary directory is created, then removed after the files have been uploaded.
+.TP
+\fBassume-no-password\fR
+Boolean value indicating whether the repository has a password.  The default is to assume that it has a password.
+.TP
+\fBassume-text-no-color\fR
+Whether or not text documents are to be processed as potential color documents.  By default, they are.
+.TP
+\fBdefault-repository\fR
+Repository URL to use.
+.TP
+\fBenscript\fR
+The full path of the \fCenscript\fR program.
+.TP
+\fBghostscript\fR
+The full path of the Ghostscript program.
+.TP
+\fBocr-url\fR
+URL to use for the OCR web service.
+.TP
+\fBpdftotext\fR
+The full path of the \fCpdftotext\fR program.
+.TP
+\fBpreserve-blank-pages\fR
+Boolean value indicating whether blank pages should be preserved in documents uploaded to the repository.  By default, blank pages are removed.
+.TP
+\fBps2pdf\fR
+The full path of the \fCps2pdf\fR program.
+.TP
+\fBscoretext\fR
+The full path of the \fCscoretext\fR program.
+.TP
+\fBscoretext-model\fR
+The full path of the language model file to be used by \fCscoretext\fR.
+.TP
+\fBscoretext-threshold\fR
+The integer value to use when deciding whether text automatically extracted from a document makes sense or not.  The default score is 4000.  Scores higher than that provide more tolerance, and lower scores provide less tolerance.
+.TP
+\fBsummary-length\fR
+How many characters to use in the automatically generated summary.  By default, 250.
+.TP
+\fBtar\fR
+The full path of the \fCtar\fR program.
+.TP
+\fBtiffcp\fR
+The full path of the \fCtiffcp\fR program.
+.TP
+\fBtiffinfo\fR
+The full path of the \fCtiffinfo\fR program.
+.TP
+\fBtiffset\fR
+The full path of the \fCtiffset\fR program.
+.TP
+\fBtiffsplit\fR
+The full path of the \fCtiffsplit\fR program.
+.TP
+\fBuse-png-page-images\fR
+A boolean flag, by default \fIfalse\fR, which indicates whether to use
+a directory containing PNG page images, one file per page, instead
+of the original multipage-TIFF format.  This will probably change
+to default to \fItrue\fR in a future release.
+.SH "SEE ALSO"
+\fChttp://uplib.parc.com/\fR.
+.SH "BUGS"
+Report bugs to \fCuplib-tech@parc.com\fR.
+.SH "AUTHORS"
+Bill Janssen, <janssen@parc.com>

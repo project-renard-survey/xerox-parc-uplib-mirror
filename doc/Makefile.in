@@ -1,0 +1,88 @@
+#
+# This file is part of the "UpLib 1.7.11" release.
+# Copyright (C) 2003-2011  Palo Alto Research Center, Inc.
+# 
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+#
+
+%.html : %.txt ; PYTHONPATH="@UPLIB_SITE_PACKAGES@" "@PYTHON@" "@RST2HTML@" --stylesheet="./uplibdoc-stylesheet.css" $< $@
+%.latex : %.txt ; PYTHONPATH="@UPLIB_SITE_PACKAGES@" "@PYTHON@" "@RST2LATEX@" --font-encoding=T1 --stylesheet="./uplibdoc-style.tex" $< $@
+%.pdf : %.latex ; "@PDFLATEX@" $< $@
+
+TAR = @TAR@
+EPYDOC = @EPYDOC@
+JAVADOC = @JAVADOC@
+
+about.html : about.html.in
+	sed -e 's/UPLIB_VERSION/@PACKAGE_VERSION@/g' < about.html.in > about.html
+
+HTMLTARGETS = USAGE.html EXTENDING.html REQUIREMENTS.html ARCHITECTURE.html CHANGES.html WINDOWS.html README.html INSTALL.html ACKNOWLEDGEMENTS.html METADATA.html getting-started-on-a-mac.html about.html
+PDFTARGETS = manual.pdf
+
+DOCTARGETS = $(HTMLTARGETS) $(PDFTARGETS) index.html
+ifdef EPYDOC
+DOCTARGETS += pyapidocs.tgz
+endif 
+ifdef JAVADOC
+DOCTARGETS += javaapidocs.tgz
+endif
+
+README.txt : ../README
+	cp ../README ./README.txt
+
+all:
+
+clean:
+	rm -f $(DOCTARGETS) *.out *.aux *.log README.txt manual.txt manual.latex
+	rm -rf ./temp
+
+dist: docs.tgz pyapidocs.tgz javaapidocs.tgz
+
+doc: $(DOCTARGETS)
+
+pyapidocs.tgz: epydoc-config.ini
+	-rm -rf temp pyapidocs.tgz
+	-mkdir temp
+	-PYTHONPATH="@UPLIB_SITE_PACKAGES@" "@PYTHON@" $(EPYDOC) --config=epydoc-config.ini
+	-(cd temp; tar cvfz ../pyapidocs.tgz *)
+	-rm -rf temp
+
+javaapidocs.tgz:
+	-rm -rf temp javaapidocs.tgz
+	-mkdir temp
+	-"$(JAVADOC)" javadoc -d temp ../java/com/parc/uplib/readup/uplibbinding/Repository.java ../java/com/parc/uplib/util/PARCAwareCertHostnameVerifier.java ../java/com/parc/uplib/util/CertificateHandler.java ../java/com/parc/uplib/util/ClientKeyManager.java ../java/com/parc/uplib/util/Configurator.java ../java/com/parc/uplib/util/MetadataFile.java ../java/com/parc/uplib/readup/widget/HotSpot.java ../java/com/parc/uplib/readup/widget/Activity.java ../java/com/parc/uplib/readup/widget/AnnotationStreamHandler.java ../java/com/parc/uplib/readup/widget/PageText.java ../java/com/parc/uplib/readup/widget/Annotation.java ../java/com/parc/uplib/readup/widget/DocViewerCallback.java ../java/com/parc/uplib/readup/widget/ResourceLoader.java ../java/com/parc/uplib/readup/widget/SoftReferenceCache.java ../java/com/parc/uplib/readup/widget/Scribble.java 
+	-(cd temp; tar cvfz ../javaapidocs.tgz *)
+	-rm -rf temp
+
+docs.tgz: $(DOCTARGETS)
+	rm -f docs.tgz
+	"$(TAR)" cvfz docs.tgz $(DOCTARGETS) uplibdoc-stylesheet.css ./images/*.png
+	chmod 444 docs.tgz
+
+manual.pdf: manual.txt USAGE.txt EXTENDING.txt REQUIREMENTS.txt ARCHITECTURE.txt CHANGES.txt WINDOWS.txt INSTALL.txt
+	PYTHONPATH="@UPLIB_SITE_PACKAGES@" "@PYTHON@" "@RST2LATEX@" --font-encoding=T1 --stylesheet="./uplibdoc-style.tex" --use-latex-toc manual.txt manual.latex
+	"@PDFLATEX@" manual.latex manual.pdf > /dev/null
+	"@PDFLATEX@" manual.latex manual.pdf > /dev/null
+	"@PDFLATEX@" manual.latex manual.pdf > /dev/null
+	-rm -f manual.latex manual.out manual.log manual.toc
+
+Makefile: Makefile.in
+	(cd .. ; ./reconfigure)
+
+manual.txt: manual.txt.in
+	(cd .. ; ./reconfigure)
+
+index.html: index.html.in
+	(cd .. ; ./reconfigure)

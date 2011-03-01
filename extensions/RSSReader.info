@@ -1,0 +1,6 @@
+after: on
+author: Bill Janssen
+before: off
+description: reads a number of RSS feeds, and adds the documents listed therein to your repository
+uplib-min-version: 1.7.9
+version: 1.0

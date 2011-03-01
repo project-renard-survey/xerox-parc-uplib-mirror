@@ -1,0 +1,394 @@
+.. -*- Mode: rst -*-
+
+.. This file is part of the "UpLib 1.7.11" release.
+.. Copyright (C) 2003-2011  Palo Alto Research Center, Inc.
+.. 
+.. This program is free software; you can redistribute it and/or modify
+.. it under the terms of the GNU General Public License as published by
+.. the Free Software Foundation; either version 2 of the License, or
+.. (at your option) any later version.
+.. 
+.. This program is distributed in the hope that it will be useful,
+.. but WITHOUT ANY WARRANTY; without even the implied warranty of
+.. MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.. GNU General Public License for more details.
+.. 
+.. You should have received a copy of the GNU General Public License along
+.. with this program; if not, write to the Free Software Foundation, Inc.,
+.. 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+
+.. This file lists prerequisite packages needed before you can install UpLib.
+
+   It's written in something called "reStructuredText", which makes it seem a bit
+   odd, if you're looking at the plain text.
+
+===================
+UpLib Prerequisites
+===================
+
+UpLib is a client-server system.  If you run the server on the same
+machine as you run clients, then you will need all of the
+prerequisites listed below installed on that system.  Note that at the
+bottom of this list, there are some special prerequisites needed for
+Windows_, Linux_, `MacOS X`_, etc.
+
+Our installers also install most of the prerequisite programs, with the notable
+exceptions of Python and Java, which should be installed on systems before
+running an UpLib installer.  Where possible, the installers attempt to check
+for this.
+
+Installing from source is more complicated.  You will need a machine with
+most of the prerequisites installed.  Most are fairly vanilla, but some need to
+be built from scratch, notably our patched version of xpdf (see below),
+and PyLucene.  The various prerequisites are listed below.  There is a standard
+UpLib "extension", ``UploadDocument``, that allows document incorporation in
+the server; if you are planning to use that extension, all the client-side
+prerequisites must also be present on the server.
+
+All Platforms, Server-side
+==========================
+
+- Python 2.5 or later (http://www.python.org) with the following extra or optional modules:
+
+       * PIL (Python Imaging Library) 1.1.6 or better (http://www.pythonware.com/products/pil)
+
+              To install PIL, first unpack the source distribution somewhere.
+              Then "cd" to the top-level directory and type:
+
+                   | python setup.py build
+                   | sudo python setup.py install
+
+              That should do it.
+
+              UpLib 1.7.9 has been tested with PIL 1.1.7.
+
+              If using the "email" parser in UpLib, you'll need to make sure that PIL includes
+              support for the "freetype" font library -- it will print out a list of what it
+              does and doesn't include after the "python setup.py build" command is executed.
+
+       * Medusa 0.5.4 or better (http://www.amk.ca/python/code/medusa.html) or
+         Tornado 1.2 or better (http://www.tornadoweb.org/)
+
+              To install Medusa, cd to the top-level directory, and type (on Unix)::
+
+                   sudo python setup.py install
+
+              That will install everything properly for your Python.
+
+              Same for Tornado.  The 1.1.1 version of Tornado isn't quite enough;
+              you need the 1.2 version (which at the time of this writing hadn't yet been
+              released), or a checkout of the current version from git.
+
+       * ReportLab Toolkit 2.x (http://www.reportlab.com/software/opensource/rl-toolkit/)
+
+              ReportLab is Used to create PDFs from image documents).  The BUILD
+              documentation is missing from this package, but it uses
+              the standard Python distutils.  So, unpack it in an
+              empty directory, find the highest subdirectory which
+              contains a file called ``setup.py``, cd to that directory,
+              type ``python setup.py build``, and when that finishes,
+              install it with ``python setup.py install`` (you may need
+              to be root to do this step).
+
+              This is a change from earlier releases of UpLib, which used version 1.x.
+
+       * PyLucene 2.4 to 3.x (http://lucene.apache.org/pylucene/)
+
+              Optional but strongly recommended.  If this is present, it can be used to speed
+              up searches of the repository by two orders of
+              magnitude.  It is used instead of an external Java
+              Lucene search.  The more recent "JCC" version of PyLucene
+              is preferred; the older "GCJ" version will work, but
+              is much slower in indexing a document, something which
+              occurs whenever you change the document's metadata.
+
+              As of 10/1/10, JCC and PyLucene for Windows was available at
+              (http://code.google.com/p/pylucene-win32-binary)
+
+       * The Python SSL module, version 1.13 or better (http://pypi.python.org/pypi/ssl/)
+
+              Optional but recommended.  Provides built-in SSL support for Python.
+              This module is or will be standard in Python 2.6 and Python 3.x, so you
+              only need to install it if you are using an earlier version of Python.
+
+                   sudo python setup.py install
+
+- libtiff TIFF tools (tiffcp, tiffset, tiffsplit, tiff2ps) 3.5.7 or better (http://www.libtiff.org)
+
+       As usual:
+
+            ./configure; make; sudo make install
+
+- Java (5 or better)
+
+- OPTIONAL:  Lucene 2.x-core jar file (http://lucene.apache.org/).  If you don't supply
+  one, one is included in the distribution.  If you have PyLucene, you don't need this, either.
+
+- stunnel 4 (http://stunnel.mirt.net)  You won't need this if you have the Python SSL module.
+
+- OpenSSL, 0.9.7 or better (http://www.openssl.org/)
+
+- OPTIONAL:  if you want UpLib to be able to find images in documents, you will
+  need to supply all the various libraries that the ``findimages`` program requires.
+  They are::
+
+     libtiff (see above),
+     libpng (from http://www.libpng.org/),
+     libjpeg (from http://www.ijg.org), and
+     liblept (from http://www.leptonica.org/).
+
+  They all need to be installed somewhere, and
+  need to either be in the standard places for headers and libraries, or you will need to
+  set the ``CPPFLAGS`` and ``LDFLAGS`` environment variables before running configure.  If the
+  configure script reports that it is unable to build ``findimages``, something is
+  installed badly or can't be found.  You must have leptonica 1.62 or higher.
+
+- OPTIONAL:  tar (GNU tar from http://www.gnu.org/ works) (Only needed
+  if you want compatibility with 1.2 or earlier client programs)
+
+- OPTIONAL: if the nltk linguistics package (http://www.nltk.org) is
+  installed, it enables the NLTKTagger ripper, which adds
+  sentence-breaking and part-of-speech tagging to the automatic
+  document analysis.  Note that in addition to installing nltk, you
+  also need to "download", using the ``nltk.download()`` function, the
+  two nltk data sets "punkt" (for sentence breaking) and
+  "maxent_treebank_pos_tagger" (for part-of-speech tagging)::
+
+      >>> nltk.download("punkt")
+      >>> nltk.download("maxent_treebank_pos_tagger")
+
+- OPTIONAL:  if the Python "guess_language" module is installed, the GuessLanguageRipper
+  will be invoked to set the metadata value "text-language" to RFC 4646 language tags.
+  If this value is set, it may influence the choice of Analyzer used for the Lucene
+  indexing of the text of the document; UpLib tries to use the right Analyzer for
+  the document's language.
+
+
+All platforms, Client-side
+==========================
+
+- Python 2.3.5 or later (http://www.python.org) with the following extra or optional modules:
+
+       * The Python SSL module, version 1.12 or better (http://pypi.python.org/pypi/ssl/)
+
+              Optional but recommended.  Provides built-in SSL support for Python.
+
+       * If you don't have the SSL module, you must have SSL support
+         in the ``socket`` module -- the module ``socket`` should have the
+         ``ssl()`` function -- this is included in Python 2.2 and
+         later, but must be explicitly configured in during the
+         build).  To see if it's in a particular binary version of
+         python, try the following::
+
+           python -c "import socket; print socket.ssl"
+
+         You should get back ``<built-in function ssl>`` or
+         ``<function ssl at 0x67330>`` or something similar.  If
+         you get some indication that the function ``socket.ssl``
+         doesn't exist, you'll have to use another binary distribution,
+         or build from sources.
+
+- Java Plug-in: If you wish to use the Java Plug-in document viewer
+  (and you will), you will need to have the Java Plug-in installed on
+  your client machine, version 1.4.2 or better.
+  (http://java.sun.com/plugin)
+
+- xpdf 3.02 patchlevel 3 or better (http://www.foolabs.com)
+
+- Ghostscript 8.51 or better (http://www.ghostscript.com) We recommend
+  using AFPL Ghostscript 8.53 or later.
+
+- JPen.jar, the code that works with jtablet.  A version is provided
+  in the java/ subdirectory, but you can provide your own as well.
+
+- SORT-OF OPTIONAL: Having wordbox support has become increasingly
+  important to much of the document analysis UpLib does, such as
+  paragraph detection and subsequent HTML generation.  To get wordbox
+  support for most text formats, including plain text, program
+  sources, Word and PDF documents, you will need a modified version of
+  the freeware program ``pdftotext`` installed.
+
+  To create this,
+  download the sources for xpdf-3.02 from
+  http://www.foolabs.com/xpdf/.  Unpack the source files in a
+  directory.  Then cd to that directory, and patch the sources using
+  the patch file called ``xpdf-3.02-PATCH`` in the UpLib sources.  (On
+  Unix systems, you can use the FSF ``patch`` utility by Larry Wall,
+  which comes with most Unix systems, but can also be downloaded from
+  http://www.gnu.org/software/patch/patch.html.)  After applying the
+  patch, configure and build as per the xpdf instructions.  There's no
+  need to build the GUI applications; only the command-line
+  applications are used by UpLib.  Install these programs.  Then when
+  you configure the build of UpLib, use the ``--with-pdftotext``
+  configure switch to point to this executable.  The "xpdf-3.02-PATCH"
+  file will also work with xpdf 3.02pl2 and xpdf 3.02pl3.
+
+- OPTIONAL:  If you wish to use TIFF as the main page format (not
+  recommended), you will need the libtiff TIFF tools (tiffcp, tiffset,
+  tiffsplit) 3.5.7 or better (http://www.libtiff.org)
+
+- OPTIONAL:  the ``scoretext`` package from Kris Popat allows better text
+  to be extracted from other formats such as PDF.  At PARC, this is part
+  of the checkocr package in /import/checkocr/.
+
+- OPTIONAL:  If the ``enscript`` package is available, ``uplib-add-document`` will
+  be able to upload text files (http://people.ssh.com/mtr/genscript/).  Also used
+  for computer source code.
+
+- OPTIONAL: If OpenOffice 2.0 or better is installed, it can be used
+  to convert web pages for processing, though using ``wkpdf`` or
+  ``wkhtmltopdf`` works better.  In addition, on non-Windows
+  platforms, it is used to convert documents from Microsoft Word,
+  Powerpoint, or Excel formats.  Recommended.  If you install it, put
+  the "program" subdirectory (which contains "soffice" or
+  "soffice.exe") on your path before running "configure".  If you use
+  this on Mac OS X, as of Mac OS X 10.4.8 - 10.5.3, you will also need
+  to have the X11 support for Mac OS X installed.  OpenOffice 3.0
+  doesn't require X11 on the Mac.  (www.openoffice.org)
+
+- OPTIONAL: The HTML to PDF converter ``wkpdf`` (from
+  http://plessl.github.com/wkpdf/) can do excellent conversions, on OS X.
+  A similar system, ``wkhtmltopdf``
+  (http://code.google.com/p/wkhtmltopdf/) is more generally available,
+  but may produce less pleasing results.  UpLib can use either for Web
+  page incorporation.
+
+- OPTIONAL: UpLib supports a ToPDF server which can do Microsoft
+  Office to PDF conversions via OpenOffice, and Web to PDF conversions
+  via ``wkpdf`` or ``wkhtmltopdf``.  It's recommended if your platform can
+  support this.  To build it, you'll need to install at least one of
+  `wkpdf`, `wkhtmltopdf`, or `OpenOffice`, and in addition, you'll
+  need the zipfile distributions of JODConverter 3 (from
+  http://code.google.com/p/jodconverter), and Simple (from
+  http://www.simpleframework.org/).  You have to configure UpLib with
+  the `--with-jodconverter-dist=ZIPFILE` and
+  `--with-simple-dist=ZIPFILE` switches to tell the build process
+  where you put the zip files.
+
+- OPTIONAL: If the ``htmldoc`` command-line program is installed,
+  ``uplib-add-document`` will be able to upload HTML documents saved
+  in Mozilla's "Web Page Complete" format, or HTML pages from external
+  Web sites.  You will need version 1.8.26 or greater.  But it's better
+  to use ``wkpdf`` or ``wkhtmltopdf``, if you can.
+  (http://www.easysw.com)
+
+- OPTIONAL: To get support for email messages as documents, you must
+  have the Python "email" package, version 4.0 or better installed.
+  Python 2.5 comes with email 4.0; for earlier versions of Python, you
+  can download the "email" package from
+  http://cheeseshop.python.org/pypi/email.
+
+- OPTIONAL:  Some Exchange (Outlook) email users send attachments
+  bundled as a multipart part of type "application/ms-tnef".  If you'd
+  like UpLib to be able to unpack and process these bundled
+  attachments, you need to have the "tnef" program installed before
+  you run configure.  You can get it at http://tnef.sourceforge.net/.
+
+  There's also a program called ``ytnef``, which may work better for you.
+  If you are going to use that, also patch it with the patch found in
+  ``UPLIB/patches/ytnef-2.6-patch``, before you build it.  And note that
+  you have to install the ytnef library, libytnef, before you can
+  build the program.  And if you use ytnef, you'll have to edit
+  site.config.in to change the way the TNEF program is invoked.  For
+  ytnef, you'll want it to read::
+
+    tnef-command = "%s" -f "%s" "%s"
+
+  If you're building ``ytnef``, it's useful to know that you have
+  to download it from http://sourceforge.net/projects/ytnef/files,
+  you have to download it in two parts.  First, build and install
+  ``libytnef``, then download ``ytnef``, apply the UpLib patch to it,
+  build and install it.  
+
+- OPTIONAL: Support for vCard address book data is provided if you
+  have the Python "vobject" module installed.  You can get this at
+  http://pypi.python.org/pipy/vobject/.
+
+- OPTIONAL: To get support for MP3s as documents, you must have the
+  Mutagen music tag library installed, from http://code.google.com/p/mutagen/.
+
+- OPTIONAL: To get support for video files as documents, you must have the
+  Pyglet library installed (and the associated AVbin library), from
+  http://www.pyglet.org/.  To get better metadata, you should also have
+  the "hachoir_parser" and "hachoir_metadata" libraries installed, and
+  they require the "hachoir_core" module as well, all from http://hachoir.org/.
+
+- OPTIONAL: If the ``jasper`` program
+  (http://www.ece.uvic.ca/~mdadams/jasper/) is installed, support for
+  JPEG 2000 document incorporation is provided.  Note that an older
+  version of jasper is included in the Ghostscript sources, but it's
+  not installed by just building and installing ghostscript.
+
+
+Linux or Solaris or Mac OS X or UNIX (but not Windows)
+======================================================
+
+.. _Linux:
+.. _`MacOS X`:
+
+Most UNIX systems will have these programs already installed, but make sure.
+
+- a Bourne-compatible shell (/bin/sh)
+
+Also, on Linux with a 2.6 kernel, you must use Python 2.4 or 2.5, for reasons we don't fully comprehend.
+
+If you are using OpenOffice, make sure you also have Xvfb installed
+(part of the standard XFree86 X11 package).  Make sure that OpenOffice's
+"unopkg" is on your path.  Note that on Mac OS X 10.5 (Leopard), Xvfb
+is *not* part of the standard X11 installation.
+
+Allessandro Magni contributes this comment about getting Java properly
+installed on Linux: "I followed the detailed instructions from
+http://rabbitbrush.frazmtn.com/sun-java-on-F8.html (useful link, could
+be inserted in the docs, since the steps are not obvious to
+non-java-gurus)."  [He also suggests that the build-from-source
+instructions resemble in complexity the publication history of Douglas
+Adams' HITCHHIKERS GUIDE TO THE GALAXY. :-)]
+
+To build an installer on Linux, you'll need the ESP package manager,
+from <http://www.epmhome.org>.
+
+To build the docs on Ubuntu, you'll need 'python-docutils', 'texlive',
+'texlive-lang-french', 'texlive-latex-extras'.
+
+
+Windows ONLY
+============
+
+.. _Windows:
+
+- "Python Win32 Extensions" package, win32all (aka pywin32), available from
+  http://sourceforge.net/projects/pywin32/.
+
+- diruse.exe, from Microsoft's Windows XP Service Pack 2 Support
+  Tools, available from
+  http://www.microsoft.com/downloads/details.aspx?FamilyID=49ae8576-9bb9-4126-9761-ba8011fabf38&displaylang=en.
+
+- To use the built-in Microsoft Word OCR for scanned documents, you
+  need a recent version of Word installed which supports this feature.
+
+Developers Only
+===============
+
+If you are working with the UpLib CVS directory, and wish to do a
+"make dist" to build a new tar file, or to rebuild the documentation
+HTML and PDF, you will need the Docutils programs, 0.3.5 or later,
+(http://docutils.sourceforge.net/), pdflatex (version ?)
+(http://www.tug.org/applications/pdftex/), and epydoc
+(http://epydoc.sourceforge.net/) installed.  On Debian/Ubuntu, the
+packages are "python-docutils", "texlive", and "python-epydoc".
+On Fedora, try "python-docutils", "tetex-latex", and "epydoc".
+
+At PARC, check ``/project/uplib/prereqs/{unix,windows}/`` before waiting on downloads
+from the web; the .tgz you need might already be locally available.
+
+If you are building an installer for Linux, you will need the EPM tool
+installed (http://www.epmhome.org/).  That's a package ("epm") on
+Debian/Ubuntu systems, but you have to download the source and build it for
+Red Hat/Fedora.
+
+If you are building an installer for Windows, you will need the NSIS
+installer-builder.  Make sure you get the "Advanced Logging" version
+from http://nsis.sourceforge.net/Special_Builds, which is required for
+our build script.
+

@@ -1,0 +1,44 @@
+#!/usr/bin/sh
+#
+# USAGERIGHTS uplib
+#
+if test "x$1" != "x"; then
+  # echo $1 >&2
+  if test ${1:0:2} = "c:"; then
+     result="$1"
+  elif test ${1:0:2} = "C:"; then
+     result="$1"
+  elif test ${1:0:2} = "d:"; then
+     result="$1"
+  elif test ${1:0:2} = "D:"; then
+     result="$1"
+  elif test ${1:0:2} = "g:"; then
+     result="$1"
+  elif test ${1:0:2} = "G:"; then
+     result="$1"
+  elif test ${1:0:1} = "\\"; then
+     result="$1"
+  else
+    d=`dirname "$1"`
+    if test -d "$d"; then
+      cd "$d"
+      f=`basename "$1"`
+      d=`pwd -W`
+      result="${d}/${f}"
+    else
+      if test ${1:0:3} = "/c/"; then
+        result="c:${1:2}"
+      elif test ${1:0:3} = "/d/"; then
+        result="d:${1:2}"
+      elif test ${1:0:3} = "/g/"; then
+        result="g:${1:2}"
+      else
+        result="$*"
+      fi
+    fi
+  fi
+else
+  result="$*"
+fi
+echo "$result" | tr '/' '\\'
+exit 0

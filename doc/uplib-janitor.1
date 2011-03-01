@@ -1,0 +1,45 @@
+'\" t
+.\" $Id: uplib-janitor.1,v 1.2 2006/08/10 00:20:52 janssen Exp $
+.\"
+.\" This file is part of the "UpLib 1.7.11" release.
+.\" Copyright (C) 2003-2011  Palo Alto Research Center, Inc.
+.\" 
+.\" This program is free software; you can redistribute it and/or modify
+.\" it under the terms of the GNU General Public License as published by
+.\" the Free Software Foundation; either version 2 of the License, or
+.\" (at your option) any later version.
+.\" 
+.\" This program is distributed in the hope that it will be useful,
+.\" but WITHOUT ANY WARRANTY; without even the implied warranty of
+.\" MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.\" GNU General Public License for more details.
+.\" 
+.\" You should have received a copy of the GNU General Public License along
+.\" with this program; if not, write to the Free Software Foundation, Inc.,
+.\" 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+.\" 
+.\" uplib-janitor.1
+.TH UPLIB-JANITOR 1 "UpLib 1.1 - http://www.parc.com/UpLib/"
+.SH NAME
+uplib-janitor \- GUI interface for server-side repository maintenance
+.SH SYNOPSIS
+\fBuplib-janitor\fR &
+.SH DESCRIPTION
+.B uplib-janitor
+is a GUI program to inspect and maintain UpLib repositories.  It will display all
+repositories owned by the user on the machine on which it is run, along with buttons
+to display the guardian angel's log, to stop, start, or restart the angel,
+to purge log files or deleted documents, to open a browser window on the repository,
+and clear the password of a repository, if it has one.  The repository directory
+will be displayed in black if the angel is running, in a lighter blue-gray if
+it is stopped, and in orange if the angel seems to have a problem.
+.PP
+At the bottom of the janitor's panel, buttons are provided to start the UpLib portal,
+to open the UpLib manual in a Web browser window, and to create a new repository.
+These buttons are not associated with any specific repository.
+.SH "SEE ALSO"
+\fCuplib-portal (1), \fChttp://parcweb.parc.xerox.com/project/uplib/\fR.
+.SH "BUGS"
+Report bugs to \fCuplib-tech@parc.com\fR.
+.SH "AUTHORS"
+Bill Janssen, <janssen@parc.com>

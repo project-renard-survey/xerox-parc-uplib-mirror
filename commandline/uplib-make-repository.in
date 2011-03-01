@@ -1,0 +1,571 @@
+#!@PYTHON@
+# -*- Python -*-
+#
+# This file is part of the "UpLib 1.7.11" release.
+# Copyright (C) 2003-2011  Palo Alto Research Center, Inc.
+# 
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+#
+
+import sys, os, string, traceback, subprocess, time, platform
+
+# make sure our code library is on the load path
+if not r'@UPLIB_CODE@' in sys.path:
+    sys.path.insert(0, r'@UPLIB_CODE@')
+
+# make sure the environ has UPLIBLIB; this is for the benefit of plibUtil.configurator()
+if not os.environ.has_key(r'UPLIBLIB'):
+    os.environ['UPLIBLIB'] = r'@UPLIB_LIB@'
+
+import re, string, getpass, hashlib, shelve, shutil, tempfile, socket
+from uplib.plibUtil import note, update_metadata, getpass, set_verbosity, subproc, Error, configurator, get_fqdn
+
+
+def findsocket(start, end):
+    def testbind(i):
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.bind(("localhost", i))
+            return 1
+        except:
+            return 0
+
+    for i in range(start, end):
+        if testbind(i) and testbind(i+1):
+            return i
+    return 0
+
+
+def figure_site_packages_dirs():
+    import distutils.sysconfig as sc
+    return [sc.get_python_lib(plat_specific=True, prefix=r'@UPLIB_HOME@'),
+            sc.get_python_lib(plat_specific=False, prefix=r'@UPLIB_HOME@')]
+
+def add_crontab_angel (program_path, directory):
+
+    fname = tempfile.mktemp()
+
+    # now add the cron job
+    try:
+        status, output, tsignal = subproc("crontab -l >%s" % fname)
+        if status != 0:
+            if (not os.path.exists(fname)) or (os.stat(fname).st_size == 0):
+                fp = open(fname, 'w')
+            else:
+                fp = open(fname, 'r')
+                contents = fp.read()
+                fp.close()
+                if re.match(r'^no crontab for .*', contents):
+                    fp = open(fname, 'w')
+                else:
+                    raise Error ("crontab -l signals error code %d, output is <%s>" % (status, output))
+        else:
+            fp = open(fname, "a")
+        fp.write("@reboot %s %s >> %s/overhead/cron-check.log 2>&1\n" % (program_path, directory, directory))
+        fp.close()
+        status, output, tsignal = subproc("crontab %s" % fname)
+        if status != 0:
+            raise Error ("attempt to add the cron job signals error code %d, output is <%s>" % (status, output))
+    finally:
+        if os.path.exists(fname):
+            os.unlink(fname)
+
+def darwin_setup_angel (directory, angel_port, stunnel_port, no_croncheck, expert, nouser=False):
+
+    def darwin_sudo (command, password):
+        # When sudo asks for a password, it writes "Password:" to stderr.
+        # When it reads a bad password from stdin it writes "Sorry, try again." also to stderr.
+        p = subprocess.Popen("sudo -S " + command, stdin=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+        try:
+            p.stdin.write(password + "\n")
+            p.stdin.close()
+        finally:
+            p.wait()
+            return p.returncode == 0
+
+
+    import plistlib, platform
+
+    username = os.getlogin()
+    password = os.environ.get("DARWIN_ADMIN_PASSWORD")
+    if not password:
+        sys.stdout.write("Your password is now necessary to create the launchd plist file...\n")
+        sys.stdout.flush()
+        password = getpass("Password: ")
+    if not password:
+        sys.stderr.write("Can't create repository launchd plist; need an admin password for '%s'\n" % username)
+        sys.exit(1)
+    else:
+        if not darwin_sudo("date", password):
+            sys.stderr.write("Password doesn't work for user '%s'\n" % username)
+            sys.exit(1)
+
+    python_version = '.'.join([str(x) for x in platform.python_version_tuple()[:2]])
+    site_packages = os.path.join('@UPLIB_HOME@', 'lib', 'python' + python_version, 'site-packages')
+    print "Setting up the launchd plist..."
+    plist_file_path = os.path.join("/Library/LaunchDaemons/com.parc.uplib.%s.%s.plist" % (username, stunnel_port))
+    # re-write plist file to make sure it has the right things in it
+    darwin_sudo("rm -f '%s'" % plist_file_path, password)
+    plist = { "UserName" : username,
+              "Label" : "com.parc.uplib.%s.%s" % (username, stunnel_port),
+              "HopefullyExitsLast" : True,
+              "RunAtLoad" : True,
+              "KeepAlive" : True,
+              "ExitTimeOut" : 60,
+              "EnvironmentVariables" : {
+                  "UPLIBLIB" : r'@UPLIB_LIB@',
+                  "UPLIBCODE" : r'@UPLIB_CODE@',
+                  },
+              "ProgramArguments" : [
+                  "@PYTHON@",
+                  "-c",
+                  "import sys, os; " +
+                  "sys.path.insert(0, r'%s'); " % site_packages +
+                  "sys.path.insert(0, os.environ.get(r'UPLIBCODE')); " +
+                  "import uplib.service; " +
+                  "uplib.service.darwin_launchd('%s', %s);" % (directory, stunnel_port)
+                  ],
+              "StandardOutPath" : os.path.join(directory, "overhead", "angelout.log"),
+              "StandardErrorPath" : os.path.join(directory, "overhead", "angelout.log"),
+              }
+    fd, tmpfname = tempfile.mkstemp()
+    fp = os.fdopen(fd, "wb")
+    plistlib.writePlist(plist, fp)
+    fp.close()
+    darwin_sudo("mv '%s' '%s'" % (tmpfname, plist_file_path), password)
+    darwin_sudo("chown root %s" % plist_file_path, password)
+    darwin_sudo("chgrp admin %s" % plist_file_path, password)
+    darwin_sudo("chmod 444 %s" % plist_file_path, password)
+    darwin_sudo("/bin/launchctl load -w -F '%s'" % plist_file_path, password)
+    # give it some time to start up
+    time.sleep(10)    
+
+
+def unix_setup_angel(directory, angel_port, stunnel_port, no_croncheck, expert, nouser=False):
+    # start the angel
+    check_angel_prog = os.path.join(r"@UPLIB_BIN@", "uplib-check-angel")
+    cmd = '%s --start "%s"' % (check_angel_prog, directory)
+    status, output, tsignal = subproc(cmd)
+    if status != 0:
+        raise Error("Can't run angel-checking program '%s'!  status is %s." % (cmd, status))
+
+    if not no_croncheck:
+
+        if expert:
+            print "Modifying your crontab to restart the angel on machine boot..."
+
+        # add the crontab entry for the angel
+        try:
+            add_crontab_angel(check_angel_prog, directory)
+        except:
+            if not nouser:
+                sys.stdout.write("\nI couldn't modify your crontab file to check the UpLib Guardian Angel\n"
+                                 "periodically.  This is OK, but you should add the line\n"
+                                 "\n"
+                                 "     uplib-check-angel --start " + directory + "\n"
+                                 "\n"
+                                 "to your ~/.login file so that the UpLib service will be started\n"
+                                 "automatically when you log in.\n\n")
+
+
+def windows_setup_angel (directory, angel_port, stunnel_port, service_template_file, start_angel=True, nouser=False):
+        print "Setting up the guardian angel service..."
+        fp = open(service_template_file, 'r')
+        service_template_code = fp.read()
+        fp.close()
+        service_template_code = string.replace(service_template_code, "ANGEL_PORT", str(angel_port))
+        service_template_code = string.replace(service_template_code, "STUNNEL_PORT", str(stunnel_port))
+        service_template_code = string.replace(service_template_code, "STUNNEL_COMMAND", r"@STUNNEL@")
+        service_template_code = string.replace(service_template_code, "STUNNEL_VERSION", r"@STUNNEL_VERSION@")
+        service_template_code = string.replace(service_template_code, "UPLIB_LIB", r"@UPLIB_LIB@")
+        service_template_code = string.replace(service_template_code, "UPLIB_BIN", r"@UPLIB_BIN@")
+        service_template_code = string.replace(service_template_code, "UPLIB_CODE", r"@UPLIB_CODE@")
+        service_template_code = string.replace(service_template_code, "UPLIB_SITE_PACKAGES_NONPLAT", r"@UPLIB_SITE_PACKAGES_NONPLAT@")
+        service_template_code = string.replace(service_template_code, "UPLIB_SITE_PACKAGES_PLAT", r"@UPLIB_SITE_PACKAGES_PLAT@")
+        service_template_code = string.replace(service_template_code, "PUBLISHING_ROOT", str(directory))
+        service_path = os.path.join(directory, "overhead", "UpLibWindowsServiceClass_%d.py" % stunnel_port)
+        fp = open(service_path, 'w')
+        fp.write(service_template_code)
+        fp.close()
+
+        classname = 'UpLibGuardianAngel_%d' % stunnel_port
+        fullclassname = os.path.splitext(service_path)[0] + '.' + classname
+
+        # set up Windows service
+        import win32serviceutil, win32api, win32service, pywintypes
+        account = win32api.GetUserNameEx(win32api.NameSamCompatible)
+        winpassword = os.environ.get("WINDOWS_PASSWORD")
+
+        while True:
+            account_name = account.encode('US_ASCII', 'replace')
+            if (winpassword is None) and (not nouser):
+                print "*"
+                print "*  The service will run under the account %s." % account_name
+                print "*  "
+                print "*  You will need to enter the password for this account in"
+                print "*  order for us to be able to set up the service."
+                print "*"
+                winpassword = getpass("Password for account %s:   " % account_name)
+            try:            
+                win32serviceutil.InstallService(fullclassname, classname, 'UpLib Guardian Angel (port %d)' % stunnel_port,
+                                                win32service.SERVICE_AUTO_START, win32service.SERVICE_ERROR_NORMAL, 0, None,
+                                                account, unicode(winpassword))
+            except:
+                raise Error("Can't install Windows service '%s'!\n%s" % (
+                    classname, ''.join(traceback.format_exception(*sys.exc_info()))))
+
+            if start_angel:
+                try:
+                    win32serviceutil.StartService(classname)
+                    print 'Service started.'
+                    break
+                except pywintypes.error:
+                    print ''.join(traceback.format_exception(*sys.exc_info()))
+                    manH = win32service.OpenSCManager(None,None,win32service.SC_MANAGER_ALL_ACCESS)
+                    servH = win32service.OpenService(manH,classname,win32service.SERVICE_ALL_ACCESS)
+                    win32service.DeleteService(servH)
+                    win32service.CloseServiceHandle(servH)
+                    win32service.CloseServiceHandle(manH)
+                    winpassword = None
+                    if nouser:
+                        raise Error("Invalid password supplied.")
+                    else:
+                        print "That password does not seem to work for account %s.  Let's try again!" % account_name
+                        continue
+                except:
+                    t, v, b = sys.exc_info()
+                    raise Error("Can't start Windows service '%s'!  Exception:\n%s" % (classname, string.join(traceback.format_exception(t, v, b))))
+            else:
+                break
+            
+                
+        
+def get_directory (expert, directoryspec, args, conf):
+
+    def test_directory (spec):
+        # user has specified a directory
+        if not os.path.isabs(spec):
+            spec = os.path.abspath(spec)
+        if os.path.exists(spec):
+            if not os.path.isdir(spec):
+                sys.stdout.write("The file \"%s\" already exists (and isn't a directory).\n" % spec)
+                if not expert:
+                    sys.stdout.write("\nWhy don't we try a different directory?\n")
+                return None
+            else:
+                files = os.listdir(spec)
+                if len(files) > 0:
+                    sys.stdout.write("The directory \"%s\" already exists,\n" % spec +
+                                     "and contains the following files:\n")
+                    for file in files:
+                        sys.stdout.write("  %s\n" % file)
+                    if not expert:
+                        sys.stdout.write("\nWhy don't we use a different directory?\n")
+                    return None
+                else:
+                    sys.stdout.write("The directory \"%s\" already exists,\nbut it is empty.  We can use it.\n" % spec)
+                    return spec
+        else:
+            return spec
+
+    if not expert and not directoryspec and len(args) < 1:
+        sys.stdout.write("\nAll the documents in an UpLib repository are kept in one place,\n"
+                         "and you get to say where that place should be.  This should be the name\n"
+                         "of a directory or folder that either doesn't exist yet, or is empty.\n")
+
+    if directoryspec:
+        directoryspec = test_directory(os.path.expanduser(directoryspec))
+
+    if not directoryspec and len(args) > 0:
+        directoryspec = test_directory(os.path.expanduser(args[0]))
+
+    while not directoryspec and not expert:
+
+        dir = raw_input("\nWhere would you like these files to go?  ")
+        directoryspec = test_directory(os.path.expanduser(dir))
+
+    return directoryspec
+
+
+def main(argv):
+
+    import getopt
+
+    windows = sys.platform.startswith("win")
+    macosx = sys.platform.startswith("darwin")
+    directory = None
+    no_guardian = False
+    no_croncheck = True
+    autoport = False
+    expert = False
+    research = False            # if True, disable passwords, SSL, etc.
+    name = "My UpLib Repository"
+    portno = None
+    password1 = None
+    nouser = False              # program is being run by another program
+    hierarchical = False
+    extensions_dir = None
+    possible_opts = ["directory=", "no-guardian", "name=", "port=", "password=", "croncheck", "expert", "autoport", "nouser", "hierarchical", "research", "extensions-dir="]
+    try:
+        optlist, args = getopt.getopt(argv[1:], "", possible_opts)
+        for o, a in optlist:
+            if o == "--directory":
+                directory = a
+            elif o == "--no-guardian":
+                no_guardian = True
+            elif o == "--croncheck":
+                no_croncheck = False
+            elif o == "--autoport":
+                autoport = True
+            elif o == "--name":
+                name = a
+            elif o == "--expert":
+                expert = True
+            elif o == "--nouser":
+                nouser = True
+            elif o == "--port":
+                try:
+                    portno = int(a)
+                except ValueError:
+                    sys.stderr.write("Bad port number %s" % portno)
+                    raise getopt.GetoptError
+            elif o == "--password":
+                password1 = a
+            elif o == "--hierarchical":
+                hierarchical = True
+            elif o == "--research":
+                research = True
+            elif o == "--extensions-dir":
+                extensions_dir = a
+    except getopt.GetoptError:
+        sys.stderr.write("Usage: %s [options] [DIRECTORY]\n" % argv[0])
+        sys.stderr.write("Options are:\n"
+                         "  --directory=DIRECTORY\n"
+                         "  --no-guardian (don't automatically start the service)\n"
+                         "  --name=NAME\n"
+                         "  --port=PORT-NUMBER\n"
+                         "  --password=PASSWORD\n"
+                         "  --croncheck (set up a cron job to try to keep it running)\n"
+                         "  --expert (you know what you're doing -- suppresses some checks)\n"
+                         "  --autoport (automatically select an unused port)\n"
+                         "  --hierarchical (use hierarchical folders)\n"
+                         "  --research (disables SSL and password protection)\n"
+                         "  --extensions-dir=DIRECTORY (use this directory for extensions)\n"
+                         )
+        sys.exit(1)
+
+    if expert:
+        print 'directory', directory
+        print 'no_guardian', no_guardian
+        print 'no_croncheck', no_croncheck
+        print 'autoport', autoport
+        print 'name', name
+        print 'expert', expert
+        print 'nouser', nouser
+        print 'port', portno
+        print 'password', password1
+        print 'hierarchical', hierarchical
+        print 'research', research
+        print 'extensions-dir', extensions_dir
+
+    conf = configurator(None, None, r"@UPLIB_LIB@")
+    uplib_path = conf.get("uplib-home")
+    uplib_bin = conf.get("uplib-bin")
+    uplib_lib = conf.get("uplib-lib")
+    uplib_certificate_program = conf.get("uplib-certificate-program")
+    uplib_share = conf.get("uplib-share")
+    use_pylucene = conf.get("use-pylucene", "false")
+    service_template_file = conf.get("windows-service-template-file", os.path.join(uplib_share, "windows-service-template"))
+    expert = expert or conf.get_bool("make-repository-expert-mode")
+    if not expert:
+        set_verbosity(0)
+
+    if directory:
+        directory = directory.strip('\'"')
+    directory = get_directory (expert, directory, args, conf)
+    if expert and not directory:
+        sys.stderr.write("No suitable directory specified/found.\n");
+        sys.exit(1)
+
+    if expert:
+        sys.stdout.write("Determining the hostname for this machine... ")
+        sys.stdout.flush()
+    hostname = get_fqdn()
+    if expert:
+        sys.stdout.write(hostname + "\n")
+
+    if (not expert) and extensions_dir and not os.path.isdir(extensions_dir):
+        sys.stderr.write("Specified extensions directory '%s' is not a directory!\n" % extensions_dir)
+        sys.exit(1)
+
+    original_portno = portno
+    if not portno:
+        portno = findsocket(8080, 12000)
+        if expert and not autoport:
+            while 1:
+                port = raw_input("What port should the repository be on (suggest %d):  " % portno)
+                try:
+                    portno = string.atoi(port)
+                    if portno != 0:
+                        break
+                except ValueError:
+                    sys.stderr.write("Bad port number '%s' entered.\n" % port)
+    stunnel_port = portno
+    angel_port = portno + 1
+
+    if research:
+        password1 = ""
+
+    if (password1 == None) and (not nouser):
+        while True:
+            if not expert:
+                sys.stdout.write("\nYou can, and should, assign a password or phrase for your repository.\n"
+                                 "This should be at least 6 characters long (8 or more is better), and\n"
+                                 "should contain both alphabetic characters and numerals.  You can change\n"
+                                 "it later if you don't like it, but please enter one now.\n\n"
+                                 "If you've thought about it, and really don't want one, you can just hit\n"
+                                 "the RETURN key (twice).\n\n")
+            password1 = getpass("Pass-phrase for new repository:   ")
+            password2 = getpass("Please re-type that pass-phrase:  ")
+            if password1 == password2:
+                break
+
+            sys.stdout.write("Those two pass-phrases didn't match! Let's try again...\n")
+
+
+    if password1:
+        password_hash = hashlib.sha1(password1).hexdigest()
+
+    try:
+
+        if expert:
+            sys.stdout.write("Creating directory %s and subdirectories...\n" % directory)
+
+        if not os.path.exists(directory):
+            os.makedirs(directory)
+        os.mkdir(os.path.join(directory, "docs"))
+        os.mkdir(os.path.join(directory, "pending"))
+        os.mkdir(os.path.join(directory, "deleted"))
+        os.mkdir(os.path.join(directory, "overhead"))
+        os.mkdir(os.path.join(directory, "overhead", "collections"))
+        os.mkdir(os.path.join(directory, "overhead", "extensions"))
+        os.mkdir(os.path.join(directory, "overhead", "extensions", "inactive"))
+        os.mkdir(os.path.join(directory, "overhead", "extensions", "active"))
+        images_dir = os.path.join(directory, "html", "images")
+        os.makedirs(images_dir)
+        shutil.copy(os.path.join(r"@UPLIB_SHARE@", "images", "favicon.ico"), images_dir)
+        shutil.copy(os.path.join(r"@UPLIB_SHARE@", "images", "delete.gif"), images_dir)
+        shutil.copy(os.path.join(r"@UPLIB_SHARE@", "images", "info.png"), images_dir)
+        shutil.copy(os.path.join(r"@UPLIB_SHARE@", "images", "icon16.png"), images_dir)
+        shutil.copy(os.path.join(r"@UPLIB_SHARE@", "images", "favicon-ipod.png"), images_dir)
+        help_dir = os.path.join(directory, "html", "helppages")
+        os.makedirs(help_dir)
+        shutil.copy(os.path.join(r"@UPLIB_SHARE@", "help", "html", "info.html"), help_dir)
+        shutil.copy(os.path.join(r"@UPLIB_SHARE@", "help", "html", "collections.html"), help_dir)
+        shutil.copy(os.path.join(r"@UPLIB_SHARE@", "help", "html", "extensions.html"), help_dir)
+        shutil.copy(os.path.join(r"@UPLIB_SHARE@", "help", "html", "searching.html"), help_dir)
+        shutil.copy(os.path.join(r"@UPLIB_SHARE@", "help", "html", "FAQ.html"), help_dir)
+
+        mdpath = os.path.join(directory, "overhead", "metadata.txt")
+        metadata = {}
+        metadata["name"] = name
+        if password1:
+            metadata["password-hash"] = password_hash
+        metadata["use-pylucene"] = use_pylucene
+        if hierarchical:
+            metadata["use-hierarchical-directories"] = "true"
+        if extensions_dir:
+            metadata["autoinit-extension-dirs"] = os.path.normpath(extensions_dir)
+        if research:
+            metadata["use-http"] = "true"
+            if expert: metadata["allow-old-extensions"] = "true"
+        update_metadata(mdpath, metadata)
+
+        fp = open(os.path.join(directory, "overhead", "ping.url"), 'w')
+        fp.write("https://%s:%s/ping\n" % (hostname, stunnel_port))
+        fp.close()
+
+        fp = open(os.path.join(directory, "overhead", "stunnel.port"), 'w')
+        fp.write("%d\n" % stunnel_port)
+        fp.close()
+
+        fp = open(os.path.join(directory, "overhead", "angel.port"), 'w')
+        fp.write("%d\n" % angel_port)
+        fp.close()
+
+        fp = open(os.path.join(directory, "overhead", "cron-check.log"), 'w')
+        fp.flush()
+        fp.close()
+
+        # create the repository's certificate
+        status, output, tsignal = subproc("%s --repository=\"%s\"" % (uplib_certificate_program, directory))
+        if status != 0:
+            raise Error ("Could not create certificate. Details %s:%s" % (status, output))                   
+
+        if not windows:
+            os.chmod(directory, 01700)
+
+        if windows:
+            windows_setup_angel (directory, angel_port, stunnel_port, service_template_file, start_angel=(not no_guardian), nouser=nouser)
+
+        else:
+
+            if not no_guardian:
+
+                sys.stdout.write("\nInitializing the repository:  this takes about 30 seconds,\n"
+                                 "because there are some network services to start; please wait...\n")
+
+                if sys.platform == "darwin":
+                    darwin_setup_angel(directory, angel_port, stunnel_port, True, expert, nouser=nouser)
+
+                unix_setup_angel (directory, angel_port, stunnel_port, no_croncheck, expert, nouser=nouser)
+
+        print "Finished repository initialization.  The port used is %s." % stunnel_port
+
+        if (not expert) and (not no_guardian):
+            sys.stdout.write("\nYour UpLib repository should now be running.  To see it, go to the URL\n\n" +
+                             "    https://%s:%d/\n\n" % (hostname, portno) +
+                             "with your favorite Web browser (we recommend Mozilla Firefox).\n"
+                             "You will see a login window.  Enter your pass-phrase, and you should see\n"
+                             "the (empty) repository.  In the center of the top area, there's a little\n"
+                             "help icon that you can click on to get more help.\n\n"
+                             "Use the UpLib Portal to add documents to the repository.\n\n")
+
+            if macosx and (not nouser):
+                os.system("/usr/bin/open https://%s:%d/" % (hostname, portno))
+
+        # if windows:
+        #    raw_input("Press ENTER to dismiss this window.")
+
+        return 0
+
+    except:
+        import traceback
+        traceback.print_exc()
+
+        if windows and (not nouser):
+            print "An error occurred with your repository construction."
+            print "Try again!"
+            print ""
+            raw_input("Press ENTER to dismiss this window.")
+        else:
+            return 1
+
+        #if os.path.isdir(directory):
+        #    shutil.rmtree(directory)
+            
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))
